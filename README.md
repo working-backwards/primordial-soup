@@ -14,6 +14,8 @@ organizations discover, invest in, and sustain the mix of compounding
 mechanisms, speculative opportunities, and capability-building work
 that produces long-run value?
 
+**[Read the full documentation](https://working-backwards.github.io/primordial-soup/)**
+
 > **Study status:** This study is under active development. The
 > simulation engine is stable and well-tested (970+ tests). Calibration
 > reflects realistic organizational scale (200-person workforce, mixed
