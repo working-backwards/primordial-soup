@@ -38,10 +38,10 @@ management — leaving labor capacity available for other value channels — fro
 regimes that achieve comparable surfacing rates only by concentrating the labor
 endowment on right-tail initiatives at the expense of other mechanisms.
 
-Terminal portfolio capability `C_T` — the accumulated enabler-driven noise
+Terminal portfolio capability $C_T$ — the accumulated enabler-driven noise
 reduction at horizon end — represents the system's investment in learning
-infrastructure. Because `C_t` enters the effective signal standard deviation
-`σ_eff` as a divisor, terminal capability governs the precision of strategic
+infrastructure. Because $C_t$ enters the effective signal standard deviation
+$\sigma_{\text{eff}}$ as a divisor, terminal capability governs the precision of strategic
 quality inference for all future initiatives. Two regimes with similar cumulative
 realized value may leave the system in materially different capability states.
 This distinction is invisible to any metric confined to realized value within
@@ -222,7 +222,7 @@ engine boundary does not change: the engine consumes only resolved initiative
 records.
 
 The frontier distributions for flywheel, quick-win, and enabler families apply a
-declining quality model: the effective `alpha` parameter of the family's quality
+declining quality model: the effective $\alpha$ parameter of the family's quality
 Beta distribution decreases as a function of the number of resolved initiatives
 in that family. This encodes the modeling assumption that higher-quality
 opportunities are exploited earlier in the frontier sequence, so that later draws
@@ -272,14 +272,14 @@ with its compact equation symbol and descriptive schema name:
 
 | Compact symbol | Descriptive name | Domain | Role in governance |
 |---|---|---|---|
-| `θ_stop` | `confidence_decline_threshold` | [0, 1] or None | Minimum strategic quality belief below which governance terminates |
-| `θ_tam_ratio` | `tam_threshold_ratio` | [0, 1] | Minimum fraction of `observable_ceiling` that expected prize must exceed |
-| `T_tam` | `base_tam_patience_window` | ℤ⁺ | Consecutive below-threshold reviews tolerated at `reference_ceiling` |
-| `W_stag` | `stagnation_window_staffed_ticks` | ℤ⁺ | Staffed-tick window over which belief movement is assessed for stagnation |
-| `ε_stag` | `stagnation_belief_change_threshold` | [0, 1] | Minimum belief change over `W_stag` to avoid stagnation classification |
-| — | `attention_min` | (0, 1] | Per-initiative attention floor; below this, positive attention is infeasible |
-| — | `attention_max` | (0, 1] or None | Per-initiative attention ceiling |
-| — | `exec_overrun_threshold` | [0, 1] or None | Execution belief level below which governance may flag execution concern |
+| $\theta_{\text{stop}}$ | `confidence_decline_threshold` | $[0, 1]$ or None | Minimum strategic quality belief below which governance terminates |
+| $\theta_{\text{tam\_ratio}}$ | `tam_threshold_ratio` | $[0, 1]$ | Minimum fraction of `observable_ceiling` that expected prize must exceed |
+| $T_{\text{tam}}$ | `base_tam_patience_window` | $\mathbb{Z}^+$ | Consecutive below-threshold reviews tolerated at `reference_ceiling` |
+| $W_{\text{stag}}$ | `stagnation_window_staffed_ticks` | $\mathbb{Z}^+$ | Staffed-tick window over which belief movement is assessed for stagnation |
+| $\varepsilon_{\text{stag}}$ | `stagnation_belief_change_threshold` | $[0, 1]$ | Minimum belief change over $W_{\text{stag}}$ to avoid stagnation classification |
+| — | `attention_min` | $(0, 1]$ | Per-initiative attention floor; below this, positive attention is infeasible |
+| — | `attention_max` | $(0, 1]$ or None | Per-initiative attention ceiling |
+| — | `exec_overrun_threshold` | $[0, 1]$ or None | Execution belief level below which governance may flag execution concern |
 
 The governance parameter space is defined by the continuous and integer parameters
 in `GovernanceConfig`: `theta_stop`, `theta_tam_ratio`, `T_tam`, `W_stag`,
@@ -289,11 +289,11 @@ distinct governance regime, maps the response surface without requiring a dense
 grid. The three named archetypes above should be included as fixed points in every
 sweep so that sweep results can be anchored to interpretable reference regimes.
 
-In the canonical post-review design, `T_tam` is a base patience parameter rather
+In the canonical post-review design, $T_{\text{tam}}$ is a base patience parameter rather
 than an absolute patience count. Realized bounded-prize patience is determined
 jointly by:
 
-- `T_tam`,
+- $T_{\text{tam}}$,
 - the initiative's `observable_ceiling`,
 - and the model-level `reference_ceiling`.
 
@@ -304,8 +304,8 @@ stop window.
 
 Naming note:
 
-Where equations or older prose use compact notation such as `T_tam`,
-`theta_stop`, or `epsilon_stag`, implementation and analysis discussions should
+Where equations or older prose use compact notation such as $T_{\text{tam}}$,
+$\theta_{\text{stop}}$, or $\varepsilon_{\text{stag}}$, implementation and analysis discussions should
 prefer the descriptive equivalents:
 
 - `base_tam_patience_window`
@@ -341,8 +341,8 @@ Sensitivity to `exec_attention_budget` is analyzed separately as an environmenta
 parameter study: sweep `exec_attention_budget` while holding governance archetype
 fixed, in a dedicated experiment distinct from the governance sweep.
 
-**LHS design specification**: minimum sample size is 10 × dimensionality of the
-governance parameter space (8 parameters → 80 LHS points minimum; 200 recommended
+**LHS design specification**: minimum sample size is $10 \times$ dimensionality of the
+governance parameter space (8 parameters $\rightarrow$ 80 LHS points minimum; 200 recommended
 for robustness in low-density regions).
 
 The `attention_min <= attention_max` constraint must be respected by construction
@@ -379,13 +379,13 @@ manifest. The preferred canonical default is a representative central value for
 the expected bounded-prize ceiling distribution, with the median as the default
 choice when a single summary statistic is needed.
 
-For each governance configuration, run `N_world` distinct `world_seed` values,
-generating `N_world` independent initiative pools / stochastic worlds. Under the
+For each governance configuration, run $N_{\text{world}}$ distinct `world_seed` values,
+generating $N_{\text{world}}$ independent initiative pools / stochastic worlds. Under the
 current canonical architecture, once `world_seed` and the resolved configuration
 are fixed, the run is deterministic. Therefore repeated executions with the same
 `world_seed` are replay duplicates and do **not** count as additional independent
 observations. Total independent runs per governance-environment cell:
-`N_world`. Recording the full environmental configuration alongside governance
+$N_{\text{world}}$. Recording the full environmental configuration alongside governance
 parameters in the manifest is required so that outcome differences can be
 correctly attributed to governance versus environment in sweep analysis.
 
@@ -449,10 +449,10 @@ a utility-like environment where flywheel initiatives dominate. The study theref
 sweeps governance regimes across multiple environmental configurations as a
 first-class experimental dimension, not as an afterthought.
 
-Environmental axes to vary include: tail-heaviness of the `q` distribution for
+Environmental axes to vary include: tail-heaviness of the $q$ distribution for
 right-tail initiatives, the dependency distribution across the initiative pool,
-the mix of initiative types in the shared pool, ramp period `R`, and the
-attention-to-signal curve parameters `a_min`, `k_low`, and `k`, plus
+the mix of initiative types in the shared pool, ramp period $R$, and the
+attention-to-signal curve parameters $a_{\min}$, $k_{\text{low}}$, and $k$, plus
 `reference_ceiling` when bounded-prize patience calibration itself is being
 studied. Each combination
 of governance regime and environmental configuration is a distinct experimental
@@ -460,26 +460,26 @@ cell.
 
 These axes and their operational consequences are:
 
-- **Right-tail quality distribution parameters.** The `Beta(α, β)` shape
+- **Right-tail quality distribution parameters.** The $\text{Beta}(\alpha, \beta)$ shape
   parameters for the right-tail family's latent quality distribution, which
-  jointly determine `P(q ≥ q_major_win_threshold)` — the incidence rate of
+  jointly determine $P(q \geq q_{\text{major\_win\_threshold}})$ — the incidence rate of
   major-win-eligible initiatives. The canonical environments span approximately
   1% to 8% major-win incidence among completed right-tail initiatives.
 - **Dependency distribution.** The distribution of `dependency_level` across the
   initiative pool. Higher dependency amplifies effective signal noise via the
-  `(1 + α_d × d)` factor in `σ_eff` and reduces learning efficiency via
-  `L(d) = 1 - d`, directly affecting belief convergence rates and the accuracy
+  $(1 + \alpha_d \cdot d)$ factor in $\sigma_{\text{eff}}$ and reduces learning efficiency via
+  $L(d) = 1 - d$, directly affecting belief convergence rates and the accuracy
   of stop decisions.
 - **Initiative family mix.** The proportion of the pool allocated to each
   generation tag (quick-win, flywheel, enabler, right-tail). This is one of the
   most consequential environmental parameters because it determines which
   value-creation channels are available to governance and in what proportions.
-- **Ramp period `R`.** Longer ramp periods increase the cost of team reassignment
+- **Ramp period $R$.** Longer ramp periods increase the cost of team reassignment
   by extending the interval of reduced learning efficiency after each new
   assignment. This shifts the marginal cost of stop-and-reassign decisions and
   may alter the optimal tradeoff between patience and redeployment.
-- **Attention-to-signal curve parameters** (`a_min`, `k_low`, `k`, `g_min`,
-  `g_max`). These structural assumptions govern the shape of the `g(a)` noise
+- **Attention-to-signal curve parameters** ($a_{\min}$, $k_{\text{low}}$, $k$, $g_{\min}$,
+  $g_{\max}$). These structural assumptions govern the shape of the $g(a)$ noise
   modifier — the minimum engagement threshold, the penalty slope in the
   shallow-attention region, and the curvature of diminishing returns above
   threshold. Sensitivity analysis across these parameters tests the robustness of
@@ -510,7 +510,7 @@ alongside the governance parameters so that results can be correctly attributed.
 Under the dynamic frontier mechanism, family-level pool depletion triggers
 runner-side materialization of new initiatives from the frontier distribution
 rather than hard exhaustion. However, the quality degradation applied to frontier
-draws (declining `effective_alpha` per resolved initiative) is itself an
+draws (declining $\alpha_{\text{eff}}$ per resolved initiative) is itself an
 environment-side phenomenon with potential effects on regime comparisons. Analysis
 output should track frontier draw counts and effective quality parameters per
 family so that the contribution of frontier degradation to outcome differences
@@ -543,26 +543,28 @@ The run manifest must record the full environmental configuration alongside the 
 
 
 ### Academic
-**Minimum ensemble size N_world per governance-environment cell**: the "100+ runs"
+**Minimum ensemble size $N_{\text{world}}$ per governance-environment cell**: the "100+ runs"
 heuristic is insufficient for distinguishing regimes that differ by small major-win
 probability margins. Use the following power analysis instead:
 
-```
-N_world ≥ (z_{α/2} + z_β)² × p(1−p) / δ²
+$$
+N_{\text{world}} \geq \frac{(z_{\alpha/2} + z_{\beta})^2 \cdot p(1-p)}{\delta^2}
+$$
 
 where:
-    p    = expected major-win probability under the archetype under test
-    δ    = minimum detectable difference between archetypes (recommend δ = 0.02)
-    α    = 0.05  (z_{α/2} = 1.96)
-    β    = 0.20  (z_β = 0.84, targeting 80% power)
+
+- $p$ = expected major-win probability under the archetype under test
+- $\delta$ = minimum detectable difference between archetypes (recommend $\delta = 0.02$)
+- $\alpha = 0.05$ ($z_{\alpha/2} = 1.96$)
+- $\beta = 0.20$ ($z_{\beta} = 0.84$, targeting 80% power)
 
 Reference values:
-    p = 0.05  →  N_world ≥ 865
-    p = 0.10  →  N_world ≥ 553
-    p = 0.20  →  N_world ≥ 308
-```
 
-Use the most conservative `N_world` across the archetypes under study. The "100+ runs"
+- $p = 0.05 \;\Rightarrow\; N_{\text{world}} \geq 865$
+- $p = 0.10 \;\Rightarrow\; N_{\text{world}} \geq 553$
+- $p = 0.20 \;\Rightarrow\; N_{\text{world}} \geq 308$
+
+Use the most conservative $N_{\text{world}}$ across the archetypes under study. The "100+ runs"
 heuristic may be used only for quick implementation validation runs where major-win
 probability differences are not the primary outcome of interest. Always report
 confidence intervals.
@@ -638,7 +640,7 @@ Acceptance criteria for each stage:
 
 4. **Parameter sweep harness.** The LHS sampling infrastructure generates
    governance configurations across the eight-dimensional parameter space, runs
-   each against the required `N_world` seeds, and produces sweep-level analysis
+   each against the required $N_{\text{world}}$ seeds, and produces sweep-level analysis
    artifacts (response surface estimates, main effects, interaction candidates).
 
 5. **Parallel execution.** Distribution of batch runs across worker processes to

@@ -7,8 +7,8 @@ model, belief dynamics, policy interface, and experimental design — to react
 to the three questions I raised. It describes what is currently built and
 running, not future analysis plans.
 
-A single run produces f(x, ξ), where x is the governance policy, ξ is the
-stochastic world, and f is portfolio performance. The current goal is to
+A single run produces $f(x, \xi)$, where $x$ is the governance policy, $\xi$ is the
+stochastic world, and $f$ is portfolio performance. The current goal is to
 compare governance regimes under common random numbers across named environment
 families and understand how differences in governance drive differences in outcomes.
 
@@ -63,10 +63,10 @@ and surface rare major opportunities, not the full downstream value of
 capturing them.
 
 **3. Organizational capability development**
-- Terminal portfolio capability (C_T) — the accumulated stock of
+- Terminal portfolio capability ($C_T$) — the accumulated stock of
   enabler-driven learning improvement available to the organization for future
   work.
-- Because C_t enters the effective signal standard deviation as a divisor,
+- Because $C_t$ enters the effective signal standard deviation as a divisor,
   higher terminal capability means future initiatives would be evaluated with
   less noise. A regime that systematically underinvests in enabler work leaves
   the organization with degraded learning infrastructure, an effect invisible
@@ -90,8 +90,8 @@ attributes; it never branches on labels.
 |---|---|---|---|
 | **Quick win** | One-time completion lump | Realized economic — lump | Low noise, short duration, fast resolution |
 | **Flywheel** | Residual stream activated at completion; persists after team redeploys | Realized economic — residual | Moderate noise; value invisible during execution |
-| **Enabler** | Portfolio capability contribution at completion; reduces σ_eff for all future staffed initiatives | Organizational capability | Moderate noise; value indirect and deferred |
-| **Right-tail** | Major-win event at completion; is_major_win is a hidden generator-assigned flag | Major-win discovery | High noise; rare but potentially transformational |
+| **Enabler** | Portfolio capability contribution at completion; reduces $\sigma_{\text{eff}}$ for all future staffed initiatives | Organizational capability | Moderate noise; value indirect and deferred |
+| **Right-tail** | Major-win event at completion; `is_major_win` is a hidden generator-assigned flag | Major-win discovery | High noise; rare but potentially transformational |
 
 ---
 
@@ -99,18 +99,18 @@ attributes; it never branches on labels.
 
 ### Latent variables (hidden from governance, fixed at generation)
 
-- **`latent_quality` (q)** — true strategic quality, drawn from a
+- **`latent_quality`** ($q$) — true strategic quality, drawn from a
   family-specific Beta distribution. Governs value realization and whether a
   right-tail initiative is a major win.
 - **`true_duration_ticks`** — latent completion time. Hidden from governance;
   inferred only through execution progress signals.
-- **`latent_execution_fidelity` (q_exec)** — derived from
+- **`latent_execution_fidelity`** ($q_{\text{exec}}$) — derived from
   `planned_duration_ticks / true_duration_ticks`, bounded at 1.0. The fixed
   latent quantity the execution belief tracks.
-- **`dependency_level` (d)** — friction that amplifies strategic signal noise
+- **`dependency_level`** ($d$) — friction that amplifies strategic signal noise
   and slows learning. Fixed per initiative.
 - **`is_major_win`** — deterministic threshold function of latent quality,
-  assigned at generation: `is_major_win = (q >= q_major_win_threshold)`.
+  assigned at generation: $\text{is\_major\_win} = (q \geq q_{\text{major\_win\_threshold}})$.
   Hidden until completion.
 
 ### Observable attributes (visible to governance from creation)
@@ -119,7 +119,7 @@ attributes; it never branches on labels.
 - `observable_ceiling` — bounded prize ceiling for right-tail initiatives
 - `capability_contribution_scale` — expected portfolio capability yield for
   enablers
-- `sigma_base` — base strategic signal noise
+- $\sigma_{\text{base}}$ — base strategic signal noise
 - `generation_tag`, `required_team_size`, `initial_belief_c0`,
   `initial_c_exec_0`
 
@@ -127,34 +127,41 @@ attributes; it never branches on labels.
 
 **Strategic quality signal:**
 
-```
-y_t ~ Normal(q, σ_eff(d, a, C_t)²)
+$$
+y_t \sim \mathcal{N}\!\left(q,\; \sigma_{\text{eff}}(d, a, C_t)^{2}\right)
+$$
 
-σ_eff(d, a, C_t) = [σ_base × (1 + α_d × d) × g(a)] / C_t
-```
+$$
+\sigma_{\text{eff}}(d, a, C_t) = \frac{\sigma_{\text{base}} \cdot (1 + \alpha_d \cdot d) \cdot g(a)}{C_t}
+$$
 
-`C_t` is portfolio capability (initialized at 1.0, increased by enabler
-completions, bounded by C_max). Higher C_t reduces effective noise for all
+$C_t$ is portfolio capability (initialized at 1.0, increased by enabler
+completions, bounded by $C_{\max}$). Higher $C_t$ reduces effective noise for all
 staffed initiatives simultaneously.
 
-`g(a)` is the attention noise modifier:
+$g(a)$ is the attention noise modifier:
 
-```
-g_raw(a) = 1 + k_low × (a_min - a)       if a < a_min   [noise increases]
-           1 / (1 + k × (a - a_min))      if a >= a_min  [diminishing returns]
+$$
+g_{\text{raw}}(a) = \begin{cases}
+1 + k_{\text{low}} \cdot (a_{\min} - a) & \text{if } a < a_{\min} \quad \text{[noise increases]} \\
+\dfrac{1}{1 + k \cdot (a - a_{\min})} & \text{if } a \geq a_{\min} \quad \text{[diminishing returns]}
+\end{cases}
+$$
 
-g(a) = clamp(g_raw(a), g_min, g_max)
-```
+$$
+g(a) = \operatorname{clamp}\!\left(g_{\text{raw}}(a),\; g_{\min},\; g_{\max}\right)
+$$
 
-`g_raw(a_min) = 1` so the function is continuous at threshold. Below `a_min`,
+$g_{\text{raw}}(a_{\min}) = 1$ so the function is continuous at threshold. Below $a_{\min}$,
 shallow attention actively worsens signal clarity.
 
 **Execution progress signal** (only when `true_duration_ticks` is set):
 
-```
-z_t ~ Normal(q_exec, σ_exec²)
-where q_exec = min(1.0, planned_duration_ticks / true_duration_ticks)
-```
+$$
+z_t \sim \mathcal{N}\!\left(q_{\text{exec}},\; \sigma_{\text{exec}}^{2}\right)
+$$
+
+where $q_{\text{exec}} = \operatorname{min}(1.0,\; \text{planned\_duration\_ticks} \,/\, \text{true\_duration\_ticks})$.
 
 **Intentional asymmetry:** the execution signal is not modulated by executive
 attention or dependency level. Execution progress is directly observable from
@@ -169,26 +176,26 @@ I wanted to confirm the choice is explicit and its implication documented.
 
 **Strategic quality belief:**
 
-```
-c_{t+1} = clamp(c_t + η × λ_staff × λ_ramp × L(d) × (y_t - c_t), 0, 1)
-```
+$$
+c_{t+1} = \operatorname{clamp}\!\left(c_t + \eta \cdot \lambda_{\text{staff}} \cdot \lambda_{\text{ramp}} \cdot L(d) \cdot (y_t - c_t),\; 0,\; 1\right)
+$$
 
-where `η` is the base learning rate, `L(d) = 1 - d` is the
-dependency-adjusted learning efficiency, `λ_ramp` reduces learning efficiency
-during the ramp period after a new team assignment, and `λ_staff` captures
+where $\eta$ is the base learning rate, $L(d) = 1 - d$ is the
+dependency-adjusted learning efficiency, $\lambda_{\text{ramp}}$ reduces learning efficiency
+during the ramp period after a new team assignment, and $\lambda_{\text{staff}}$ captures
 diminishing returns from surplus staffing. Initialized at 0.5 (neutral
 symmetric baseline).
 
 **Execution belief:**
 
-```
-c_exec_{t+1} = clamp(c_exec_t + η_exec × (z_t - c_exec_t), 0, 1)
-```
+$$
+c_{\text{exec},\, t+1} = \operatorname{clamp}\!\left(c_{\text{exec},\, t} + \eta_{\text{exec}} \cdot (z_t - c_{\text{exec},\, t}),\; 0,\; 1\right)
+$$
 
 No attention or dependency modulation. Initialized at 1.0 (on-plan prior).
 
 **Governance sees:** `quality_belief_t`, `execution_belief_t`, and the derived
-`implied_duration_ticks = round(planned_duration_ticks / max(c_exec_t, ε))`
+$\text{implied\_duration\_ticks} = \operatorname{round}\!\left(\text{planned\_duration\_ticks} \,/\, \operatorname{max}(c_{\text{exec},\, t},\; \varepsilon)\right)$
 in business-interpretable units. Governance does not see latent quality, true
 duration, or the observation noise draws.
 
@@ -230,16 +237,15 @@ start of the next tick:
 
 Governance may stop an initiative on four named paths:
 
-1. **Confidence decline**: `quality_belief_t < confidence_decline_threshold`
+1. **Confidence decline**: $c_t < \theta_{\text{decline}}$
 2. **Prize inadequacy**: for bounded-prize initiatives, expected prize value
-   (`quality_belief_t × observable_ceiling`) has remained below the
+   ($c_t \cdot \text{observable\_ceiling}$) has remained below the
    prize-relative threshold for `effective_tam_patience_window` consecutive
    reviews. Patience scales linearly with `observable_ceiling`.
-3. **Stagnation**: conjunctive — informational stasis (net belief movement
-   `|c_t - c_{t-W_stag}| < ε_stag` over a staffed-tick window) AND failure
+3. **Stagnation**: conjunctive — informational stasis ($|c_t - c_{t - W_{\text{stag}}}| < \varepsilon_{\text{stag}}$ over a staffed-tick window) AND failure
    to earn continued patience under the relevant rule for the initiative's
    state.
-4. **Execution overrun**: `execution_belief_t < exec_overrun_threshold`. This
+4. **Execution overrun**: $c_{\text{exec},\, t} < \theta_{\text{exec\_overrun}}$. This
    is a pure policy-side check. The engine does not auto-stop for execution
    overrun. Regimes differ in whether and how heavily they weight this signal.
 
@@ -282,18 +288,18 @@ defensible range rather than pinning a point estimate.
 
 An early baseline campaign (63 runs) diagnosed a structural collapse: the
 pre-calibration Beta/threshold combination placed the major-win threshold so
-far into the tail that P(q >= threshold) was approximately 0.003%. No major
+far into the tail that $P(q \geq \text{threshold}) \approx 0.003\%$. No major
 wins were possible in any practical sample. That was a calibration failure,
 not a governance finding. The current parameters:
 
-| Family | Beta(α, β) for right-tail q | P(q >= 0.80) | Design intent |
+| Family | $\text{Beta}(\alpha, \beta)$ for right-tail $q$ | $P(q \geq 0.80)$ | Design intent |
 |---|---|---:|---|
-| `balanced_incumbent` | Beta(0.8, 2.0) | ~3% | Mid-case |
-| `short_cycle_throughput` | Beta(0.6, 2.5) | ~1% | Scarce major wins |
-| `discovery_heavy` | Beta(1.2, 1.8) | ~5–8% | Rich major wins |
+| `balanced_incumbent` | $\text{Beta}(0.8, 2.0)$ | ~3% | Mid-case |
+| `short_cycle_throughput` | $\text{Beta}(0.6, 2.5)$ | ~1% | Scarce major wins |
+| `discovery_heavy` | $\text{Beta}(1.2, 1.8)$ | ~5–8% | Rich major wins |
 
 Duration ranges: right-tail `true_duration_ticks` is 80–260 ticks (1.5–5.0
-years) depending on family, with `planned_duration_ticks` set at roughly 1.2×
+years) depending on family, with `planned_duration_ticks` set at roughly $1.2\times$
 to reflect systematic overestimate in exploratory planning. At a 313-tick
 (6-year) horizon, many right-tail initiatives will not complete under
 impatient governance. This is intentional — the study measures governance's
@@ -304,7 +310,7 @@ This makes relative findings more robust than absolute level claims, but it
 does not eliminate the need to get the family relationships approximately right.
 
 **Tier 3 — Structural assumption (attention-to-signal curve).**
-The g(a) shape parameters (`a_min`, `k_low`, `k`, `g_min`, `g_max`) are
+The $g(a)$ shape parameters ($a_{\min}$, $k_{\text{low}}$, $k$, $g_{\min}$, $g_{\max}$) are
 structural assumptions, not empirically calibrated values. The shape is
 motivated by organizational behavior intuitions, but the specific curvature
 and threshold location are not grounded in external data. This is the weakest
@@ -327,7 +333,7 @@ point estimates.
 2. **Scalar belief without posterior variance.** Governance cannot distinguish
    a belief based on two noisy observations from one based on forty.
 
-3. **EMA clamping biases.** The [0, 1] clamp produces asymmetric behavior near
+3. **EMA clamping biases.** The $[0, 1]$ clamp produces asymmetric behavior near
    both boundaries — downward drift for on-plan initiatives near the execution
    belief ceiling, and downward equilibrium bias for high-quality initiatives
    near the upper strategic belief boundary. Both are symmetric across regimes

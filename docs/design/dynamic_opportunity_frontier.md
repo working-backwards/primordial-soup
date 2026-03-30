@@ -227,15 +227,15 @@ quick-win initiative, it draws from a quality distribution whose parameters
 have shifted based on how many initiatives of that family have already been
 resolved (completed or stopped).
 
-**Functional form:** For Beta(alpha, beta) quality distributions, the
-effective alpha parameter shifts downward by a configurable degradation
+**Functional form:** For $\text{Beta}(\alpha, \beta)$ quality distributions, the
+effective $\alpha$ parameter shifts downward by a configurable degradation
 rate per resolved initiative:
 
-```
-effective_alpha = base_alpha * max(0.1, 1.0 - degradation_rate * n_resolved)
-```
+$$
+\alpha_{\text{eff}} = \alpha_{\text{base}} \cdot \operatorname{max}(0.1,\; 1.0 - \text{degradation\_rate} \times n_{\text{resolved}})
+$$
 
-The `max(0.1, ...)` floor ensures the Beta distribution remains valid and
+The $\operatorname{max}(0.1, \ldots)$ floor ensures the Beta distribution remains valid and
 does not collapse to a point mass. All other initiative attributes (duration,
 dependency, value channels, etc.) are drawn from the same ranges as the
 initial pool — only quality degrades. This reflects a modeling judgment that
@@ -247,8 +247,8 @@ necessarily more difficult to execute or structurally different.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `frontier_degradation_rate` | `float` | Per-resolved-initiative reduction in the quality distribution's alpha. Default: 0.01 for flywheel, 0.02 for quick-win. |
-| `frontier_quality_floor` | `float` | Minimum multiplier on alpha (the floor in the max expression). Default: 0.1. |
+| `frontier_degradation_rate` | `float` | Per-resolved-initiative reduction in the quality distribution's $\alpha$. Default: 0.01 for flywheel, 0.02 for quick-win. |
+| `frontier_quality_floor` | `float` | Minimum multiplier on $\alpha$ (the floor in the max expression). Default: 0.1. |
 
 These are per-family parameters set in the `InitiativeTypeSpec` or a new
 `FrontierSpec` attached to it.
@@ -307,7 +307,7 @@ generates a new initiative with:
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `right_tail_refresh_quality_degradation` | `float` | Per-failed-attempt reduction in the quality distribution's alpha for that specific prize descriptor. Default: 0.0 (no degradation — fresh draw from the same distribution). |
+| `right_tail_refresh_quality_degradation` | `float` | Per-failed-attempt reduction in the quality distribution's $\alpha$ for that specific prize descriptor. Default: 0.0 (no degradation — fresh draw from the same distribution). |
 
 When `right_tail_refresh_quality_degradation > 0`, each failed attempt
 shifts the quality distribution slightly downward for that specific prize,
@@ -576,12 +576,12 @@ This is a material change to a canonical invariant. It relaxes the fixed-
 pool-at-run-start assumption while preserving the deterministic-seeding
 and reproducibility guarantees that the invariant was designed to protect.
 
-The formal content of paired-seed comparability is: given `world_seed` w
-and a deterministic governance trajectory τ (the complete sequence of
+The formal content of paired-seed comparability is: given `world_seed` $w$
+and a deterministic governance trajectory $\tau$ (the complete sequence of
 policy decisions across all ticks), the realized initiative pool, the
 frontier evolution, and all simulation outcomes are fully determined by
-(w, τ). Two runs sharing the same w and τ produce identical pools and
-identical outcomes. Two runs sharing w but differing in τ produce pools
+$(w, \tau)$. Two runs sharing the same $w$ and $\tau$ produce identical pools and
+identical outcomes. Two runs sharing $w$ but differing in $\tau$ produce pools
 that diverge only as a consequence of governance differences — which is
 the phenomenon under study. The invariant guarantees that cross-regime
 outcome differences are attributable to the policy mapping, not to
@@ -677,7 +677,7 @@ implemented.
 |-------|------|-------------|
 | `n_resolved` | `int` | Count of resolved (completed + stopped) initiatives of this family. |
 | `n_frontier_draws` | `int` | Count of initiatives drawn from the frontier (for RNG position tracking). |
-| `effective_alpha_multiplier` | `float` | Current quality degradation multiplier: `max(floor, 1.0 - rate * n_resolved)`. |
+| `effective_alpha_multiplier` | `float` | Current quality degradation multiplier: $\operatorname{max}(\text{floor},\; 1.0 - \text{rate} \times n_{\text{resolved}})$. |
 
 `effective_alpha_multiplier` is a derived convenience field, fully
 determined by `n_resolved`, `frontier_degradation_rate`, and
@@ -751,7 +751,7 @@ The dynamic frontier introduces new conductor-level controls:
 | Control | Layer | Description |
 |---------|-------|-------------|
 | `frontier_degradation_rate` | Environment | Per-family quality degradation rate. |
-| `frontier_quality_floor` | Environment | Per-family minimum alpha multiplier. |
+| `frontier_quality_floor` | Environment | Per-family minimum $\alpha$ multiplier. |
 | `right_tail_refresh_quality_degradation` | Environment | Per-attempt quality degradation for right-tail prize refresh. |
 | `family_opportunity_supply` | Environment | Named control for overall family-level frontier availability. Maps to per-family degradation rate and initial pool size. |
 
@@ -762,15 +762,14 @@ comparative experiments.
 
 Detailed semantics of each control:
 
-- `frontier_degradation_rate` — the coefficient in the `effective_alpha`
-  computation: `effective_alpha = base_alpha * max(frontier_quality_floor,
-  1.0 - frontier_degradation_rate * n_resolved)`. A higher rate accelerates
+- `frontier_degradation_rate` — the coefficient in the $\alpha_{\text{eff}}$
+  computation: $\alpha_{\text{eff}} = \alpha_{\text{base}} \cdot \operatorname{max}(\text{frontier\_quality\_floor},\; 1.0 - \text{frontier\_degradation\_rate} \times n_{\text{resolved}})$. A higher rate accelerates
   quality degradation for that family. Configured per family to reflect
   family-specific opportunity landscape depth (canonical defaults: 0.01 for
   flywheel, 0.02 for quick-win, 0.005 for enabler).
 
-- `frontier_quality_floor` — the lower bound on the `effective_alpha`
-  multiplier (the `floor` in the `max(floor, ...)` expression). Prevents
+- `frontier_quality_floor` — the lower bound on the $\alpha_{\text{eff}}$
+  multiplier (the `floor` in the $\operatorname{max}(\text{floor}, \ldots)$ expression). Prevents
   the Beta distribution from collapsing to a degenerate form. At the floor,
   the frontier still produces initiatives with non-trivial quality variance.
   Default: 0.1 for all families.

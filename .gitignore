@@ -72,6 +72,9 @@ dmypy.json
 results/
 runs/
 
+# mkdocs build output
+site/
+
 # Claude Code session memory (machine-local working state)
 memory/
 

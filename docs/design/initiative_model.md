@@ -16,10 +16,10 @@ Defines the complete description of what an initiative is within the simulation 
 ### Academic
 The attribute space for initiatives is defined by the following core dimensions in-scope for the study:
 
-- **Latent quality** (q in equations): fixed, unobservable, governs how the initiative would perform given sufficient investment.
-- **Quality belief** (quality_belief_t; c_t in equations): governance-visible estimate of latent quality, updated via learning.
-- **Signal noise / clarity parameters**: govern how quickly beliefs can improve and how noisy observations are. The per-initiative base noise (`σ_base`) interacts multiplicatively with dependency-driven amplification (`1 + α_d × d`), the attention noise modifier (`g(a)`), and portfolio capability (`1/C_t`) to determine the effective signal standard deviation (`σ_eff`) at each tick. These parameters collectively define the information environment within which governance forms and updates beliefs. The canonical decomposition is specified in `core_simulator.md`.
-- **Dependency level** (dependency_level; d in equations): static friction that increases noise and slows learning.
+- **Latent quality** ($q$ in equations): fixed, unobservable, governs how the initiative would perform given sufficient investment.
+- **Quality belief** ($\text{quality\_belief}_t$; $c_t$ in equations): governance-visible estimate of latent quality, updated via learning.
+- **Signal noise / clarity parameters**: govern how quickly beliefs can improve and how noisy observations are. The per-initiative base noise ($\sigma_{\text{base}}$) interacts multiplicatively with dependency-driven amplification $(1 + \alpha_d \cdot d)$, the attention noise modifier ($g(a)$), and portfolio capability ($1/C_t$) to determine the effective signal standard deviation ($\sigma_{\text{eff}}$) at each tick. These parameters collectively define the information environment within which governance forms and updates beliefs. The canonical decomposition is specified in `core_simulator.md`.
+- **Dependency level** ($\text{dependency\_level}$; $d$ in equations): static friction that increases noise and slows learning.
 - **Market ceiling / TAM (optional)**: observable ceiling used when translating belief into expected value for some initiatives.
 
 Other structural distinctions are implemented as composable initiative attributes and lifecycle/state transitions, not as hard-coded type branching. The canonical mechanism basis for this study is: completion lump value, post-completion residual value, completion-time major-win discovery events, and completion-time capability contributions. Human-facing initiative labels are generator-side shorthand over these resolved attributes.
@@ -51,15 +51,15 @@ These fields are set once when the initiative is created and never changed by th
 - `required_team_size` (integer, default 1) — minimum team size needed to staff
   this initiative. The canonical default is 1 for all initiative types unless
   explicitly overridden by the generator.
-- `latent_quality ∈ [0,1]` — ground-truth strategic quality, fixed at creation,
+- `latent_quality` $\in [0,1]$ — ground-truth strategic quality, fixed at creation,
   hidden from governance
-- `dependency_d ∈ [0,1]` — dependency_level: friction that slows learning / raises noise
+- `dependency_d` $\in [0,1]$ — dependency_level: friction that slows learning / raises noise
 
-  Dependency enters the observation model multiplicatively (amplifying `σ_eff`
-  via `1 + α_d × d`) and the belief update multiplicatively (attenuating
-  learning efficiency via `L(d) = 1 - d`). These effects are independent of
+  Dependency enters the observation model multiplicatively (amplifying $\sigma_{\text{eff}}$
+  via $1 + \alpha_d \cdot d$) and the belief update multiplicatively (attenuating
+  learning efficiency via $L(d) = 1 - d$). These effects are independent of
   attention allocation, staffing intensity, and portfolio capability — at
-  `d = 1`, the observation carries zero information about intrinsic quality
+  $d = 1$, the observation carries zero information about intrinsic quality
   regardless of how much attention or staffing is applied.
 
 - `observable_ceiling` (optional numeric, e.g., TAM)
@@ -73,11 +73,11 @@ These fields are set once when the initiative is created and never changed by th
   Governance role: `observable_ceiling` enters the bounded-prize patience rule.
   The effective TAM patience window scales linearly with ceiling magnitude:
 
-  ```
-  effective_tam_patience_window = max(1, ceil(T_tam × observable_ceiling / reference_ceiling))
-  ```
+  $$
+  \text{effective\_tam\_patience\_window} = \operatorname{max}\!\bigl(1,\; \lceil T_{\text{tam}} \cdot \text{observable\_ceiling} \;/\; \text{reference\_ceiling} \rceil\bigr)
+  $$
 
-  where `T_tam` is `base_tam_patience_window` and `reference_ceiling` is the
+  where $T_{\text{tam}}$ is `base_tam_patience_window` and $\text{reference\_ceiling}$ is the
   normalization constant from `ModelConfig`. Higher ceilings yield proportionally
   longer evaluation windows before the TAM adequacy stop condition can fire.
   `None` for initiatives without a bounded-prize channel. See `governance.md` for
@@ -87,32 +87,37 @@ These fields are set once when the initiative is created and never changed by th
   reporting and policy-side portfolio classification. The engine does not
   branch on this field. See interfaces.md InitiativeObservation for the
   observation-boundary rationale.)
-- `sigma_base` (base_signal_st_dev: base observation noise for the strategic quality signal)
+- `sigma_base` ($\sigma_{\text{base}}$: base observation noise for the strategic quality signal)
 - `initial_belief_c0` (optional explicit prior mean for strategic quality belief;
   defaults to `ModelConfig.default_initial_belief_c0` when absent)
 
   **Screening signal mechanism.** When a type spec provides
-  `screening_signal_st_dev` (sigma_screen), the generator draws an
+  `screening_signal_st_dev` ($\sigma_{\text{screen}}$), the generator draws an
   ex ante screening signal at initiative creation:
 
-      screening_signal = clamp(q + Normal(0, sigma_screen), 0, 1)
-      initial_belief_c0 = screening_signal
+  $$
+  \text{screening\_signal} = \operatorname{clamp}\!\bigl(q + \mathcal{N}(0,\; \sigma_{\text{screen}}),\; 0,\; 1\bigr)
+  $$
+
+  $$
+  \text{initial\_belief\_c0} = \text{screening\_signal}
+  $$
 
   This models the organization's intake evaluation process: business
   cases, feasibility studies, and strategic fit assessments that produce
   a noisy but informative prior about each initiative's quality before
   a team is assigned. The screening signal is correlated with true
-  latent quality but with meaningful noise controlled by sigma_screen:
+  latent quality but with meaningful noise controlled by $\sigma_{\text{screen}}$:
 
-  - Low sigma_screen (e.g., 0.10 for quick wins): intake screening is
+  - Low $\sigma_{\text{screen}}$ (e.g., 0.10 for quick wins): intake screening is
     quite informative. These initiatives are well-scoped and relatively
     easy to evaluate upfront.
-  - Moderate sigma_screen (e.g., 0.15-0.20 for flywheels/enablers):
+  - Moderate $\sigma_{\text{screen}}$ (e.g., 0.15–0.20 for flywheels/enablers):
     screening is informative but imperfect.
-  - High sigma_screen (e.g., 0.30 for right-tail): exploratory moonshots
+  - High $\sigma_{\text{screen}}$ (e.g., 0.30 for right-tail): exploratory moonshots
     whose true quality is inherently hard to assess at intake.
 
-  When sigma_screen is not set, initial_belief_c0 defaults to the global
+  When $\sigma_{\text{screen}}$ is not set, `initial_belief_c0` defaults to the global
   `ModelConfig.default_initial_belief_c0` (the uninformative prior),
   preserving backward compatibility.
 
@@ -125,32 +130,32 @@ These fields are set once when the initiative is created and never changed by th
 - `true_duration_ticks` (optional integer) — latent ground-truth completion time if
   the initiative is pursued without interruption. Fixed at creation, hidden from
   governance. When set, the engine derives the normalized schedule-fidelity scalar
-  (latent_execution_fidelity; q_exec in equations):
-  `q_exec = min(1.0, planned_duration_ticks / true_duration_ticks)`.
+  ($\text{latent\_execution\_fidelity}$; $q_{\text{exec}}$ in equations):
+  $q_{\text{exec}} = \operatorname{min}(1.0,\; \text{planned\_duration\_ticks} \;/\; \text{true\_duration\_ticks})$.
   Must be set together with `planned_duration_ticks`.
 - `planned_duration_ticks` (optional integer) — the organization's observable prior
   estimate of completion time. Set at generation and visible to governance through
   `GovernanceObservation`. May differ substantially from `true_duration_ticks`.
-  Must be > 0 when set.
-- `initial_c_exec_0 ∈ (0, 1]` (optional float, default 1.0) — the starting value of
-  the execution belief (execution_belief_t; c_exec_t in equations). Represents the
+  Must be $> 0$ when set.
+- `initial_c_exec_0` $\in (0, 1]$ (optional float, default 1.0) — the starting value of
+  the execution belief ($\text{execution\_belief}_t$; $c_{\text{exec},t}$ in equations). Represents the
   planning prior, not certainty. 1.0 means governance begins with the belief that
   the initiative will run on plan. Lower values represent initiatives where
   leadership begins with reduced confidence in the original schedule. Per-initiative
   configurability allows the generator to assign different execution priors to
   initiative types with different planning reliability (e.g., novel hardware
   programs versus familiar software-only work). Defaults to 1.0 when not specified.
-- `capability_contribution_scale ∈ [0, ∞)` (float, default 0.0) — the observable
+- `capability_contribution_scale` $\in [0, \infty)$ (float, default 0.0) — the observable
   scale factor governing how much portfolio capability this initiative contributes
   on completion. Realized capability gain at completion is
-  `latent_quality_i × capability_contribution_scale_i`, capped at `C_max` from `ModelConfig`.
+  $q_i \cdot \text{capability\_contribution\_scale}_i$, capped at $C_{\max}$ from `ModelConfig`.
   A value of 0.0 means the initiative contributes no portfolio capability on
   completion. The generator sets positive values for initiatives intended to function
   as enablers; all other initiative types default to 0.0.
 
   This attribute is observable to governance (surfaced in `InitiativeObservation`),
   allowing policies to compute expected capability yield as
-  `quality_belief_t × capability_contribution_scale`. The actual realized contribution depends
+  $\text{quality\_belief}_t \cdot \text{capability\_contribution\_scale}$. The actual realized contribution depends
   on latent quality and is not directly observable by governance until the initiative
   completes — consistent with the existing pattern of observable ceiling versus
   latent quality.
@@ -162,18 +167,18 @@ These fields are set once when the initiative is created and never changed by th
   the evolution of shared portfolio state rather than the properties of a single
   initiative.
 
-  **Completion eligibility invariant:** if `capability_contribution_scale > 0`,
+  **Completion eligibility invariant:** if $\text{capability\_contribution\_scale} > 0$,
   the initiative must have a valid completion condition. In the canonical model,
   that means `true_duration_ticks` must be set. This is not optional bookkeeping:
   capability is realized only at the completion transition, so a capability-bearing
   initiative without a completion path would silently encode an effect that can
   never occur.
 
-- `staffing_response_scale ∈ [0, ∞)` (float, default 0.0) — controls how additional
+- `staffing_response_scale` $\in [0, \infty)$ (float, default 0.0) — controls how additional
   staffing above `required_team_size` accelerates learning. When 0.0, staffing
   intensity has no effect on learning rate. When positive, larger assigned teams
   produce faster learning with diminishing returns. The learning-rate multiplier
-  saturates toward `1.0 + staffing_response_scale` as team surplus grows. Per
+  saturates toward $1.0 + \text{staffing\_response\_scale}$ as team surplus grows. Per
   `opportunity_staffing_intensity_design_for_claude_v2.md`.
 - `prize_id` (str | None) — links right-tail frontier re-attempts back to the
   original prize descriptor. `None` for initial pool initiatives and non-right-tail
@@ -185,19 +190,19 @@ These fields are set once when the initiative is created and never changed by th
   - `completion_lump`:
     - `enabled` (bool)
     - `realized_value` (numeric, required when `enabled == true`)
-      Must be `>= 0`. If `enabled == false`, this field is ignored and may be
+      Must be $\geq 0$. If `enabled == false`, this field is ignored and may be
       absent.
   - `residual`:
     - `enabled` (bool)
-    - `activation_state` ∈ {`completed`}
+    - `activation_state` $\in$ {`completed`}
     - `residual_rate` (numeric)
-    - `residual_decay` (numeric; per-tick exponential decay rate, `>= 0`)
+    - `residual_decay` (numeric; per-tick exponential decay rate, $\geq 0$)
   - `major_win_event`:
     - `enabled` (bool)
     - `is_major_win` (hidden bool, immutable, generator-assigned)
 
       Determined at generation as a deterministic threshold function of latent
-      quality: `is_major_win = (q >= q_major_win_threshold)`. Hidden from
+      quality: $\text{is\_major\_win} = (q \geq q_{\text{major\_win\_threshold}})$. Hidden from
       governance throughout the run. There is no stochastic revelation mechanism
       and no intermediate discovery state — the flag is binary, immutable, and
       revealed only at completion through the emitted `MajorWinEvent`.
@@ -287,21 +292,21 @@ For ongoing value streams, the per-initiative decay rate controls how quickly th
 ### Academic
 These fields change during the run:
 
-- `lifecycle_state` ∈ {unassigned, active, stopped, completed}
+- `lifecycle_state` $\in$ {unassigned, active, stopped, completed}
 - `assigned_team_id` (or `null`)
-- `exec_attention_a ∈ [0,1]` — last-applied executive attention (executive_attention_t)
-- `quality_belief_t ∈ [0,1]` — organization's posterior mean estimate of strategic quality.
+- `exec_attention_a` $\in [0,1]$ — last-applied executive attention ($\text{executive\_attention}_t$)
+- `quality_belief_t` $\in [0,1]$ — organization's posterior mean estimate of strategic quality.
   This is the strategic belief only. It does not encode execution fidelity;
   that is tracked separately in `execution_belief_t`.
-- `execution_belief_t ∈ [0, 1]` — organization's posterior belief about schedule fidelity
-  relative to plan. Initialized to `initial_c_exec_0` (the planning prior, not
+- `execution_belief_t` $\in [0, 1]$ — organization's posterior belief about schedule fidelity
+  relative to plan. Initialized to $\text{initial\_c\_exec\_0}$ (the planning prior, not
   certainty about execution). 1.0 means governance currently believes the initiative
   will run on plan; values below 1.0 reflect a projected overrun relative to
   `planned_duration_ticks`. Defined and updated only when `true_duration_ticks` is
-  set on the initiative. Independent of `quality_belief_t`.
-  The belief update formula clamps to `[0, 1]`, making zero admissible in state.
-  Division-by-zero when computing `implied_duration_ticks` is guarded by the
-  module-level constant `epsilon_exec = 0.05` defined in `interfaces.md`; the
+  set on the initiative. Independent of $\text{quality\_belief}_t$.
+  The belief update formula clamps to $[0, 1]$, making zero admissible in state.
+  Division-by-zero when computing $\text{implied\_duration\_ticks}$ is guarded by the
+  module-level constant $\epsilon_{\text{exec}} = 0.05$ defined in `interfaces.md`; the
   state bound and the computational guard are separate concerns.
 - `staffed_tick_count` (integer) — cumulative lifetime count of ticks during which
   this initiative has been actively staffed. This counter never resets after
@@ -332,7 +337,7 @@ These fields change during the run:
 - `consecutive_reviews_below_tam_ratio` (integer)
 
   Counter of consecutive end-of-tick reviews at which the bounded-prize adequacy
-  test failed (`quality_belief_t × observable_ceiling < θ_tam_ratio × observable_ceiling`).
+  test failed ($\text{quality\_belief}_t \cdot \text{observable\_ceiling} < \theta_{\text{tam\_ratio}} \cdot \text{observable\_ceiling}$).
   Updated by the engine at step 5b before governance invocation. Resets to zero
   on any reviewed tick where the test passes, and resets to zero for any tick
   on which the initiative is not reviewed (unstaffed, stopped, or completed).
@@ -418,8 +423,8 @@ The evidence history snapshot is frozen at the moment of completion. This ensure
 - **active** — staffed and producing observations/value
 
   A team is assigned. Per `core_simulator.md` step 3, the engine generates
-  strategic quality signals (`y_t`) and, where applicable, execution progress
-  signals (`z_t`) at each staffed tick. Both belief scalars update, lifecycle
+  strategic quality signals ($y_t$) and, where applicable, execution progress
+  signals ($z_t$) at each staffed tick. Both belief scalars update, lifecycle
   transitions are evaluated, and governance must emit an explicit `ContinueStop`
   action for each active staffed initiative at every governance invocation.
   This is the only lifecycle state in which observations, belief updates, and
@@ -443,11 +448,11 @@ The evidence history snapshot is frozen at the moment of completion. This ensure
 - **completed** — initiative finished its lifecycle (optional)
 
   The initiative has reached its completion condition
-  (`staffed_tick_count >= true_duration_ticks`). This transition triggers all
+  ($\text{staffed\_tick\_count} \geq \text{true\_duration\_ticks}$). This transition triggers all
   enabled completion-time effects in the order defined in `core_simulator.md`
   step 5c: completion-lump value realization, major-win event emission, residual
   activation, and capability contribution. The team is released for reassignment
-  effective at the start of tick `t+1`.
+  effective at the start of tick $t+1$.
 
 Transitions are triggered by:
 - Governance actions (stop/continue, assignment)
@@ -458,7 +463,7 @@ The canonical transition graph is:
 ```
 unassigned → active      (AssignTeam governance action)
 active     → stopped     (ContinueStop = stop governance action)
-active     → completed   (engine completion detection: staffed_tick_count >= true_duration_ticks)
+active     → completed   (engine completion detection: staffed_tick_count ≥ true_duration_ticks)
 ```
 
 No other transitions are valid. In particular: `stopped` and `completed` are
@@ -486,14 +491,14 @@ but they operate through independent channels and produce structurally different
 kinds of long-run advantage. Residual value contributes to the realized economic
 performance outcome family. Portfolio capability contributes to the
 organizational capability development outcome family and enters future ticks'
-`σ_eff` computation as a divisor.
+$\sigma_{\text{eff}}$ computation as a divisor.
 
 #### Completion-time discovery without follow-on initiative
 
 For right-tail initiatives, the generator assigns an immutable hidden boolean `is_major_win` at creation when the `major_win_event` channel is enabled. A right-tail initiative can surface a major win only upon completion. On completion, if `is_major_win == true`, the engine records a structured `MajorWinEvent`. The engine does **not** automatically spawn a follow-on commercialization or exploitation initiative, and the canonical study does **not** require pricing the full downstream economics of that win within the simulation horizon. This is a deliberate scoping choice in the canonical study, not an omission.
 
 The `is_major_win` flag is determined at generation as a deterministic threshold
-function of latent quality (`is_major_win = (q >= q_major_win_threshold)`) and
+function of latent quality ($\text{is\_major\_win} = (q \geq q_{\text{major\_win\_threshold}})$) and
 remains hidden from governance throughout the run. There is no intermediate
 discovery state and no probabilistic revelation mechanism. Governance can only
 increase the probability of surfacing major wins by sustaining investment in

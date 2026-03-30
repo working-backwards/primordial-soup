@@ -9,8 +9,8 @@ Naming convention for this document:
 
 - explanatory prose and pseudocode prefer descriptive names such as
   `quality_belief_t`, `execution_belief_t`, and `effective_tam_patience_window`,
-- equations may still use compact notation such as `c_t`, `c_exec_t`, and
-  `T_tam`,
+- equations may still use compact notation such as $c_t$, $c_{\text{exec},t}$, and
+  $T_{\text{tam}}$,
 - the canonical mapping is recorded in `docs/study/naming_conventions.md`.
 
 ### Business
@@ -33,7 +33,7 @@ surfaced to the policy as read-only fields within `GovernanceObservation`. The
 policy must not maintain private mutable copies of initiative state across ticks.
 
 **The policy must not see latent quality or latent `true_duration_ticks`.** The policy may
-use `quality_belief_t` (`c_t`), `execution_belief_t` (`c_exec_t`), and `implied_duration_ticks` as
+use `quality_belief_t` ($c_t$), `execution_belief_t` ($c_{\text{exec},t}$), and `implied_duration_ticks` as
 observable proxies. The derived observable `implied_duration_ticks` is provided
 specifically so policies can reason about execution overrun in natural business units
 rather than the normalized fidelity scalar.
@@ -115,13 +115,14 @@ The policy returns an *action vector* that the engine applies (effective next ti
 #### 2. `SetExecAttention` (per initiative)
 - `{ action: "SetExecAttention", initiative_id: "X", attention: a }`
 - Canonical semantics:
-  - `a = 0.0` means the initiative receives no explicit executive attention on that
+  - $a = 0.0$ means the initiative receives no explicit executive attention on that
     tick.
-  - `a > 0.0` means the initiative is explicitly covered by attention on that tick.
-  - If `a > 0.0`, then `a` must lie within the effective per-initiative bounds:
-    ```
-    attention_min_effective <= a <= attention_max_effective
-    ```
+  - $a > 0.0$ means the initiative is explicitly covered by attention on that tick.
+  - If $a > 0.0$, then $a$ must lie within the effective per-initiative bounds:
+
+    $$
+    \text{attention\_min\_effective} \leq a \leq \text{attention\_max\_effective}
+    $$
     where `attention_min_effective = attention_min` and
     `attention_max_effective = 1.0` if `attention_max is None`.
   - Silence is semantically meaningful: if an initiative is omitted from the
@@ -134,10 +135,12 @@ The policy returns an *action vector* that the engine applies (effective next ti
     governance intent for that tick and avoids accidental carry-forward behavior
     when a policy forgets to include an initiative.
 - Budget feasibility:
-  ```
-  Σ_i attention_i <= exec_attention_budget
-  ```
-  over all `SetExecAttention` actions in the action vector for that tick.
+
+    $$
+    \sum_i \text{attention}_i \leq \text{exec\_attention\_budget}
+    $$
+
+    over all `SetExecAttention` actions in the action vector for that tick.
 
 #### 3. `AssignTeam`
 - `{ action: "AssignTeam", team_id: "T", initiative_id: "X" | null }`
@@ -284,7 +287,9 @@ state needed to support those choices, not to make them hard engine rules.
 When a canonical archetype ranks **unassigned bounded-prize initiatives** using
 expected value, it should normalize by `required_team_size`:
 
-`expected_prize_value_density = expected_prize_value / required_team_size`
+$$
+\text{expected\_prize\_value\_density} = \frac{\text{expected\_prize\_value}}{\text{required\_team\_size}}
+$$
 
 This keeps labor exposure explicit during selection among unassigned
 bounded-prize initiatives. It does **not** by itself define a canonical ranking
@@ -310,34 +315,38 @@ Governance uses explicit stop/continue criteria built from observable quantities
        Initiatives without an observable bounded prize are not subject to this rule.
 
    - **Parameters**
-     - `θ_tam_ratio` ∈ [0,1]: the fraction of `observable_ceiling` below which
+     - $\theta_{\text{tam\_ratio}} \in [0,1]$: the fraction of `observable_ceiling` below which
        expected prize value is considered below the prize-relative patience
        condition.
-     - `T_tam` (integer): base patience window — the number of consecutive
+     - $T_{\text{tam}}$ (integer): base patience window — the number of consecutive
        governance evaluations earned by an initiative whose
        `observable_ceiling == reference_ceiling`.
      - Realized bounded-prize patience scales linearly with visible upside:
-       ```
-       T_tam_effective = max(1, ceil(T_tam * observable_ceiling / reference_ceiling))
-       ```
+
+       $$
+       T_{\text{tam\_effective}} = \operatorname{max}\!\left(1,\; \lceil T_{\text{tam}} \cdot \frac{\text{observable\_ceiling}}{\text{reference\_ceiling}} \rceil\right)
+       $$
+
        where `reference_ceiling` is a model-level normalization constant and
-       `T_tam_effective` is surfaced to governance as
+       $T_{\text{tam\_effective}}$ is surfaced to governance as
        `effective_tam_patience_window`.
 
    - **Definition (two-step persistence rule)**
      - At each review, compute expected prize value using the strategic quality
        belief only:
-      ```
-      expected_prize_value = quality_belief_t × observable_ceiling
-      ```
+
+       $$
+       \text{expected\_prize\_value} = \text{quality\_belief}_t \times \text{observable\_ceiling}
+       $$
+
      - The engine updates `consecutive_reviews_below_tam_ratio` before the policy
        is invoked on that review.
-     - If `expected_prize_value < θ_tam_ratio × observable_ceiling`, the counter increments
+     - If $\text{expected\_prize\_value} < \theta_{\text{tam\_ratio}} \times \text{observable\_ceiling}$, the counter increments
        by 1.
-     - If `expected_prize_value >= θ_tam_ratio × observable_ceiling`, the counter resets to
+     - If $\text{expected\_prize\_value} \geq \theta_{\text{tam\_ratio}} \times \text{observable\_ceiling}$, the counter resets to
        zero.
      - **Stop rule:** recommend termination on the same review when
-       `consecutive_reviews_below_tam_ratio >= T_tam_effective`.
+       $\text{consecutive\_reviews\_below\_tam\_ratio} \geq T_{\text{tam\_effective}}$.
 
    - **Interpretation**
      - This rule stops bounded-prize initiatives that have persistently failed to
@@ -365,21 +374,23 @@ Governance uses explicit stop/continue criteria built from observable quantities
        `observable_ceiling`.
 
    - **Parameters**
-     - `W_stag` (integer): window length in **staffed ticks** — ticks during which the
+     - $W_{\text{stag}}$ (integer): window length in **staffed ticks** — ticks during which the
        initiative was assigned a team and generating observations. The engine maintains
        `staffed_tick_count` per initiative. Idle ticks between staffing assignments do
        not count and do not contribute to stagnation detection.
-     - `stagnation_epsilon` (float > 0): minimum net belief movement required to avoid being
+     - $\varepsilon_{\text{stag}}$ (float $> 0$): minimum net belief movement required to avoid being
        classified as informationally stagnant over the staffed-tick window.
 
    - **Definition (conjunctive rule)**
 
      Compute **informational stasis**:
-     ```
-     Δ_c = |c_t - c_{t - W_stag staffed ticks}|
-     ```
+
+     $$
+     \Delta_c = |c_t - c_{t - W_{\text{stag}} \text{ staffed ticks}}|
+     $$
+
      where quality belief is the current strategic belief and the prior value is the
-     strategic belief `W_stag` staffed ticks ago. If `Δ_c < ε_stag`, the initiative
+     strategic belief $W_{\text{stag}}$ staffed ticks ago. If $\Delta_c < \varepsilon_{\text{stag}}$, the initiative
      is informationally stagnant.
 
      Compute the **second-leg patience condition**:
@@ -389,9 +400,9 @@ Governance uses explicit stop/continue criteria built from observable quantities
        current evaluation.
      - For initiatives without an observable bounded prize, the condition holds
        when:
-       ```
-       quality_belief_t <= default_initial_quality_belief
-       ```
+       $$
+       \text{quality\_belief}_t \leq \text{default\_initial\_quality\_belief}
+       $$
        where `default_initial_quality_belief` is the canonical neutral baseline for
        quality belief surfaced in the observation/config contract.
 
@@ -421,19 +432,20 @@ Governance uses explicit stop/continue criteria built from observable quantities
        is genuinely stagnant from a governance standpoint. Net change captures this
        correctly; range does not.
      - **Sliding window implementation**: the engine maintains a ring buffer
-       `belief_history` of length `W_stag` per initiative. At each staffed tick,
+       `belief_history` of length $W_{\text{stag}}$ per initiative. At each staffed tick,
        after appending the current quality belief, the engine retains only the most
-       recent `W_stag` strategic beliefs. The stagnation comparison is available once
+       recent $W_{\text{stag}}$ strategic beliefs. The stagnation comparison is available once
        `len(belief_history) == W_stag`:
-       ```
-       belief_change_over_window = |quality_belief_t − belief_history[0]|
-       ```
+
+       $$
+       \text{belief\_change\_over\_window} = |\text{quality\_belief}_t - \text{belief\_history}[0]|
+       $$
        where `belief_history[0]` is the oldest retained quality belief in the
        rolling staffed-tick window. Informational stasis holds if
        `belief_change_over_window < stagnation_epsilon`.
-       If `belief_change_over_window < stagnation_epsilon` for the current tick, the informational stagnation
+       If $\text{belief\_change\_over\_window} < \varepsilon_{\text{stag}}$ for the current tick, the informational stagnation
        condition is met. The non-overlapping checkpoint interpretation — updating a
-       single stored value every `W_stag` ticks — is explicitly not used, because it
+       single stored value every $W_{\text{stag}}$ ticks — is explicitly not used, because it
        misses stagnation events that begin partway through a window.
 
        This wording is intentional. The simulator uses a bounded rolling deque, not
@@ -445,7 +457,7 @@ Governance uses explicit stop/continue criteria built from observable quantities
        governance signal available through execution belief.
 
    - **Interaction with confidence decline**
-     - If `confidence_decline_threshold >= default_initial_quality_belief`, confidence decline may dominate
+     - If $\text{confidence\_decline\_threshold} \geq \text{default\_initial\_quality\_belief}$, confidence decline may dominate
        the non-TAM stagnation path and make it unreachable in practice. Canonical
        configurations should avoid this unless that dominance is intentional.
 
@@ -473,11 +485,11 @@ Governance uses explicit stop/continue criteria built from observable quantities
    - `portfolio_summary` provides convenience aggregates for any policy-side
      labor-share exposure checks.
 
-   ```
-   stop if quality_belief_t < confidence_decline_threshold
-   ```
+   $$
+   \text{stop if } \text{quality\_belief}_t < \text{confidence\_decline\_threshold}
+   $$
 
-  - `confidence_decline_threshold ∈ [0,1]` is a governance policy threshold, not an engine invariant.
+  - $\text{confidence\_decline\_threshold} \in [0,1]$ is a governance policy threshold, not an engine invariant.
     `confidence_decline_threshold = None` disables the rule entirely.
   - The policy reads `quality_belief_t` from `InitiativeObservation` and compares it against
     `confidence_decline_threshold` from `GovernanceConfig`. No engine flag is required.
@@ -493,7 +505,7 @@ Governance uses explicit stop/continue criteria built from observable quantities
 4. **Combined rule application**
    - Governance may combine prize adequacy, stagnation, and confidence-decline signals in
      various combinations via policy logic. For example: stop if (prize inadequacy AND
-     stagnation) OR `quality_belief_t < confidence_decline_threshold`.
+     stagnation) OR $\text{quality\_belief}_t < \text{confidence\_decline\_threshold}$.
    - The stagnation rule is internally conjunctive by canonical default (informational
      stasis AND the relevant second-leg patience condition must both hold). Policies wishing to use
      disjunctive stopping must implement that logic explicitly in policy code.
@@ -515,7 +527,7 @@ Governance uses explicit stop/continue criteria built from observable quantities
 **Operational notes**
 - All stop/continue logic must be based on **observable state and beliefs** only.
   Policies must not use latent quality or latent `true_duration_ticks`. Policies may use
-  `quality_belief_t` (`c_t`), `execution_belief_t` (`c_exec_t`),
+  `quality_belief_t` ($c_t$), `execution_belief_t` ($c_{\text{exec},t}$),
   `implied_duration_ticks`,
   `consecutive_reviews_below_tam_ratio`, `staffed_tick_count`, and any other
   observable fields provided in `GovernanceObservation`.
@@ -547,7 +559,9 @@ These are governance-side controls. The engine exposes the portfolio state neede
 
 When a governance regime is choosing among unassigned bounded-prize initiatives — opportunities where the visible upside ceiling is known — the canonical ranking normalizes by staffing requirements:
 
-*Expected value per unit of labor = (current quality belief × visible opportunity ceiling) / required team size*
+$$
+\text{Expected value per unit of labor} = \frac{\text{current quality belief} \times \text{visible opportunity ceiling}}{\text{required team size}}
+$$
 
 This keeps labor exposure explicit when comparing opportunities that require different amounts of workforce investment. A large opportunity that requires a large team is not automatically preferred over a smaller opportunity that requires fewer people — the comparison is made on a per-unit-of-labor basis.
 
@@ -568,7 +582,9 @@ Governance uses explicit stop criteria built from observable quantities and beli
    - **How it works:**
      - At each review, governance computes the expected prize value using its current belief about the initiative's quality:
 
-       *Expected prize value = current strategic quality belief × visible opportunity ceiling*
+       $$
+       \text{Expected prize value} = \text{current strategic quality belief} \times \text{visible opportunity ceiling}
+       $$
 
      - If that expected value falls below a threshold fraction of the opportunity ceiling, the initiative has failed the adequacy test for that review.
      - The engine tracks how many consecutive reviews the initiative has failed this test. If the initiative passes the test on any review, the counter resets to zero.
@@ -651,13 +667,13 @@ Governance uses explicit stop criteria built from observable quantities and beli
 When an initiative has `planned_duration_ticks` and `true_duration_ticks` set, governance
 receives two execution-related observables in the observation bundle:
 
-- `execution_belief_t` (`c_exec_t`): governance's posterior belief about schedule fidelity
-  relative to plan. 1.0 means the initiative is believed to be tracking
-  exactly to plan; values below 1.0 indicate a projected overrun. Initialized to the
-  planning prior (`initial_c_exec_0`)
+- `execution_belief_t` ($c_{\text{exec},t}$): governance's posterior belief about schedule fidelity
+  relative to plan. $1.0$ means the initiative is believed to be tracking
+  exactly to plan; values below $1.0$ indicate a projected overrun. Initialized to the
+  planning prior ($\text{initial\_c\_exec\_0}$)
   (the planning prior, not certainty).
 - `implied_duration_ticks`: a derived observable computed as
-  `round(planned_duration_ticks / max(c_exec_t, ε))`. This translates the normalized
+  $\text{round}(\text{planned\_duration\_ticks}\; /\; \operatorname{max}(c_{\text{exec},t},\; \varepsilon))$. This translates the normalized
   fidelity belief into business-interpretable units — the current best estimate of how
   long the initiative will take — so that policy logic and reporting can reason in terms
   of actual durations rather than a ratio scalar.
@@ -712,16 +728,18 @@ When a governance regime does stop an initiative primarily because of cost escal
 ### Academic
 The engine enforces the following constraints on the action vector:
 
-1. Attention values must lie in `[0,1]`.
+1. Attention values must lie in $[0,1]$.
 2. Team assignments must respect availability and size constraints.
 3. Total attention requested across all `SetExecAttention` actions must not exceed
    `exec_attention_budget`.
 4. Any positive attention assignment must satisfy the effective per-initiative
    bounds:
-   ```
-   if attention > 0:
-       attention_min_effective <= attention <= attention_max_effective
-   ```
+   If $\text{attention} > 0$:
+
+   $$
+   \text{attention\_min\_effective} \leq \text{attention} \leq \text{attention\_max\_effective}
+   $$
+
    where `attention_min_effective = attention_min`, and
    `attention_max_effective = 1.0` if `attention_max is None`.
 
@@ -773,7 +791,7 @@ When the engine applies a policy's action vector at start-of-tick `t`, it does s
 
 1. **Apply ContinueStop** for all initiatives. Mark `stopped` initiatives, free their teams at start-of-tick.
 2. **Apply AssignTeam** actions (ordered): assign available teams to target initiatives, observing `team_size` constraints and `no-splitting`. If an `AssignTeam` references a team that is already assigned (or not available), the engine rejects that action.
-3. **Apply SetExecAttention** and check `Σ attention ≤ B`.
+3. **Apply SetExecAttention** and check $\sum \text{attention} \leq B$.
 
    **Attention-feasibility violation handling (canonical default: reject and clamp
    to `attention_min_effective`):** if the proposed `SetExecAttention` actions for

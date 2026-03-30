@@ -7,9 +7,9 @@ Its purpose is to provide a reference for optimization, analysis, and future
 extensions. Any change to the simulator that adds, removes, or modifies state
 variables should be checked against this note.
 
-The Markov property means: given the current state S_t, the joint distribution
-of all future states (S_{t+1}, S_{t+2}, ...) does not depend on (S_0, ...,
-S_{t-1}). For this simulator, the property holds because every transition
+The Markov property means: given the current state $S_t$, the joint distribution
+of all future states $(S_{t+1}, S_{t+2}, \ldots)$ does not depend on $(S_0, \ldots,
+S_{t-1})$. For this simulator, the property holds because every transition
 (belief update, lifecycle change, value realization, capability decay) is
 computed from current state and immutable parameters alone.
 
@@ -17,14 +17,14 @@ computed from current state and immutable parameters alone.
 
 
 ### Academic
-The state S_t is partitioned into per-initiative, per-team, portfolio-level,
+The state $S_t$ is partitioned into per-initiative, per-team, portfolio-level,
 temporal, and pool-level components. Together with the immutable run parameters
 (see **What is NOT state** below), these fully determine all future
 trajectories.
 
 #### Per-initiative state
 
-Each initiative i carries the following mutable state fields. These
+Each initiative $i$ carries the following mutable state fields. These
 correspond to the fields of `InitiativeState` in `state.py`.
 
 | Field | Type | Description |
@@ -32,7 +32,7 @@ correspond to the fields of `InitiativeState` in `state.py`.
 | `initiative_id` | `str` | Unique identifier. Immutable after creation but included in state for indexing. |
 | `lifecycle_state` | `LifecycleState` | One of UNASSIGNED, ACTIVE, STOPPED, COMPLETED. Determines which transitions apply. |
 | `assigned_team_id` | `str \| None` | Currently assigned team, or None if unassigned/stopped/completed. |
-| `quality_belief_t` | `float` | Current strategic quality belief (c_t in the design docs). Updated each staffed tick via Bayesian-style learning. |
+| `quality_belief_t` | `float` | Current strategic quality belief ($c_t$ in the design docs). Updated each staffed tick via Bayesian-style learning. |
 | `execution_belief_t` | `float \| None` | Current execution belief. None when `true_duration_ticks` is not set on the initiative config. |
 | `executive_attention_t` | `float` | Executive attention allocated this tick. Determined by governance each tick. |
 | `staffed_tick_count` | `int` | Lifetime count of staffed ticks. Never resets on reassignment. |
@@ -55,7 +55,7 @@ correspond to the fields of `InitiativeState` in `state.py`.
 
 #### Per-team state
 
-Each team j carries the following mutable state fields. These correspond to
+Each team $j$ carries the following mutable state fields. These correspond to
 the fields of `TeamState` in `state.py`.
 
 | Field | Type | Description |
@@ -68,7 +68,7 @@ the fields of `TeamState` in `state.py`.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `portfolio_capability` | `float` | Portfolio capability scalar C_t. Initialized to 1.0, bounded by [1.0, C_max]. Evolves via enabler completions (increases) and exponential decay (decreases). Reduces effective signal noise for all staffed initiatives. |
+| `portfolio_capability` | `float` | Portfolio capability scalar $C_t$. Initialized to 1.0, bounded by $[1.0, C_{\text{max}}]$. Evolves via enabler completions (increases) and exponential decay (decreases). Reduces effective signal noise for all staffed initiatives. |
 
 #### Temporal state
 
@@ -81,8 +81,8 @@ the fields of `TeamState` in `state.py`.
 The partition of initiatives across lifecycle states (UNASSIGNED, ACTIVE,
 STOPPED, COMPLETED) is fully determined by the per-initiative
 `lifecycle_state` fields. It is not stored separately but is a derived
-convenience view. The set of initiatives in each state at tick t determines
-which transitions are possible at tick t+1.
+convenience view. The set of initiatives in each state at tick $t$ determines
+which transitions are possible at tick $t+1$.
 
 
 ### Business
@@ -157,7 +157,7 @@ duration of a run and do not evolve with ticks.
 
 These are the immutable attributes resolved at pool generation time:
 
-- `latent_quality` (q) — hidden ground truth, never observed by governance
+- `latent_quality` ($q$) — hidden ground truth, never observed by governance
 - `true_duration_ticks` — hidden execution target, never observed by governance
 - `base_signal_st_dev` — base noise on strategic signal
 - `dependency_level` — inter-initiative dependency on signal noise
@@ -287,7 +287,7 @@ Each family with a `FrontierSpec` carries a `FamilyFrontierState` in
 |-------|------|-------------|
 | `n_resolved` | `int` | Count of resolved (completed + stopped) initiatives of this family. |
 | `n_frontier_draws` | `int` | Count of initiatives drawn from the frontier (for RNG position tracking). |
-| `effective_alpha_multiplier` | `float` | Current quality degradation multiplier: `max(floor, 1.0 - rate * n_resolved)`. |
+| `effective_alpha_multiplier` | `float` | Current quality degradation multiplier: $\max(\text{floor},\; 1.0 - \text{rate} \times n_{\text{resolved}})$. |
 
 `frontier_state_by_family` is stored as an immutable tuple of
 `(generation_tag, FamilyFrontierState)` pairs, sorted by generation_tag.

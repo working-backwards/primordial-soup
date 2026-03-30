@@ -67,10 +67,12 @@ unchanged. See `docs/design/calibration_plan.md` for full rationale.
 At generation time, each right-tail initiative receives an immutable
 `is_major_win` flag determined by a threshold rule:
 
-    is_major_win = (latent_quality >= q_major_win_threshold)
+$$
+\text{is\_major\_win} = (\text{latent\_quality} \geq q_{\text{major\_win\_threshold}})
+$$
 
 where `latent_quality` is drawn from a family-specific Beta distribution
-and `q_major_win_threshold` is a family-level parameter. The flag is
+and $q_{\text{major\_win\_threshold}}$ is a family-level parameter. The flag is
 hidden from governance; governance can only discover whether an
 initiative was a major win by pursuing it to completion.
 
@@ -79,7 +81,7 @@ major-win discovery outcome family. Governance must choose how long to
 persist with each right-tail initiative — how much attention to allocate,
 how many staffed ticks to tolerate before applying a stopping rule —
 without observing whether the initiative's `latent_quality` exceeds
-`q_major_win_threshold`. The study measures whether governance patience
+$q_{\text{major\_win\_threshold}}$. The study measures whether governance patience
 and attention allocation affect the rate at which threshold-quality
 initiatives are surfaced, conditional on an opportunity landscape that
 produces them at a known but unobservable rate.
@@ -106,8 +108,8 @@ return on investment. This definition aligns with the study's focus on
 governance's ability to surface transformational outcomes rather than to
 accumulate incremental returns.
 
-The systematic parameter analysis identified Beta(0.8, 2.0) with
-`q_major_win_threshold = 0.80` as the distributional parameterization
+The systematic parameter analysis identified $\text{Beta}(0.8, 2.0)$ with
+$q_{\text{major\_win\_threshold}} = 0.80$ as the distributional parameterization
 that produces approximately 3% major-win incidence among generated
 right-tail initiatives — the mid-case anchor within the empirically
 supported range. Corporate venturing evidence, when filtered for
@@ -119,22 +121,22 @@ rather than to pin a single point estimate.
 
 #### Calibration history
 
-**2026-03-12 (v1 — repaired validation baseline):** Beta(2.0, 3.0) with
-`q_major_win_threshold=0.5`, yielding ~31% major-win rate. A mechanism-
+**2026-03-12 (v1 — repaired validation baseline):** $\text{Beta}(2.0, 3.0)$ with
+$q_{\text{major\_win\_threshold}} = 0.5$, yielding ~31% major-win rate. A mechanism-
 reactivation repair after an earlier zero-major-win failure. Never
 intended as the canonical study baseline.
 
 **2026-03-15 (v2 — named environment families):** Three families with
-family-specific distributions: Beta(1.4, 6.6)/0.82, Beta(1.2, 7.0)/0.85,
-Beta(1.7, 5.8)/0.78. Grounded by external calibration research. However,
+family-specific distributions: $\text{Beta}(1.4, 6.6)/0.82$, $\text{Beta}(1.2, 7.0)/0.85$,
+$\text{Beta}(1.7, 5.8)/0.78$. Grounded by external calibration research. However,
 a 63-run baseline campaign showed zero major wins across all archetypes
-and families, revealing that P(q ≥ threshold) was near zero for all
+and families, revealing that $P(q \geq \text{threshold})$ was near zero for all
 three families (~0.003% for balanced_incumbent). This was a generator-
 collapse artifact, not a governance finding.
 
 The consequence for the experimental design was that the policy
 comparison was degenerate with respect to the major-win discovery
-outcome family. When P(is_major_win = true) ≈ 0 across all seeds, the
+outcome family. When $P(\text{is\_major\_win} = \text{true}) \approx 0$ across all seeds, the
 major-win discovery rate is zero under every governance policy, and the
 experiment cannot discriminate between patient and impatient regimes on
 this dimension. The policy space, observation model, and stopping logic
@@ -145,17 +147,17 @@ structurally unreachable. Expected major-win-eligible initiatives per
 before a single eligible initiative appeared by chance.
 
 **2026-03-17 (v3 — current, post-Project 3 recalibration):** Unified
-threshold at 0.80 with recalibrated Beta distributions: Beta(0.8, 2.0)
-for balanced (~3%), Beta(0.6, 2.5) for short-cycle (~1%), Beta(1.2, 1.8)
+threshold at 0.80 with recalibrated Beta distributions: $\text{Beta}(0.8, 2.0)$
+for balanced (~3%), $\text{Beta}(0.6, 2.5)$ for short-cycle (~1%), $\text{Beta}(1.2, 1.8)$
 for discovery (~5–8%). Duration ranges adjusted to reflect multi-year
 exploratory timelines. See `docs/design/calibration_note.md` for the
 full evidence chain and parameter derivation.
 
 The unified threshold is a deliberate experimental design choice that
 isolates the source of cross-family variation. All three families share
-`q_major_win_threshold = 0.80`, so `is_major_win` has identical
+$q_{\text{major\_win\_threshold}} = 0.80$, so `is_major_win` has identical
 semantics everywhere: it flags the same quality boundary. What varies
-across families is the Beta shape and therefore P(q ≥ 0.80). This
+across families is the Beta shape and therefore $P(q \geq 0.80)$. This
 means cross-family governance comparisons test whether findings are
 robust to different tail probabilities under a common definition of
 the threshold event, rather than confounding distributional variation
@@ -224,9 +226,11 @@ validity of the major-win discovery comparison. A necessary condition
 for any governance regime to surface a major win is that at least some
 right-tail initiatives complete within the simulation horizon. Formally:
 
-    completion is feasible  ⟺  true_duration_ticks ≤ T - t_staff
+$$
+\text{completion is feasible} \iff \text{true\_duration\_ticks} \leq T - t_{\text{staff}}
+$$
 
-where T = 313 is the horizon length in ticks and `t_staff` is the tick
+where $T = 313$ is the horizon length in ticks and $t_{\text{staff}}$ is the tick
 at which the initiative is first staffed (assuming continuous staffing
 thereafter; interruptions extend the effective completion time). If the
 `true_duration_range` places all right-tail initiatives above this
@@ -260,15 +264,15 @@ follows:
 | `short_cycle_throughput` | (80, 156) | 1.5–3.0 years | (96, 187) | Shorter innovation cycles |
 | `discovery_heavy` | (130, 260) | 2.5–5.0 years | (156, 312) | Longer exploration horizons |
 
-`planned_duration_range` is set at approximately 1.2× the
+`planned_duration_range` is set at approximately $1.2\times$ the
 `true_duration_range` (rounded to integer ticks), reflecting the
 systematic optimistic bias in planning estimates for exploratory work
 where the scope of required learning is itself uncertain at the outset.
 This produces `latent_execution_fidelity` values
-(`planned_duration_ticks / true_duration_ticks`) clustered near 0.83
-for right-tail initiatives, meaning the execution belief `c_exec_t`
+($\text{planned\_duration\_ticks} / \text{true\_duration\_ticks}$) clustered near 0.83
+for right-tail initiatives, meaning the execution belief $c_{\text{exec},t}$
 will converge toward a value below 1.0 even for initiatives proceeding
-at their true pace. The 1.2× multiplier is a structural assumption,
+at their true pace. The $1.2\times$ multiplier is a structural assumption,
 not an empirically fitted value.
 
 The implication for the 313-tick horizon is that many right-tail
@@ -329,9 +333,9 @@ This is intentional. The study is designed to measure governance's ability to pe
 | Parameter | `balanced_incumbent` | `short_cycle_throughput` | `discovery_heavy` |
 |---|---|---|---|
 | Right-tail count | 20 | 16 | 56 |
-| Quality distribution | Beta(0.8, 2.0) | Beta(0.6, 2.5) | Beta(1.2, 1.8) |
-| `q_major_win_threshold` | 0.80 | 0.80 | 0.80 |
-| P(q ≥ threshold) | ~3% | ~1% | ~5–8% |
+| Quality distribution | $\text{Beta}(0.8, 2.0)$ | $\text{Beta}(0.6, 2.5)$ | $\text{Beta}(1.2, 1.8)$ |
+| $q_{\text{major\_win\_threshold}}$ | 0.80 | 0.80 | 0.80 |
+| $P(q \geq \text{threshold})$ | ~3% | ~1% | ~5–8% |
 | `true_duration_range` | (104, 182) | (80, 156) | (130, 260) |
 | `planned_duration_range` | (125, 220) | (96, 187) | (156, 312) |
 | Quick-win count | 80 | 104 | 74 |
@@ -418,7 +422,7 @@ The v2 baseline campaign (63 runs, zero major wins across all regimes
 and families) demonstrated that criterion 2 cannot be assumed from the
 generator parameterization alone; it must be verified empirically. The
 v2 families satisfied all formal parameter requirements but produced
-P(is_major_win = true) ≈ 0, rendering the policy comparison degenerate
+$P(\text{is\_major\_win} = \text{true}) \approx 0$, rendering the policy comparison degenerate
 on the major-win dimension.
 
 Criterion 3 uses a wider tolerance band (0.5%–5%) than the external

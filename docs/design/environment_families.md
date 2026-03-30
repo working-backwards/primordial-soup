@@ -40,38 +40,38 @@ flywheel representation, and initiative mix.
 | Parameter                    | balanced_incumbent    | short_cycle_throughput | discovery_heavy       |
 |------------------------------|----------------------:|----------------------:|----------------------:|
 | Count                        |                    20 |                    16 |                    56 |
-| Quality distribution         | Beta(0.8, 2.0)        | Beta(0.6, 2.5)        | Beta(1.2, 1.8)        |
+| Quality distribution         | $\text{Beta}(0.8, 2.0)$        | $\text{Beta}(0.6, 2.5)$        | $\text{Beta}(1.2, 1.8)$        |
 | Quality mean                 |                 0.286 |                 0.194 |                 0.400 |
-| Tail above threshold (0.80)  |               ~3%     |               ~1%     |             ~5-8%     |
+| Tail above threshold (0.80)  |               ${\sim}3\%$     |               ${\sim}1\%$     |             ${\sim}5\text{-}8\%$     |
 | true_duration_range (ticks)  |             104 - 182 |              80 - 156 |             130 - 260 |
 | true_duration_range (years)  |           2.0 - 3.5   |           1.5 - 3.0   |           2.5 - 5.0   |
 | planned_duration_range       |             125 - 220 |              96 - 187 |             156 - 312 |
 | q_major_win_threshold        |                  0.80 |                  0.80 |                  0.80 |
-| observable_ceiling dist.     | LogNormal(4.0, 0.5)   | LogNormal(4.0, 0.5)   | LogNormal(4.0, 0.5)   |
+| observable_ceiling dist.     | $\text{LogNormal}(4.0, 0.5)$   | $\text{LogNormal}(4.0, 0.5)$   | $\text{LogNormal}(4.0, 0.5)$   |
 | screening_signal_st_dev      |                  0.30 |                  0.30 |                  0.30 |
 | required_team_size_range     |              5 - 15   |              5 - 15   |              5 - 15   |
 
 ### Shared type specs (identical across all families)
 
-**Flywheel** (70/50/40 initiatives by family): Beta(6.0, 2.0) quality
-(mean ~0.75). Duration 25-45 ticks (6-10 months). Required team size
-8-10 (only size-10+ teams can staff all flywheels). Residual-dominant
-value channel (rate 0.5-2.0, decay 0.005-0.02). Low signal noise
-(0.05-0.15), low dependency (0.1-0.4). Screening signal st_dev=0.15
-(moderate). Frontier: degradation_rate=0.01.
+**Flywheel** (70/50/40 initiatives by family): $\text{Beta}(6.0, 2.0)$ quality
+(mean ${\sim}0.75$). Duration 25--45 ticks (6--10 months). Required team size
+8--10 (only size-10+ teams can staff all flywheels). Residual-dominant
+value channel (rate 0.5--2.0, decay 0.005--0.02). Low signal noise
+(0.05--0.15), low dependency (0.1--0.4). Screening signal $\sigma_{\text{screen}} = 0.15$
+(moderate). Frontier: degradation\_rate = 0.01.
 
-**Enabler** (30 initiatives): Beta(4.0, 4.0) quality (mean 0.5).
-Duration 10-30 ticks. Required team size 5-8 (any size-5+ team can
+**Enabler** (30 initiatives): $\text{Beta}(4.0, 4.0)$ quality (mean $0.5$).
+Duration 10--30 ticks. Required team size 5--8 (any size-5+ team can
 handle enablers). Capability contribution on completion (scale
-0.1-0.5). No residual or lump. Low dependency (0.0-0.2). Screening
-signal st_dev=0.20 (slightly noisier). Frontier: degradation_rate=0.005.
+0.1--0.5). No residual or lump. Low dependency (0.0--0.2). Screening
+signal $\sigma_{\text{screen}} = 0.20$ (slightly noisier). Frontier: degradation\_rate = 0.005.
 
-**Quick-win** (80/104/74 initiatives): Beta(5.0, 3.0) quality (mean
-~0.625). Duration 3-10 ticks. Required team size 5 (any team can handle
-quick wins). Completion-lump-dominant (1.0-5.0) with small residual
-tail (rate 0.01-0.10, decay 0.10-0.30). Low dependency (0.0-0.2).
-Screening signal st_dev=0.10 (informative). Frontier:
-degradation_rate=0.02.
+**Quick-win** (80/104/74 initiatives): $\text{Beta}(5.0, 3.0)$ quality (mean
+${\sim}0.625$). Duration 3--10 ticks. Required team size 5 (any team can handle
+quick wins). Completion-lump-dominant (1.0--5.0) with small residual
+tail (rate 0.01--0.10, decay 0.10--0.30). Low dependency (0.0--0.2).
+Screening signal $\sigma_{\text{screen}} = 0.10$ (informative). Frontier:
+degradation\_rate = 0.02.
 
 ---
 
@@ -92,10 +92,10 @@ All families share these environment-level settings:
 |                 | dependency_noise_exponent    | 1.0         |                                |
 |                 | default_initial_quality_belief | 0.5       | Uninformative prior            |
 |                 | reference_ceiling            | 50.0        |                                |
-|                 | learning_rate                | 0.1         | eta                            |
-|                 | execution_signal_st_dev      | 0.15        | sigma_exec                     |
-|                 | execution_learning_rate      | 0.1         | eta_exec                       |
-|                 | max_portfolio_capability     | 3.0         | C_max                          |
+|                 | learning_rate                | 0.1         | $\eta$                         |
+|                 | execution_signal_st_dev      | 0.15        | $\sigma_{\text{exec}}$         |
+|                 | execution_learning_rate      | 0.1         | $\eta_{\text{exec}}$           |
+|                 | max_portfolio_capability     | 3.0         | $C_{\text{max}}$               |
 |                 | capability_decay             | 0.005       |                                |
 
 ---
@@ -166,8 +166,8 @@ reviewer counting "free parameters" should exclude these.
 |------------------------------------|--------|-----------------------------------|
 | staffing_response_scale            | 0.0    | Staffing intensity response off   |
 | staffing_response_scale_range      | None   | No per-initiative draw            |
-| max_attention_noise_modifier       | None   | No upper cap on g(a)             |
-| dependency_learning_scale          | None   | Uses canonical L(d) = 1 - d      |
+| max_attention_noise_modifier       | None   | No upper cap on $g(a)$           |
+| dependency_learning_scale          | None   | Uses canonical $L(d) = 1 - d$    |
 | low_quality_belief_threshold       | None   | Portfolio-risk guardrail off      |
 | max_low_quality_belief_labor_share | None   | Portfolio-risk guardrail off      |
 | max_single_initiative_labor_share  | None   | Portfolio-risk guardrail off      |
@@ -183,29 +183,34 @@ reviewer counting "free parameters" should exclude these.
 
 ### Attention noise modifier: 5 code parameters, 4 effective
 
-The attention noise modifier g(a) has 5 parameters in the code:
+The attention noise modifier $g(a)$ has 5 parameters in the code:
 
-```
-g_raw(a) = 1 + k_low * (a_min - a)         if a < a_min
-g_raw(a) = 1 / (1 + k * (a - a_min))       if a >= a_min
-g(a)     = clamp(g_raw, g_min, g_max)
-```
+$$
+g_{\text{raw}}(a) = \begin{cases}
+1 + k_{\text{low}} \cdot (a_{\min} - a) & \text{if } a < a_{\min} \\
+\dfrac{1}{1 + k \cdot (a - a_{\min})} & \text{if } a \geq a_{\min}
+\end{cases}
+$$
+
+$$
+g(a) = \operatorname{clamp}(g_{\text{raw}},\; g_{\min},\; g_{\max})
+$$
 
 | Code parameter                 | Symbol | Baseline value | Active? |
 |--------------------------------|--------|----------------|---------|
-| attention_noise_threshold      | a_min  |           0.15 | Yes     |
-| low_attention_penalty_slope    | k_low  |            2.0 | Yes     |
-| attention_curve_exponent       | k      |            0.5 | Yes     |
-| min_attention_noise_modifier   | g_min  |            0.3 | Yes     |
-| max_attention_noise_modifier   | g_max  |           None | No      |
+| attention_noise_threshold      | $a_{\min}$  |           0.15 | Yes     |
+| low_attention_penalty_slope    | $k_{\text{low}}$  |            2.0 | Yes     |
+| attention_curve_exponent       | $k$      |            0.5 | Yes     |
+| min_attention_noise_modifier   | $g_{\min}$  |            0.3 | Yes     |
+| max_attention_noise_modifier   | $g_{\max}$  |           None | No      |
 
-With g_max = None, the effective active parameters are **4**, not 5.
+With $g_{\max} = \text{None}$, the effective active parameters are **4**, not 5.
 
-**Structural note:** The above-threshold branch `1 / (1 + k * (a - a_min))`
+**Structural note:** The above-threshold branch $1 / (1 + k \cdot (a - a_{\min}))$
 is a 2-parameter rational function (threshold + curvature) similar to
-the reviewer's suggested `c_1 / (1 + a^{c_2})` form. The below-threshold
-branch adds a third parameter (k_low) for asymmetric penalty when
-attention is below the threshold. The floor g_min adds a fourth. Whether
+the reviewer's suggested $c_1 / (1 + a^{c_2})$ form. The below-threshold
+branch adds a third parameter ($k_{\text{low}}$) for asymmetric penalty when
+attention is below the threshold. The floor $g_{\min}$ adds a fourth. Whether
 to simplify is a design decision deferred -- under consideration (see
 post_expert_review_plan.md Step 4).
 

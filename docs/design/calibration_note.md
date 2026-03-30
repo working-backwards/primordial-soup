@@ -6,7 +6,7 @@
 ### Academic
 This document records the empirical calibration of initiative-generator
 parameters for the Primordial Soup study. It preserves the evidence chain
-from external research to the specific Beta distributions, thresholds,
+from external research to the specific $\text{Beta}$ distributions, thresholds,
 and duration ranges used in the three named environment families.
 
 The calibration was performed in March 2026 after a 63-run baseline
@@ -65,16 +65,16 @@ study's inputs are grounded in organizational reality.
 #### 1.1 Diagnosis
 
 The pre-calibration right-tail configuration for `balanced_incumbent`
-used Beta(1.4, 6.6) with `q_major_win_threshold = 0.82`. The 99th
-percentile of Beta(1.4, 6.6) is approximately 0.55 — no draws
+used $\text{Beta}(1.4, 6.6)$ with `q_major_win_threshold = 0.82`. The 99th
+percentile of $\text{Beta}(1.4, 6.6)$ is approximately 0.55 — no draws
 reach 0.82 in any practical sample. The analytical probability:
 
-    P(q >= 0.82 | Beta(1.4, 6.6)) ≈ 0.003%
+$$P(q \geq 0.82 \mid \text{Beta}(1.4, 6.6)) \approx 0.003\%$$
 
-Expected major-win-eligible initiatives per 40-initiative pool: ~0.001.
-One eligible every ~900 seeds. The same structural problem existed in
-all three families: Beta(1.2, 7.0) with threshold 0.85
-(`short_cycle_throughput`) and Beta(1.7, 5.8) with threshold 0.78
+Expected major-win-eligible initiatives per 40-initiative pool: ${\sim}0.001$.
+One eligible every ${\sim}900$ seeds. The same structural problem existed in
+all three families: $\text{Beta}(1.2, 7.0)$ with threshold 0.85
+(`short_cycle_throughput`) and $\text{Beta}(1.7, 5.8)$ with threshold 0.78
 (`discovery_heavy`) also produced near-zero tail probabilities.
 
 This is a calibration failure, not a governance finding. The generator
@@ -83,7 +83,7 @@ to investigate.
 
 The consequence for the experimental design is that the policy comparison
 was degenerate with respect to the major-win discovery outcome family.
-When `P(is_major_win = true)` is effectively zero across all seeds,
+When $P(\text{is\_major\_win} = \text{true})$ is effectively zero across all seeds,
 the major-win discovery rate is zero under every governance policy, and
 the study cannot discriminate between patient and impatient regimes on
 this dimension. The experiment was well-posed — the policy space, the
@@ -97,33 +97,33 @@ Three independent evidence sources were triangulated:
 
 1. **Incumbent new-business-building research (Project 1).**
    Company-level breakthrough outcomes among completed exploratory
-   initiatives: 0.3–4% incidence (midpoint ~1.5%). Duration to stable
-   resolution: 3–10 years (midpoint ~5 years). "Major win" defined as
+   initiatives: $0.3\text{--}4\%$ incidence (midpoint ${\sim}1.5\%$). Duration to stable
+   resolution: 3--10 years (midpoint ${\sim}5$ years). "Major win" defined as
    a governance-triggering scale-decision event, not merely a positive
    return.
 
 2. **Internal venture and exploratory-innovation evidence (Project 1).**
    Corroborates the rare-but-nonzero range. Hit rates in structured
-   corporate venturing programs align with the 1–3% band when filtered
+   corporate venturing programs align with the $1\text{--}3\%$ band when filtered
    for outcomes at the scale the study models.
 
-3. **Parametric analysis (Project 3).** Systematic evaluation of Beta
+3. **Parametric analysis (Project 3).** Systematic evaluation of $\text{Beta}$
    family parameters against the threshold rule
-   `is_major_win = (q >= q_major_win_threshold)`. Beta(0.8, 2.0) with
-   threshold 0.80 produces ~3% major-win incidence — squarely in the
+   $\text{is\_major\_win} = (q \geq \text{q\_major\_win\_threshold})$. $\text{Beta}(0.8, 2.0)$ with
+   threshold 0.80 produces ${\sim}3\%$ major-win incidence — squarely in the
    empirically supported mid-case range.
 
 #### 1.3 Calibrated parameters
 
-All three families now use a unified `q_major_win_threshold = 0.80`.
-Family-specific Beta distributions are tuned to produce different
+All three families now use a unified $\text{q\_major\_win\_threshold} = 0.80$.
+Family-specific $\text{Beta}$ distributions are tuned to produce different
 major-win incidence levels spanning the empirical range:
 
-| Family | Beta(α, β) | P(q ≥ 0.80) | Design intent |
+| Family | $\text{Beta}(\alpha, \beta)$ | $P(q \geq 0.80)$ | Design intent |
 |--------|-----------|-------------|---------------|
-| `balanced_incumbent` | Beta(0.8, 2.0) | ~3% | Mid-case |
-| `short_cycle_throughput` | Beta(0.6, 2.5) | ~1% | Scarce major wins |
-| `discovery_heavy` | Beta(1.2, 1.8) | ~5–8% | Rich major wins |
+| `balanced_incumbent` | $\text{Beta}(0.8, 2.0)$ | ${\sim}3\%$ | Mid-case |
+| `short_cycle_throughput` | $\text{Beta}(0.6, 2.5)$ | ${\sim}1\%$ | Scarce major wins |
+| `discovery_heavy` | $\text{Beta}(1.2, 1.8)$ | ${\sim}5\text{--}8\%$ | Rich major wins |
 
 The design uses a common threshold with family-varying distributional
 shape rather than family-varying thresholds. This isolates the
@@ -145,7 +145,7 @@ years to stable resolution. With one tick = one week:
 | `short_cycle_throughput` | (80, 156) | 1.5–3.0 years | Shorter cycles |
 | `discovery_heavy` | (130, 260) | 2.5–5.0 years | Longer exploration |
 
-`planned_duration_range` is set to (1.2×, 1.2×) of the true range
+`planned_duration_range` is set to $1.2\times$ the true range
 (rounded), reflecting the systematic overestimate typical of
 exploratory work planning:
 
@@ -155,11 +155,11 @@ exploratory work planning:
 | `short_cycle_throughput` | (96, 187) |
 | `discovery_heavy` | (156, 312) |
 
-The 1.2× planning bias multiplier is a structural assumption grounded
+The $1.2\times$ planning bias multiplier is a structural assumption grounded
 in the well-documented tendency toward optimistic duration estimates in
 exploratory work, where the scope of required learning is itself
 uncertain at the outset. This produces `latent_execution_fidelity`
-values (`planned / true`) clustered near 0.83 for right-tail
+values ($\text{planned} / \text{true}$) clustered near 0.83 for right-tail
 initiatives, meaning the execution belief will converge toward a
 value below 1.0 even for initiatives proceeding at their true pace.
 
@@ -252,9 +252,9 @@ determines how often initiatives reach that threshold.
 
 | Environment | Major-win incidence | Design intent |
 |---|---:|---|
-| **Balanced incumbent** | ~3% | Mid-case: a typical large organization with a normal mix of exploratory bets |
-| **Short-cycle throughput** | ~1% | Scarce major wins: an environment where transformational outcomes are rare and most exploratory work yields modest results |
-| **Discovery-heavy** | ~5–8% | Rich major wins: an environment with a richer vein of transformational opportunity, perhaps an emerging market or platform shift |
+| **Balanced incumbent** | ${\sim}3\%$ | Mid-case: a typical large organization with a normal mix of exploratory bets |
+| **Short-cycle throughput** | ${\sim}1\%$ | Scarce major wins: an environment where transformational outcomes are rare and most exploratory work yields modest results |
+| **Discovery-heavy** | ${\sim}5\text{--}8\%$ | Rich major wins: an environment with a richer vein of transformational opportunity, perhaps an emerging market or platform shift |
 
 These three incidence rates span the empirically supported range. Findings
 that hold across all three are structurally robust. Findings that hold in
@@ -337,7 +337,7 @@ family's opportunity landscape:
 | Enabler | 0.005 | Infrastructure needs are durable; slow degradation |
 | Right-tail | 0.0 | Exploratory opportunities are not diminished by prior attempts |
 
-<!-- specification-gap: the functional form by which frontier_degradation_rate enters the quality draw for newly materialized initiatives is not specified here — whether it shifts the Beta distribution parameters, applies a multiplicative discount to drawn quality, or operates through another mechanism -->
+<!-- specification-gap: the functional form by which frontier_degradation_rate enters the quality draw for newly materialized initiatives is not specified here — whether it shifts the $\text{Beta}$ distribution parameters, applies a multiplicative discount to drawn quality, or operates through another mechanism -->
 
 **Pool replenishment.** When a family's available pool is completely
 exhausted, new initiatives are materialized.
@@ -352,10 +352,10 @@ Right-tail uses prize-preserving refresh with
 `right_tail_refresh_quality_degradation = 0.0` (fresh draw from
 same distribution on re-attempt). When a right-tail initiative is
 re-staffed after a previous team was withdrawn, it receives an
-independent draw from the same family-specific Beta distribution.
+independent draw from the same family-specific $\text{Beta}$ distribution.
 The rationale is that in exploratory domains, re-approaching a problem
 with a different team constitutes a substantially independent attempt
-rather than a continuation of the prior effort. The `is_major_win`
+rather than a continuation of the prior effort. The $\text{is\_major\_win}$
 flag is re-determined by the threshold rule applied to the new draw.
 Project 4 flagged potential
 fragility in attempt-count tracking but confirmed the current
@@ -433,7 +433,7 @@ rather than fitted to external data.
 
 #### 3.1 Flywheel
 
-- **Quality:** Beta(6.0, 2.0), mean ≈ 0.75. Flywheel initiatives are
+- **Quality:** $\text{Beta}(6.0, 2.0)$, mean $\approx 0.75$. Flywheel initiatives are
   high-mean, low-variance: established business models with known
   compounding dynamics. The high mean reflects that organizations
   generally have good ex-ante visibility into flywheel quality.
@@ -444,17 +444,17 @@ rather than fitted to external data.
 - **No completion lump:** Value comes from durable streams, not
   one-time events.
 
-The Beta(6.0, 2.0) shape places ~97% of the probability mass above
-0.40 and ~73% above 0.70, producing a quality landscape where most
+The $\text{Beta}(6.0, 2.0)$ shape places ${\sim}97\%$ of the probability mass above
+0.40 and ${\sim}73\%$ above 0.70, producing a quality landscape where most
 flywheels are genuinely good bets but a small fraction underperform.
-The variance (σ² ≈ 0.021) is the lowest of any family, reflecting
+The variance ($\sigma^2 \approx 0.021$) is the lowest of any family, reflecting
 that the strategic uncertainty in flywheel work is primarily about
 execution, not about whether the underlying compounding mechanism is
 sound.
 
 #### 3.2 Enabler
 
-- **Quality:** Beta(4.0, 4.0), mean = 0.50. Enablers have symmetric
+- **Quality:** $\text{Beta}(4.0, 4.0)$, mean $= 0.50$. Enablers have symmetric
   uncertainty — they may or may not deliver as promised.
 - **Duration:** 10–30 ticks (2–7 months). Infrastructure-style work
   with bounded scope.
@@ -463,7 +463,7 @@ sound.
 - **No direct value channels:** Enablers do not produce lump or
   residual value. Their contribution is indirect through capability.
 
-The Beta(4.0, 4.0) symmetric distribution reflects genuine ex-ante
+The $\text{Beta}(4.0, 4.0)$ symmetric distribution reflects genuine ex-ante
 uncertainty about enabler delivery. Unlike flywheels, there is no
 strong prior that most enablers succeed — approximately half will
 deliver meaningful capability improvement, half will fall short.
@@ -471,7 +471,7 @@ deliver meaningful capability improvement, half will fall short.
 The absence of direct value channels is a deliberate design choice
 with consequences for the experimental comparison. Enabler value
 enters the model exclusively through the portfolio capability term
-C_t, which reduces effective signal noise σ_eff for all future
+$C_t$, which reduces effective signal noise $\sigma_\text{eff}$ for all future
 staffed initiatives. Governance policies that evaluate initiatives
 on direct realized value (lump or residual) will systematically
 undervalue enabler work relative to policies that account for
@@ -482,7 +482,7 @@ different long-run outcomes.
 
 #### 3.3 Quick-win
 
-- **Quality:** Beta(5.0, 3.0), mean ≈ 0.625. Moderate-to-high quality,
+- **Quality:** $\text{Beta}(5.0, 3.0)$, mean $\approx 0.625$. Moderate-to-high quality,
   low variance. Quick wins are well-understood opportunities.
 - **Duration:** 3–10 ticks (3–10 weeks). Short execution cycles.
 - **Completion lump:** 1.0–5.0. The dominant value channel.
@@ -521,7 +521,7 @@ comparison to be valid are:
   wins, but a tail fraction are)
 - Quick-win duration is an order of magnitude shorter than right-tail
   duration
-- Enabler value is exclusively indirect (enters through C_t, not
+- Enabler value is exclusively indirect (enters through $C_t$, not
   through lump or residual channels)
 - Flywheel residual decay is slow relative to quick-win residual decay
 
@@ -646,15 +646,15 @@ tradeoffs regardless of the exact numbers.
 The noise ordering across families is consequential for the
 experimental comparison. Recall the strategic signal model:
 
-    y_t ~ Normal(q, σ_eff²)
+$$y_t \sim \text{Normal}(q, \sigma_\text{eff}^2)$$
 
-where σ_eff incorporates the family-specific `sigma_base`, dependency
-level, attention modifier, and portfolio capability. Higher σ_base
+where $\sigma_\text{eff}$ incorporates the family-specific $\sigma_\text{base}$, dependency
+level, attention modifier, and portfolio capability. Higher $\sigma_\text{base}$
 means more observations are required before `quality_belief_t`
 converges to a reliable estimate of `latent_quality`. The per-family
 noise ranges implement the following information structure:
 
-| Family | σ_base range | Implication for belief convergence |
+| Family | $\sigma_\text{base}$ range | Implication for belief convergence |
 |--------|-------------|----------------------------------|
 | Flywheel | 0.05–0.15 | Fast convergence; governance can form reliable quality assessments within a few months of staffed work |
 | Quick-win | 0.05–0.15 | Fast convergence; short duration means the initiative often completes before belief converges fully, but this is acceptable because the lump payoff is bounded |
@@ -663,8 +663,8 @@ noise ranges implement the following information structure:
 
 The right-tail noise floor is the most consequential noise setting
 in the model. It directly determines how much staffed time —
-and how much executive attention (through the g(a) modifier in
-σ_eff) — governance must invest before it can reliably discriminate
+and how much executive attention (through the $g(a)$ modifier in
+$\sigma_\text{eff}$) — governance must invest before it can reliably discriminate
 between right-tail initiatives that merit persistence and those
 that should be stopped. This is the primary mechanism through which
 governance patience acquires informational value: under high noise,
@@ -673,34 +673,34 @@ has not yet converged.
 
 #### 4.2 Learning rate
 
-- `learning_rate = 0.1` (η in the design docs). Controls how quickly
-  quality_belief_t converges toward latent_quality.
-- `execution_learning_rate = 0.1` (η_exec). Controls execution belief
+- `learning_rate = 0.1` ($\eta$ in the design docs). Controls how quickly
+  `quality_belief_t` converges toward `latent_quality`.
+- `execution_learning_rate = 0.1` ($\eta_\text{exec}$). Controls execution belief
   convergence.
 - Both are moderate: fast enough to produce meaningful belief
   evolution within the 313-tick horizon, slow enough that governance
   patience matters.
 
-The choice of η = 0.1 places the experiment in the regime where the
+The choice of $\eta = 0.1$ places the experiment in the regime where the
 policy comparison is informative. Consider the two degenerate
 alternatives:
 
-- **η → 1 (instantaneous learning):** `quality_belief_t` converges
+- **$\eta \to 1$ (instantaneous learning):** `quality_belief_t` converges
   to `latent_quality` within a few ticks regardless of noise.
   All governance policies reach the same beliefs and make the same
   stop/continue decisions. The policy comparison collapses — patience
   has no informational advantage because there is no learning to be
   patient for.
-- **η → 0 (no learning):** `quality_belief_t` remains near its
+- **$\eta \to 0$ (no learning):** `quality_belief_t` remains near its
   initial value (0.5) indefinitely. Even patient governance cannot
   form a reliable quality estimate within the horizon. Patience has
   no informational payoff because belief evolution is too slow to
   affect decisions.
 
-At η = 0.1, beliefs evolve meaningfully over the horizon — the EMA
+At $\eta = 0.1$, beliefs evolve meaningfully over the horizon — the EMA
 half-life is approximately 7 ticks — but convergence is slow enough
 that the accumulated observation count matters. A governance regime
-that allocates more attention (reducing σ_eff and thus improving
+that allocates more attention (reducing $\sigma_\text{eff}$ and thus improving
 signal-to-noise ratio) and persists longer (accumulating more
 observations) will genuinely produce more accurate beliefs than
 one that does not. This is the operating region where the three
@@ -709,7 +709,7 @@ attention allocation effects on stop/continue quality, enabler
 investment effects on capability trajectories — can be meaningfully
 investigated.
 
-<!-- specification-gap: the EMA half-life claim of ~7 ticks assumes a specific relationship between η and convergence rate; the exact convergence dynamics of the clamped EMA with noisy inputs are not formally derived here -->
+<!-- specification-gap: the EMA half-life claim of ~7 ticks assumes a specific relationship between $\eta$ and convergence rate; the exact convergence dynamics of the clamped EMA with noisy inputs are not formally derived here -->
 
 #### 4.3 Ramp period
 
@@ -718,10 +718,10 @@ investigated.
 - This is a structural governance cost, not a calibration target.
   Ramp-period sensitivity is a separate experiment dimension.
 
-During the ramp period, the learning efficiency modifier λ_ramp
+During the ramp period, the learning efficiency modifier $\lambda_\text{ramp}$
 increases linearly from a reduced value to 1.0 over the 4-tick
 window. This means that the effective learning rate for a newly
-assigned team is lower than η during the ramp, slowing belief
+assigned team is lower than $\eta$ during the ramp, slowing belief
 convergence and reducing the informational value of the first month
 of work. A governance regime that frequently reassigns teams pays
 this switching cost repeatedly; one that commits teams for longer
@@ -815,12 +815,12 @@ organizational capability development — with emphasis on the
 major-win discovery dimension, where the pre-calibration collapse
 demonstrated that parameter sensitivity can be catastrophic.
 
-1. **q_major_win_threshold and right-tail Beta parameters** — These
+1. **q_major_win_threshold and right-tail $\text{Beta}$ parameters** — These
    jointly determine whether the major-win mechanism activates at all.
    The pre-calibration collapse demonstrated that this is the single
    most consequential calibration choice. The interaction is
-   non-linear: P(q ≥ threshold) is highly sensitive to small changes
-   in both the threshold value and the Beta shape parameters,
+   non-linear: $P(q \geq \text{threshold})$ is highly sensitive to small changes
+   in both the threshold value and the $\text{Beta}$ shape parameters,
    particularly in the tail region. If the threshold is set too high
    relative to the distribution's support, or the distribution is too
    concentrated below the threshold, the study structurally cannot
@@ -834,8 +834,8 @@ demonstrated that parameter sensitivity can be catastrophic.
    patient governance has a feasible completion path while impatient
    governance faces a genuine tradeoff between early termination and
    continued investment. Duration interacts with the 313-tick horizon
-   as a hard constraint: an initiative with `true_duration_ticks` >
-   313 cannot complete regardless of governance.
+   as a hard constraint: an initiative with `true_duration_ticks` $> 313$
+   cannot complete regardless of governance.
 
 3. **confidence_decline_threshold (governance)** — The primary
    governance lever that the study varies. Not a generator parameter,
@@ -861,7 +861,7 @@ demonstrated that parameter sensitivity can be catastrophic.
 5. **Signal noise (base_signal_st_dev)** — Higher noise makes belief
    formation harder and amplifies the value of patience. The noise
    level determines how many staffed ticks — and how much executive
-   attention (through σ_eff) — are required before governance can
+   attention (through $\sigma_\text{eff}$) — are required before governance can
    reliably discriminate between high-quality and low-quality
    initiatives. This parameter interacts multiplicatively with the
    learning rate to determine overall convergence behavior.
@@ -956,9 +956,9 @@ will reveal, ordered from most consequential to least.
 
 ### Academic
 1. **Right-tail incidence is calibrated to a range, not a point.**
-   The 0.3–4% band from Project 1 spans an order of magnitude. The
+   The $0.3\text{--}4\%$ band from Project 1 spans an order of magnitude. The
    three families are designed to cover low/mid/high within this range,
-   but exact Beta parameters are not fitted to empirical distributions.
+   but exact $\text{Beta}$ parameters are not fitted to empirical distributions.
    Findings that replicate across all three families are robust to
    uncertainty in the tail probability. Findings that hold in only one
    family are conditional on the opportunity landscape and should be

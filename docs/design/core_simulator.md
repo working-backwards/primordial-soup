@@ -12,15 +12,15 @@ The core simulator executes a sequence of discrete ticks. At each tick the engin
 4. Realizes residual value using end-of-tick state.
 5. Records outputs and end-of-tick events.
 
-Governance actions decided at end-of-tick `T` become effective at the start of `T+1` unless explicitly stated otherwise.
+Governance actions decided at end-of-tick $T$ become effective at the start of $T{+}1$ unless explicitly stated otherwise.
 
 Naming convention for this document:
 
 - explanatory prose uses descriptive names such as `quality_belief_t`,
   `execution_belief_t`, `latent_quality`, `effective_signal_st_dev_t`, and
   `base_tam_patience_window`,
-- equations may still use compact symbols such as `c_t`, `c_exec_t`, `q`,
-  `sigma_eff`, and `T_tam`,
+- equations may still use compact symbols such as $c_t$, $c_{\text{exec},t}$, $q$,
+  $\sigma_{\text{eff}}$, and $T_{\text{tam}}$,
 - see `docs/study/naming_conventions.md` for the canonical mapping.
 
 ### Business
@@ -37,36 +37,39 @@ Decisions made at the end of one week take effect at the start of the next. This
 ## Tick ordering (deterministic)
 
 ### Academic
-At tick `t` the engine executes a deterministic sequence. **Key invariant (canonical — end-of-tick value realization):**
-> All value for tick `t` is realized after all belief updates and lifecycle transitions for tick `t` have completed. Realized value formulas use true-world quantities (e.g., `q`) and initiative parameters — not belief scalars — so this ordering introduces no look-ahead bias.
+At tick $t$ the engine executes a deterministic sequence. **Key invariant (canonical — end-of-tick value realization):**
+> All value for tick $t$ is realized after all belief updates and lifecycle transitions for tick $t$ have completed. Realized value formulas use true-world quantities (e.g., $q$) and initiative parameters — not belief scalars — so this ordering introduces no look-ahead bias.
 
-Canonical sequence at tick `t`:
+Canonical sequence at tick $t$:
 
-1. **Apply governance actions** decided at end-of-`t-1` (start-of-tick effect). These actions (stop/continue, team assignment, exec attention settings) control staffing and attention for tick `t`.
+1. **Apply governance actions** decided at end-of-$t{-}1$ (start-of-tick effect). These actions (stop/continue, team assignment, exec attention settings) control staffing and attention for tick $t$.
 2. **Apply new assignments and initialize assignment-relative state**: for each
-   new assignment effective at the start of tick `t`, initialize
+   new assignment effective at the start of tick $t$, initialize
    `ticks_since_assignment = 0` on that initiative before the tick's production
    step. This value is read by the ramp formula *before* it is incremented in
-   step 3. The ramp multiplier for tick `t` is therefore computed using
-   `t_elapsed = ticks_since_assignment` at its pre-increment value of 0 on the
+   step 3. The ramp multiplier for tick $t$ is therefore computed using
+   $t_{\text{elapsed}} = \text{ticks\_since\_assignment}$ at its pre-increment value of 0 on the
    first staffed tick.
 3. **Production & observation**: for every staffed initiative, the engine samples two
    independent observation streams and increments both staffed clocks.
 
    *Strategic quality signal:*
-   ```
-   y_t ~ Normal(q, σ_eff(d, a, C_t)^2)
-   ```
-   where latent quality (`q`) is the initiative's strategic quality and the effective
-   signal st_dev (`σ_eff`) is the attention- and dependency-modulated observation
+
+   $$y_t \sim \mathcal{N}\!\bigl(q,\; \sigma_{\text{eff}}(d, a, C_t)^2\bigr)$$
+
+   where latent quality ($q$) is the initiative's strategic quality and the effective
+   signal st\_dev ($\sigma_{\text{eff}}$) is the attention- and dependency-modulated observation
    standard deviation (see below).
 
    *Execution progress signal* (only for initiatives where `true_duration_ticks` is set):
-   ```
-   z_t ~ Normal(q_exec, σ_exec^2)
-   where q_exec = min(1.0, planned_duration_ticks / true_duration_ticks)
-   ```
-   `σ_exec` is a `ModelConfig` parameter shared across all initiatives.
+
+   $$z_t \sim \mathcal{N}\!\bigl(q_{\text{exec}},\; \sigma_{\text{exec}}^2\bigr)$$
+
+   where
+
+   $$q_{\text{exec}} = \operatorname{min}\!\bigl(1.0,\; \text{planned\_duration\_ticks} \,/\, \text{true\_duration\_ticks}\bigr)$$
+
+   $\sigma_{\text{exec}}$ is a `ModelConfig` parameter shared across all initiatives.
 
    **Attention asymmetry (intentional design decision):** the execution signal is
    *not* modulated by executive attention, unlike the strategic quality signal.
@@ -84,7 +87,7 @@ Canonical sequence at tick `t`:
    known directional bias, symmetric across regimes sharing the same world.
 
    **Stationarity assumption (deliberate scoping decision):** Latent execution
-   fidelity (`q_exec`) is fixed at generation. The model represents governance *gradually inferring* a fixed but
+   fidelity ($q_{\text{exec}}$) is fixed at generation. The model represents governance *gradually inferring* a fixed but
    initially unknown execution difficulty, not a project whose scope or difficulty
    genuinely changes midstream. This is a simplification. Real initiatives can experience genuine scope change.
    That mechanism is out of canonical scope for this study.
@@ -107,9 +110,8 @@ Canonical sequence at tick `t`:
    purposes and must not be confused or substituted for one another.
 
    *Progress fraction* (for initiatives with `true_duration_ticks` set):
-   ```
-   progress_fraction = min(staffed_tick_count / planned_duration_ticks, 1.0)
-   ```
+
+   $$\text{progress\_fraction} = \operatorname{min}\!\bigl(\text{staffed\_tick\_count} \,/\, \text{planned\_duration\_ticks},\; 1.0\bigr)$$
    For initiatives without `true_duration_ticks` (unbounded duration): `progress_fraction = None`.
    The formula uses `planned_duration_ticks` (the original estimate), not
    `implied_duration_ticks` (the dynamically revised estimate), because
@@ -122,63 +124,62 @@ Canonical sequence at tick `t`:
    from `staffed_tick_count` and `planned_duration_ticks`, both of which are
    carried on `InitiativeState`. The engine does not store it separately.
 
-   Raw observations (`y_t` and `z_t` where applicable) are drawn this step and
+   Raw observations ($y_t$ and $z_t$ where applicable) are drawn this step and
    fed into the belief updates in step 5. They are ephemeral intermediates, not
    persisted on initiative state. The `belief_history` tuple (maintained for
    stagnation detection) records quality beliefs, not raw signals.
-4. **Value realization deferred (end-of-tick model)**: no value is realized at this step. All value realization for tick `t` occurs after belief updates and lifecycle transitions have completed. Completion-lump value is realized in step 5c at the completion transition; residual value is realized in step 6.
+4. **Value realization deferred (end-of-tick model)**: no value is realized at this step. All value realization for tick $t$ occurs after belief updates and lifecycle transitions have completed. Completion-lump value is realized in step 5c at the completion transition; residual value is realized in step 6.
 5. **Belief update**: the engine updates both belief
    scalars.
 
    In this section, the compact symbols map to the following descriptive names:
-   `c_t` = `quality_belief_t`, `c_exec_t` = `execution_belief_t`,
-   `q` = `latent_quality`, `sigma_eff` = `effective_signal_st_dev_t`.
+   $c_t$ = `quality_belief_t`, $c_{\text{exec},t}$ = `execution_belief_t`,
+   $q$ = `latent_quality`, $\sigma_{\text{eff}}$ = `effective_signal_st_dev_t`.
 
    *Strategic quality belief update:*
-   ```
-   c_{t+1} = clamp( c_t + η · staffing_multiplier_t · ramp_multiplier_t · L(d) · (y_t - c_t), 0, 1 )
-   ```
-   - The base learning rate (`η`) is a ModelConfig parameter.
-   - `staffing_multiplier_t` captures the effect of staffing intensity on
+
+   $$c_{t+1} = \operatorname{clamp}\!\bigl( c_t + \eta \cdot \text{staffing\_multiplier}_t \cdot \text{ramp\_multiplier}_t \cdot L(d) \cdot (y_t - c_t),\; 0,\; 1 \bigr)$$
+
+   - The base learning rate ($\eta$) is a ModelConfig parameter.
+   - $\text{staffing\_multiplier}_t$ captures the effect of staffing intensity on
      learning. When the assigned team is larger than the initiative's minimum
      staffing threshold (`required_team_size`), additional staffing accelerates
      learning with diminishing returns:
-     ```
-     staffing_multiplier_t = 1.0 + staffing_response_scale
-                                 × (1.0 - required_team_size / assigned_team_size)
-     ```
-     When `staffing_response_scale = 0.0` (the default), the multiplier is
-     exactly `1.0` regardless of team size, preserving backward compatibility.
+
+     $$\text{staffing\_multiplier}_t = 1.0 + \text{staffing\_response\_scale} \times \bigl(1.0 - \text{required\_team\_size} \,/\, \text{assigned\_team\_size}\bigr)$$
+
+     When `staffing_response_scale` $= 0.0$ (the default), the multiplier is
+     exactly $1.0$ regardless of team size, preserving backward compatibility.
      `staffing_response_scale` is a per-initiative study parameter expressing a
      modeled hypothesis about how strongly learning responds to additional
      staffing, not an empirical truth. See `team_and_resources.md` for the
      full staffing intensity semantics.
-   - `ramp_multiplier_t = 1.0` unless the initiative is currently in ramp, in
+   - $\text{ramp\_multiplier}_t = 1.0$ unless the initiative is currently in ramp, in
      which case it is the assignment-relative ramp multiplier defined below.
-   - The dependency-adjusted learning efficiency `L(d)` uses the initiative's
+   - The dependency-adjusted learning efficiency $L(d)$ uses the initiative's
      immutable dependency attribute.
    - This update is attention- and dependency-modulated because strategic quality is
      difficult to observe and its clarity depends on how much focused leadership
      inquiry is applied.
-   - Quality belief initializes at `c_0 = initial_belief_c0`, defaulting to 0.5 —
-     the symmetric midpoint of the [0, 1] belief domain. This represents maximum
+   - Quality belief initializes at $c_0 = \text{initial\_belief\_c0}$, defaulting to $0.5$ —
+     the symmetric midpoint of the $[0, 1]$ belief domain. This represents maximum
      prior uncertainty: the decision-maker begins with no information favoring
      high or low latent quality. The initialization is symmetric about the
      midpoint by design, so the prior does not bias the belief trajectory toward
      either boundary.
 
    *Execution belief update* (only for initiatives where `true_duration_ticks` is set):
-   ```
-   c_exec_{t+1} = clamp( c_exec_t + η_exec · (z_t - c_exec_t), 0, 1 )
-   ```
-   - The execution learning rate (`η_exec`) is a ModelConfig parameter.
-   - This update is **not** modulated by `L(d)` or executive attention. See the
+
+   $$c_{\text{exec},t+1} = \operatorname{clamp}\!\bigl( c_{\text{exec},t} + \eta_{\text{exec}} \cdot (z_t - c_{\text{exec},t}),\; 0,\; 1 \bigr)$$
+
+   - The execution learning rate ($\eta_{\text{exec}}$) is a ModelConfig parameter.
+   - This update is **not** modulated by $L(d)$ or executive attention. See the
      attention asymmetry note in step 3.
    - Execution belief initializes to the planning prior (`initial_c_exec_0`),
-     configurable per initiative, defaulting to 1.0.
+     configurable per initiative, defaulting to $1.0$.
    - **Initialization boundary note:** Execution belief initializes to the planning
-     prior (default 1.0). For on-plan initiatives (latent execution fidelity 1.0),
-     the execution-progress signal `z_t` exceeds 1.0 with ~50% probability and is
+     prior (default $1.0$). For on-plan initiatives (latent execution fidelity $1.0$),
+     the execution-progress signal $z_t$ exceeds $1.0$ with ${\sim}50\%$ probability and is
      clamped, while negative deviations are unclamped. This produces systematic
      downward drift in execution belief over time even for genuinely on-plan
      initiatives. The bias is consistent across all governance regimes sharing the
@@ -186,36 +187,36 @@ Canonical sequence at tick `t`:
      documented as a known modeling assumption rather than corrected by changing the
      initialization.
    - Execution belief is a belief about schedule fidelity relative to plan, not a
-     direct estimate of completion time. A value of 1.0 means governance currently believes
-     the initiative will run on plan; a value of 0.5 means governance believes it will
+     direct estimate of completion time. A value of $1.0$ means governance currently believes
+     the initiative will run on plan; a value of $0.5$ means governance believes it will
      take approximately twice as long as planned. The derived observable
     `implied_duration_ticks` in `GovernanceObservation` translates this belief back
 into business-interpretable units for use in policy logic and reporting.
 
 5b. **Review-state update (before governance invocation)**:
 
-    After belief updates for tick `t` are complete, and before governance is
-    invoked at the end of tick `t`, the engine updates per-initiative review
-    state using the end-of-tick quality belief (`quality_belief_t`).
+    After belief updates for tick $t$ are complete, and before governance is
+    invoked at the end of tick $t$, the engine updates per-initiative review
+    state using the end-of-tick quality belief ($c_t$).
 
     For each initiative:
 
     - If the initiative is in `lifecycle_state == "active"` and is currently staffed
       (`assigned_team_id is not None`), then that initiative is considered
-      **reviewed on tick t**.
+      **reviewed on tick $t$**.
     - For reviewed initiatives, increment:
-      ```
-      review_count = review_count + 1
-      ```
+
+      $$\text{review\_count} = \text{review\_count} + 1$$
+
     - For reviewed initiatives with `observable_ceiling is not None`, evaluate the
       bounded-prize adequacy test using the current end-of-tick
       quality belief from this same review:
-      ```
-      E[v_prize] = c_t × observable_ceiling
-      ```
-      If `E[v_prize] < θ_tam_ratio × observable_ceiling`, increment
+
+      $$\mathbb{E}[v_{\text{prize}}] = c_t \times \text{observable\_ceiling}$$
+
+      If $\mathbb{E}[v_{\text{prize}}] < \theta_{\text{tam\_ratio}} \times \text{observable\_ceiling}$, increment
       `consecutive_reviews_below_tam_ratio` by 1; otherwise reset it to 0.
-    - For all initiatives that are **not** reviewed on tick `t`, reset
+    - For all initiatives that are **not** reviewed on tick $t$, reset
       `consecutive_reviews_below_tam_ratio = 0`.
 
     Governance therefore sees `review_count` and
@@ -237,37 +238,33 @@ into business-interpretable units for use in policy logic and reporting.
       `value_channels.residual.activation_state == "completed"`, sets
       `residual_activated = true` and records `residual_activation_tick`,
     - **Team release**: set `team.assigned_initiative_id = None`, effective at start of
-      tick `t+1`. The completing initiative's team is available for reassignment
-      beginning at the governance step of tick `t+1`.
+      tick $t{+}1$. The completing initiative's team is available for reassignment
+      beginning at the governance step of tick $t{+}1$.
     - if `capability_contribution_scale > 0`, records that initiative's
       completion-time capability gain:
-      ```
-      ΔC_i = q_i * capability_contribution_scale_i
-      ```
-      for inclusion in the portfolio capability update after all completion
-      transitions on tick `t` have been processed.
 
-    After all completion transitions on tick `t` have been processed, the engine
+      $$\Delta C_i = q_i \cdot \text{capability\_contribution\_scale}_i$$
+
+      for inclusion in the portfolio capability update after all completion
+      transitions on tick $t$ have been processed.
+
+    After all completion transitions on tick $t$ have been processed, the engine
     aggregates the completion-time capability gains:
-    ```
-    ΔC_completion_t = Σ_i ΔC_i
-    ```
-    over all initiatives completing on tick `t` with
-    `capability_contribution_scale_i > 0`, and then updates portfolio capability:
-    ```
-    C_{t+1} = clamp(
-        1.0 + (C_t - 1.0) * exp(-capability_decay) + ΔC_completion_t,
-        1.0,
-        C_max
-    )
-    ```
-    where `capability_decay >= 0` is the model-level per-tick exponential decay
+
+    $$\Delta C_{\text{completion},t} = \sum_i \Delta C_i$$
+
+    over all initiatives completing on tick $t$ with
+    $\text{capability\_contribution\_scale}_i > 0$, and then updates portfolio capability:
+
+    $$C_{t+1} = \operatorname{clamp}\!\Bigl( 1.0 + (C_t - 1.0) \cdot \exp(-\text{capability\_decay}) + \Delta C_{\text{completion},t},\; 1.0,\; C_{\max} \Bigr)$$
+
+    where $\text{capability\_decay} \geq 0$ is the model-level per-tick exponential decay
     rate for the excess capability stock above baseline.
 
     This update order is intentional. Existing capability stock decays first, and
     new completion gains are then added without being immediately decayed on the
     same tick. That makes new enabler gains fully available when they first take
-    effect at `t+1`, while still ensuring that previously accumulated advantage
+    effect at $t{+}1$, while still ensuring that previously accumulated advantage
     erodes over time.
 
     For right-tail initiatives, the canonical study treats the major-win outcome as
@@ -276,14 +273,14 @@ into business-interpretable units for use in policy logic and reporting.
     a separate `viable_discovered` state.
 
     The `is_major_win` flag is assigned at generation as a deterministic threshold
-    function of latent quality: `is_major_win = (q >= q_major_win_threshold)`. It
+    function of latent quality: $\text{is\_major\_win} = (q \geq q_{\text{major\_win\_threshold}})$. It
     is hidden from governance throughout the run. There is no intermediate discovery
     state — major-win status is revealed only at completion, and only through the
     emitted `MajorWinEvent`. The engine does not spawn follow-on initiatives or
     price downstream economics of a major-win discovery within the horizon.
 
-    Capability updates take effect at `C_{t+1}`, meaning initiatives completing at
-    tick `t` experience the updated capability starting at tick `t+1`, consistent
+    Capability updates take effect at $C_{t+1}$, meaning initiatives completing at
+    tick $t$ experience the updated capability starting at tick $t{+}1$, consistent
     with the general action-timing invariant. Residual activation takes effect
     immediately: an initiative whose residual activates at step 5c is included in
     the residual pass at step 6 of the same tick.
@@ -317,28 +314,26 @@ into business-interpretable units for use in policy logic and reporting.
 7. **Record outputs & metrics** and advance to next tick. Governance sees the
    updated quality belief and all end-of-tick state/event outputs when it
    performs its end-of-tick review; governance decisions formed at end-of-tick
-   `t` take effect at start of tick `t+1`.
+   $t$ take effect at start of tick $t{+}1$.
 
-**Learning efficiency `L(d)` (canonical default)**
+**Learning efficiency $L(d)$ (canonical default)**
 
 The canonical closed-form default, applied to immutable initiative dependency:
 
-```
-L(d) = 1 - d
-```
+$$L(d) = 1 - d$$
 
 This is the canonical linear form (learning efficiency decreases linearly with
-dependency level `d`). Implementations may parameterize alternative forms,
-but `L(d) = 1 - d` is the default.
+dependency level $d$). Implementations may parameterize alternative forms,
+but $L(d) = 1 - d$ is the default.
 
-Boundary cases: at `d = 0` (no external dependencies), `L(0) = 1.0` and the
+Boundary cases: at $d = 0$ (no external dependencies), $L(0) = 1.0$ and the
 belief update achieves full learning efficiency — the innovation term
-`(y_t - c_t)` enters the update at full scale. At `d = 1` (maximum dependency),
-`L(1) = 0.0` and the belief update receives zero weight from the observation,
+$(y_t - c_t)$ enters the update at full scale. At $d = 1$ (maximum dependency),
+$L(1) = 0.0$ and the belief update receives zero weight from the observation,
 regardless of signal quality, staffing intensity, or attention allocation. In
 this limit, observations carry no information about the initiative's intrinsic
 strategic quality because outcomes are entirely determined by exogenous factors.
-Intermediate values of `d` produce proportional attenuation of the effective
+Intermediate values of $d$ produce proportional attenuation of the effective
 learning rate, capturing the property that partially dependent initiatives
 generate signals that are an unresolvable mixture of intrinsic quality and
 exogenous noise.
@@ -439,39 +434,38 @@ One-time completion value is realized only once at the completion moment in the 
 ## Portfolio capability and strategic signal noise
 
 ### Academic
-Portfolio capability (`C_t`) accumulated from completed enabler initiatives is a
-portfolio-level organizational capability scalar initialized at `1.0` and bounded
-above by `C_max`. Beginning at `t+1` after an enabler completes, higher portfolio
+Portfolio capability ($C_t$) accumulated from completed enabler initiatives is a
+portfolio-level organizational capability scalar initialized at $1.0$ and bounded
+above by $C_{\max}$. Beginning at $t{+}1$ after an enabler completes, higher portfolio
 capability reduces effective strategic signal noise for all staffed initiatives by
-entering the effective signal st_dev formula (`σ_eff`) as a divisor. At baseline
-portfolio capability 1.0, the formula is unchanged.
+entering the effective signal st\_dev formula ($\sigma_{\text{eff}}$) as a divisor. At baseline
+portfolio capability $1.0$, the formula is unchanged.
 
 Portfolio capability has no other canonical mechanical effect in this study. It does not change
-the learning-rate multiplier `L(d)`, execution-belief updates, or completion timing.
-Specifically: `C_t` does not enter the execution-progress signal generation
-(`z_t`), does not modulate the learning rate (`η`), and does not affect the
+the learning-rate multiplier $L(d)$, execution-belief updates, or completion timing.
+Specifically: $C_t$ does not enter the execution-progress signal generation
+($z_t$), does not modulate the learning rate ($\eta$), and does not affect the
 completion condition (`staffed_tick_count >= true_duration_ticks`). Its sole
-mechanical role is as a divisor in `σ_eff`, reducing the variance of strategic
+mechanical role is as a divisor in $\sigma_{\text{eff}}$, reducing the variance of strategic
 quality observations for all staffed initiatives simultaneously.
 
 Canonical capability decay law:
 
-```
-excess_capability_t = C_t - 1.0
-excess_capability_{t+1, pre-completion} = excess_capability_t * exp(-capability_decay)
-```
+$$\text{excess\_capability}_t = C_t - 1.0$$
 
-with completion gains then added on tick `t` as defined in step 5c. This means
-the baseline capability level `1.0` does not decay away; only the accumulated
+$$\text{excess\_capability}_{t+1,\,\text{pre-completion}} = \text{excess\_capability}_t \cdot \exp(-\text{capability\_decay})$$
+
+with completion gains then added on tick $t$ as defined in step 5c. This means
+the baseline capability level $1.0$ does not decay away; only the accumulated
 organizational advantage above baseline erodes over time.
 
 The decay dynamics produce a characteristic trajectory: without ongoing enabler
-completions, `C_t` declines exponentially toward the baseline of 1.0. Each
+completions, $C_t$ declines exponentially toward the baseline of $1.0$. Each
 enabler completion adds a step increase, but previously accumulated excess
 continues to erode between completions. The long-run steady-state capability
 depends on both the frequency of enabler completions and the decay rate
-`capability_decay`. At `capability_decay = 0`, there is no erosion and
-capability accumulates monotonically (bounded by `C_max`). At high decay rates,
+$\text{capability\_decay}$. At $\text{capability\_decay} = 0$, there is no erosion and
+capability accumulates monotonically (bounded by $C_{\max}$). At high decay rates,
 each enabler completion produces a transient pulse that fades before the next
 completion can build on it.
 
@@ -484,83 +478,77 @@ Capability is bounded above by a maximum ceiling. And it does not accumulate ind
 
 The decay and replenishment dynamics work as follows: each week, the existing advantage above baseline shrinks by a fixed proportion (exponential decay). When an enabler completes, its capability contribution is added after that week's decay has been applied. This means new enabler gains take full effect immediately — the organization does not lose this week's investment to this week's erosion — while previously accumulated advantage continues to erode in the background.
 
-## Effective noise `σ_eff(d,a,C_t)` and attention shape `g(a)`
+## Effective noise $\sigma_{\text{eff}}(d,a,C_t)$ and attention shape $g(a)$
 
 ### Academic
 The observation model for strategic quality decomposes the effective signal
 standard deviation into four multiplicatively interacting components:
-initiative-level base uncertainty (`σ_base`), dependency-driven noise
-amplification (`1 + α_d × d`), attention-modulated noise scaling (`g(a)`), and
-portfolio-level capability reduction (`1/C_t`). Because the components interact
+initiative-level base uncertainty ($\sigma_{\text{base}}$), dependency-driven noise
+amplification ($1 + \alpha_d \times d$), attention-modulated noise scaling ($g(a)$), and
+portfolio-level capability reduction ($1/C_t$). Because the components interact
 multiplicatively, their effects compound: high dependency combined with low
 attention and low capability produces observation noise that can substantially
 exceed any single factor's contribution. Conversely, improving any one factor
 yields proportional noise reduction across the product.
 
-The effective signal st_dev (`σ_eff`) captures how immutable dependency,
+The effective signal st\_dev ($\sigma_{\text{eff}}$) captures how immutable dependency,
 executive attention, and portfolio capability shape strategic-signal clarity. We define:
 
-```
-σ_eff(d, a, C_t) = [σ_base * (1 + α_d * d) * g(a)] / C_t
-```
+$$\sigma_{\text{eff}}(d, a, C_t) = \frac{\sigma_{\text{base}} \cdot (1 + \alpha_d \cdot d) \cdot g(a)}{C_t}$$
 
-- `sigma_base` is the initiative-level base signal st_dev. It is a fixed
+- $\sigma_{\text{base}}$ is the initiative-level base signal st\_dev. It is a fixed
   property of the initiative, set at generation, and does not change over the
   initiative's lifetime.
-- `α_d ≥ 0` scales how much immutable dependency `d` increases noise. When
-  `α_d = 0`, dependency has no effect on signal clarity regardless of `d`.
-  As `α_d` increases, initiatives with higher dependency produce progressively
+- $\alpha_d \geq 0$ scales how much immutable dependency $d$ increases noise. When
+  $\alpha_d = 0$, dependency has no effect on signal clarity regardless of $d$.
+  As $\alpha_d$ increases, initiatives with higher dependency produce progressively
   noisier strategic signals.
-- `C_t >= 1.0` is the current portfolio capability scalar. Higher capability
+- $C_t \geq 1.0$ is the current portfolio capability scalar. Higher capability
   reduces effective strategic signal noise.
 
-Because `C_t` enters as a divisor of the entire noise expression, portfolio
+Because $C_t$ enters as a divisor of the entire noise expression, portfolio
 capability improvements reduce effective noise uniformly across all staffed
-initiatives. A doubling of portfolio capability halves `σ_eff` for every
+initiatives. A doubling of portfolio capability halves $\sigma_{\text{eff}}$ for every
 initiative, regardless of its dependency level or attention allocation.
 
-We define `g(a)` (attention noise modifier) through a raw shape `g_raw(a)` and a clamp to preserve both a noise floor and a practical ceiling:
+We define $g(a)$ (attention noise modifier) through a raw shape $g_{\text{raw}}(a)$ and a clamp to preserve both a noise floor and a practical ceiling:
 
-```
-g_raw(a) = {
-  1 + k_low * (a_min - a)           if a < a_min
-  1 / (1 + k * (a - a_min))         if a >= a_min
-}
-g(a) = clamp( g_raw(a), g_min, g_max )
-```
+$$g_{\text{raw}}(a) = \begin{cases} 1 + k_{\text{low}} \cdot (a_{\min} - a) & \text{if } a < a_{\min} \\ \dfrac{1}{1 + k \cdot (a - a_{\min})} & \text{if } a \geq a_{\min} \end{cases}$$
+
+$$g(a) = \operatorname{clamp}\!\bigl( g_{\text{raw}}(a),\; g_{\min},\; g_{\max} \bigr)$$
 
 Parameters:
-- `a_min ∈ [0,1]` — minimum attention threshold below which noise increases.
-- `k_low ≥ 0` — controls how rapidly noise increases as `a` falls below `a_min`.
-- `k > 0` — curvature for diminishing returns above `a_min`.
-- `g_min > 0` — **floor** so noise cannot be driven to zero.
-- `g_max` — ceiling so noise does not explode numerically. If `g_max is None`,
-  the upper clamp is omitted and only the floor `g_min` is applied.
+- $a_{\min} \in [0,1]$ — minimum attention threshold below which noise increases.
+- $k_{\text{low}} \geq 0$ — controls how rapidly noise increases as $a$ falls below $a_{\min}$.
+- $k > 0$ — curvature for diminishing returns above $a_{\min}$.
+- $g_{\min} > 0$ — **floor** so noise cannot be driven to zero.
+- $g_{\max}$ — ceiling so noise does not explode numerically. If $g_{\max}$ is `None`,
+  the upper clamp is omitted and only the floor $g_{\min}$ is applied.
 
-Behavioral properties of `g(a)`:
-- `g_raw(a)` is continuous on `[0, ∞)` and monotonically decreasing (strictly
-  decreasing where not clamped). Below `a_min`, `g_raw` increases linearly as
-  `a` decreases; above `a_min`, `g_raw` decreases hyperbolically as `a`
+Behavioral properties of $g(a)$:
+- $g_{\text{raw}}(a)$ is continuous on $[0, \infty)$ and monotonically decreasing (strictly
+  decreasing where not clamped). Below $a_{\min}$, $g_{\text{raw}}$ increases linearly as
+  $a$ decreases; above $a_{\min}$, $g_{\text{raw}}$ decreases hyperbolically as $a$
   increases. The clamp creates constant regions at the floor and ceiling.
-- `g(a) = 1` at `a = a_min` (before clamping): attention is neutral at the
-  threshold. The observation noise at `a = a_min` equals the initiative's
-  dependency-amplified base noise `σ_base × (1 + α_d × d)`, unscaled by
+- $g(a) = 1$ at $a = a_{\min}$ (before clamping): attention is neutral at the
+  threshold. The observation noise at $a = a_{\min}$ equals the initiative's
+  dependency-amplified base noise $\sigma_{\text{base}} \times (1 + \alpha_d \times d)$, unscaled by
   attention.
-- `g(a) > 1` for `a < a_min` (before clamping): sub-threshold attention
+- $g(a) > 1$ for $a < a_{\min}$ (before clamping): sub-threshold attention
   actively increases observation noise beyond the dependency-amplified baseline.
-  The rate of increase is governed by `k_low`.
-- `g(a) < 1` for `a > a_min` (before clamping): above-threshold attention
-  reduces observation noise with diminishing returns governed by `k`. The
-  infimum of `g_raw(a)` as `a → ∞` is 0, but the clamp at `g_min` prevents
+  The rate of increase is governed by $k_{\text{low}}$.
+- $g(a) < 1$ for $a > a_{\min}$ (before clamping): above-threshold attention
+  reduces observation noise with diminishing returns governed by $k$. The
+  infimum of $g_{\text{raw}}(a)$ as $a \to \infty$ is $0$, but the clamp at $g_{\min}$ prevents
   noise from being driven arbitrarily close to zero.
-- The `g_max` ceiling, when set, prevents numerically unbounded noise at very
-  low attention values. When `g_max` is not set (`None`), `g_raw(a)` at `a = 0`
-  evaluates to `1 + k_low × a_min`, which may be large but is finite.
+- The $g_{\max}$ ceiling, when set, prevents numerically unbounded noise at very
+  low attention values. When $g_{\max}$ is not set (`None`), $g_{\text{raw}}(a)$ at $a = 0$
+  evaluates to $1 + k_{\text{low}} \times a_{\min}$, which may be large but is finite.
 
 Design notes:
-- `g_raw(a_min) = 1`, so `g(a)` is continuous at `a_min` before clamping.
-- The clamp ensures `g(a) >= g_min` (noise floor). When `g_max` is set, it also
-  protects against numerically large `g(a)` at low attention.
+- $g_{\text{raw}}(a_{\min}) = 1$, so $g(a)$ is continuous at $a_{\min}$ before clamping.
+- The clamp ensures $g(a) \geq g_{\min}$ (noise floor). When $g_{\max}$ is set, it also
+  protects against numerically large $g(a)$ at low attention.
 
 The governance implication of the multiplicative structure is that signal clarity
 is endogenous to the decision-maker's allocation choices — executive attention
@@ -614,15 +602,14 @@ economic value in the canonical study and must be recorded separately.
 Applicable when the initiative's completion-lump channel is enabled.
 
 *Realized lump (once completed)*:
-  ```
-  v_lump_realized = configured completion-lump value
-  ```
-  This value is realized exactly once, at the tick where the initiative completes.
+
+$$v_{\text{lump,realized}} = \text{configured completion-lump value}$$
+
+This value is realized exactly once, at the tick where the initiative completes.
 
 *Expected lump value (pre-completion used by governance)*:
-  ```
-  E[v_lump] = c_t * configured completion-lump value
-  ```
+
+$$\mathbb{E}[v_{\text{lump}}] = c_t \times \text{configured completion-lump value}$$
 
 The expected value is a governance-facing estimate weighted by the current quality
 belief. Whether the initiative actually completes — and what it actually pays
@@ -658,7 +645,7 @@ parameterization burden without improving the governance comparison.
 
 Whether an initiative is a major win is determined at generation by a
 deterministic threshold function of latent quality
-(`is_major_win = (q >= q_major_win_threshold)`) and hidden from governance
+($\text{is\_major\_win} = (q \geq q_{\text{major\_win\_threshold}})$) and hidden from governance
 throughout the run. There is no intermediate discovery state and no
 probabilistic revelation mechanism — the flag is binary, immutable, and
 revealed only at completion through the emitted `MajorWinEvent`.
@@ -671,20 +658,19 @@ Residual value is realized in a separate pass because it can continue after the 
 
 Canonical residual realization rule:
 
-`v_residual_realized_t = max( residual_rate_t , 0 )`
+$$v_{\text{residual,realized},t} = \operatorname{max}\!\bigl( \text{residual\_rate}_t ,\; 0 \bigr)$$
 
 Canonical residual decay law:
 
-```
-τ_residual(t) = t - residual_activation_tick
-residual_rate_t = residual_rate * exp(-residual_decay * τ_residual(t))
-```
+$$\tau_{\text{residual}}(t) = t - \text{residual\_activation\_tick}$$
 
-where `residual_decay >= 0` is the initiative-local per-tick exponential decay
-rate and `t` is the simulation tick (calendar tick), not `staffed_tick_count`.
+$$\text{residual\_rate}_t = \text{residual\_rate} \cdot \exp\!\bigl(-\text{residual\_decay} \cdot \tau_{\text{residual}}(t)\bigr)$$
+
+where $\text{residual\_decay} \geq 0$ is the initiative-local per-tick exponential decay
+rate and $t$ is the simulation tick (calendar tick), not `staffed_tick_count`.
 Because the residual pass occurs after completion detection on the same
-tick, an initiative whose residual activates at tick `t` has
-`τ_residual(t) = 0` on that activation tick and therefore realizes its full
+tick, an initiative whose residual activates at tick $t$ has
+$\tau_{\text{residual}}(t) = 0$ on that activation tick and therefore realizes its full
 configured `residual_rate` before decay begins on subsequent ticks.
 
 This timing is intentional. It treats the configured `residual_rate` as the
@@ -740,24 +726,24 @@ The patience mechanics for bounded opportunities — the consecutive-review trac
 
 ### Academic
 - The model tracks only the quality belief scalar. Implicit variance is represented
-  via the effective signal st_dev and `L(d)`. This choice simplifies the engine and
+  via the effective signal st\_dev and $L(d)$. This choice simplifies the engine and
   isolates governance effects.
 
-The belief update maintains a point estimate (`quality_belief_t ∈ [0, 1]`) without
-an associated precision measure or posterior variance. A belief of 0.6 after 2
-observations is representationally identical to a belief of 0.6 after 200
+The belief update maintains a point estimate ($c_t \in [0, 1]$) without
+an associated precision measure or posterior variance. A belief of $0.6$ after 2
+observations is representationally identical to a belief of $0.6$ after 200
 observations. The decision-maker cannot condition on estimation precision within
 the model.
 
-The effective signal standard deviation (`σ_eff`) and the dependency-adjusted
-learning efficiency (`L(d)`) serve as implicit proxies for belief convergence
-rate: high-`σ_eff` and low-`L(d)` initiatives have beliefs that evolve slowly
+The effective signal standard deviation ($\sigma_{\text{eff}}$) and the dependency-adjusted
+learning efficiency ($L(d)$) serve as implicit proxies for belief convergence
+rate: high-$\sigma_{\text{eff}}$ and low-$L(d)$ initiatives have beliefs that evolve slowly
 and remain poorly resolved for longer. But these are properties of the
 observation channel, not direct measures of accumulated evidence.
 
-The stagnation window (`W_stag`) provides a coarse implicit proxy for belief
-convergence: an initiative whose belief has not moved by more than `ε_stag`
-over `W_stag` staffed ticks may have converged to a stable estimate near the
+The stagnation window ($W_{\text{stag}}$) provides a coarse implicit proxy for belief
+convergence: an initiative whose belief has not moved by more than $\varepsilon_{\text{stag}}$
+over $W_{\text{stag}}$ staffed ticks may have converged to a stable estimate near the
 latent quality, or may be trapped in a region where observation noise prevents
 resolution. The model does not distinguish these two states. A full Bayesian
 treatment would maintain a posterior distribution over latent quality (e.g., a
@@ -781,53 +767,55 @@ The stagnation window provides a partial indirect signal: an initiative whose be
 When a team is newly assigned to an initiative, its effective learning efficiency is
 reduced for a ramp period. The ramp multiplier is computed as:
 
-```
-Let t_elapsed = ticks_since_assignment
-                (reset to 0 on each new assignment).
-Let R = ramp_duration_ticks (from InitiativeConfig or WorkforceConfig default).
-Let ramp_fraction = min((t_elapsed + 1) / R, 1.0).
+Let $t_{\text{elapsed}} = \text{ticks\_since\_assignment}$
+(reset to $0$ on each new assignment).
+Let $R = \text{ramp\_duration\_ticks}$ (from `InitiativeConfig` or `WorkforceConfig` default).
+Let $\text{ramp\_fraction} = \operatorname{min}\!\bigl((t_{\text{elapsed}} + 1) \,/\, R,\; 1.0\bigr)$.
 
-Linear shape (ramp_multiplier_shape = "linear"):
-    ramp_multiplier = ramp_fraction
+**Linear shape** (`ramp_multiplier_shape = "linear"`):
 
-Exponential shape (ramp_multiplier_shape = "exponential"):
-    ramp_multiplier = 1 − exp(−k × ramp_fraction)
-    where k = 3.0 (fixed constant; gives ~95% of full efficiency at t_elapsed = R)
+$$\text{ramp\_multiplier} = \text{ramp\_fraction}$$
+
+**Exponential shape** (`ramp_multiplier_shape = "exponential"`):
+
+$$\text{ramp\_multiplier} = 1 - \exp(-k \cdot \text{ramp\_fraction})$$
+
+where $k = 3.0$ (fixed constant; gives ${\sim}95\%$ of full efficiency at $t_{\text{elapsed}} = R$).
 
 In both cases:
-- ramp_multiplier ∈ (0, 1] for t_elapsed ∈ [0, R-1]
-- ramp_multiplier = 1.0 for t_elapsed ≥ R-1
+
+- $\text{ramp\_multiplier} \in (0, 1]$ for $t_{\text{elapsed}} \in [0,\, R{-}1]$
+- $\text{ramp\_multiplier} = 1.0$ for $t_{\text{elapsed}} \geq R{-}1$
 
 This indexing convention is intentional. On the first staffed tick after a new
-assignment (`t_elapsed = 0`), the team contributes positive but partial learning
+assignment ($t_{\text{elapsed}} = 0$), the team contributes positive but partial learning
 efficiency rather than zero. The first staffed tick therefore counts as ramp time,
 not as a zero-productivity placeholder tick.
 
-is_ramping = (t_elapsed < R - 1)
-```
+$$\text{is\_ramping} = (t_{\text{elapsed}} < R - 1)$$
 
-Here `t_elapsed` is the pre-production-increment value of
-`ticks_since_assignment` (0 on the first staffed tick). The belief update in
+Here $t_{\text{elapsed}}$ is the pre-production-increment value of
+`ticks_since_assignment` ($0$ on the first staffed tick). The belief update in
 step 5 must read this pre-increment value. Implementations must not use the
-post-increment value, which is 1 on the first tick and would silently produce
-`ramp_fraction = 2/R` rather than `1/R`.
+post-increment value, which is $1$ on the first tick and would silently produce
+$\text{ramp\_fraction} = 2/R$ rather than $1/R$.
 
 The ramp multiplier applies to learning efficiency:
 
-    L_ramped(d) = ramp_multiplier × L(d)
+$$L_{\text{ramped}}(d) = \text{ramp\_multiplier} \times L(d)$$
 
-When `is_ramping == false`, `ramp_multiplier = 1.0` and the formula reduces to its unramped form.
+When $\text{is\_ramping} = \text{false}$, $\text{ramp\_multiplier} = 1.0$ and the formula reduces to its unramped form.
 
 **Scope of ramp effects.** The ramp multiplier affects only the quality belief
-learning rate via `L_ramped(d)`. It does not enter the execution belief update
-(`c_exec` is independent of ramp state), does not alter signal generation
-(`σ_eff` is independent of ramp), does not delay completion (the initiative's
+learning rate via $L_{\text{ramped}}(d)$. It does not enter the execution belief update
+($c_{\text{exec}}$ is independent of ramp state), does not alter signal generation
+($\sigma_{\text{eff}}$ is independent of ramp), does not delay completion (the initiative's
 `staffed_tick_count` still increments during ramp), and does not reduce realized
 value at any channel. The scope restriction ensures that ramp represents
 strictly a transient learning-efficiency penalty from team reassignment, not a
-broader productivity loss. When ramp and dependency interact (both `d > 0` and
-`ramp_multiplier < 1`), the penalties compound multiplicatively:
-`L_ramped(d) = ramp_multiplier × (1 - d)`.
+broader productivity loss. When ramp and dependency interact (both $d > 0$ and
+$\text{ramp\_multiplier} < 1$), the penalties compound multiplicatively:
+$L_{\text{ramped}}(d) = \text{ramp\_multiplier} \times (1 - d)$.
 
 `ticks_since_assignment` is assignment-relative state only. It must not be used
 for completion detection, for progress-fraction denominators, or for the
@@ -924,29 +912,29 @@ Each initiative receives two dedicated random streams at generation — one for 
   reassignment.
 - `ticks_since_assignment` is the assignment-relative ramp clock and resets to 0
   on each new assignment.
-- Governance decisions at end-of-tick `t` may use the updated belief state `c_{t+1}` and the completion or major-win events emitted at tick `t`, but those decisions do not take effect until the start of tick `t+1`.
-- The stagnation window `W_stag` is defined over **staffed ticks**, not calendar ticks.
+- Governance decisions at end-of-tick $t$ may use the updated belief state $c_{t+1}$ and the completion or major-win events emitted at tick $t$, but those decisions do not take effect until the start of tick $t{+}1$.
+- The stagnation window $W_{\text{stag}}$ is defined over **staffed ticks**, not calendar ticks.
   The engine maintains `staffed_tick_count` per initiative for this purpose. The prior
-  belief used to compute `Δ_c` is the strategic quality belief `W_stag` staffed ticks
-  ago, not `W_stag` calendar ticks ago. Idle periods between staffing assignments do
+  belief used to compute $\Delta_c$ is the strategic quality belief $W_{\text{stag}}$ staffed ticks
+  ago, not $W_{\text{stag}}$ calendar ticks ago. Idle periods between staffing assignments do
   not count toward the window and do not contribute to stagnation detection.
 - The engine maintains a per-initiative ring buffer
   `belief_history: deque[float]`
-  with `maxlen = W_stag`. It is initialized as an empty deque at initiative activation.
+  with `maxlen =` $W_{\text{stag}}$. It is initialized as an empty deque at initiative activation.
   At the end of each staffed tick, after the belief update step (step 5), the engine
-  appends the current end-of-tick quality belief to `belief_history`. Once `len(belief_history) == W_stag`,
+  appends the current end-of-tick quality belief to `belief_history`. Once `len(belief_history) ==` $W_{\text{stag}}$,
   the oldest retained quality belief is `belief_history[0]`, and the stagnation
-  comparison is `Δ_c = |c_t - belief_history[0]|`. Before that threshold, the
+  comparison is $\Delta_c = |c_t - \text{belief\_history}[0]|$. Before that threshold, the
   stagnation condition
-  cannot fire regardless of `Δ_c`.
+  cannot fire regardless of $\Delta_c$.
 - `age_ticks` and `ticks_since_assignment` must not be substituted for
   `staffed_tick_count` in stagnation logic.
 - **Engine-driven team release timing**: team releases triggered by engine-detected
   lifecycle transitions (initiative completion at step 5c)
   follow the same timing convention as governance-driven releases: the release is
-  effective at start of tick `t+1`, consistent with architecture invariant 4. The
+  effective at start of tick $t{+}1$, consistent with architecture invariant 4. The
   completing initiative's team is available for the governance step of
-  tick `t+1`.
+  tick $t{+}1$.
 - The engine must maintain execution belief separately from quality belief. These
   are independent belief scalars updated by independent observation streams. They
   must be reported separately in per-tick logs and in `GovernanceObservation`. The
@@ -998,18 +986,18 @@ summary (see `review_and_reporting.md`).
    the start of that tick (`team.assigned_initiative_id is None` at step 1 of the
    tick loop).
 
-2. **Governance-driven releases** (Stop action applied at end of tick T): the team
-   becomes idle starting at tick T+1, per the action-timing invariant. The stop
+2. **Governance-driven releases** (Stop action applied at end of tick $T$): the team
+   becomes idle starting at tick $T{+}1$, per the action-timing invariant. The stop
    tick itself is the last active tick; idleness begins the following tick.
 
 3. **Engine-driven releases** (completion at step 5c):
-   same timing — the team is idle starting at tick T+1, consistent with the
+   same timing — the team is idle starting at tick $T{+}1$, consistent with the
    engine-driven release timing established for AP-8.
 
-4. **Immediate reassignment**: if a team is released at end of tick T and
-   reassigned in the same governance action cycle (within tick T's action vector),
+4. **Immediate reassignment**: if a team is released at end of tick $T$ and
+   reassigned in the same governance action cycle (within tick $T$'s action vector),
    it is idle for zero ticks. Both the release and the reassignment take effect at
-   T+1 simultaneously; the team is never unassigned at the start of any tick.
+   $T{+}1$ simultaneously; the team is never unassigned at the start of any tick.
 
 5. **Ramp**: a team in ramp is not idle. It is assigned and working at reduced
    efficiency. Ramp ticks are productive ticks, not idle ticks, even when
@@ -1025,8 +1013,8 @@ summary (see `review_and_reporting.md`).
    deliberate selectivity.
 
 7. **Mid-tick ramp transitions**: ramp completion takes effect at the start of the
-   next tick. A team that completes ramp at tick T is fully productive starting at
-   tick T+1. There are no partial-tick ramp transitions.
+   next tick. A team that completes ramp at tick $T$ is fully productive starting at
+   tick $T{+}1$. There are no partial-tick ramp transitions.
 
 ### Business
 When a team has no assigned initiative at the start of a given week, that team-week is counted as idle capacity. The simulation tracks idle capacity carefully because it is analytically significant: two governance regimes that produce similar total value may differ sharply in how much of their workforce sat unused, and that difference is evidence about governance selectivity and resource efficiency.
