@@ -1,0 +1,451 @@
+# =============================================================================
+# Primordial Soup — Run Design Template
+# =============================================================================
+#
+# WHAT THIS FILE IS
+# -----------------
+# This file defines one simulation run (or a small set of runs sharing the
+# same governance design) in the three-layer vocabulary. Fill it in, then
+# run it with:
+#
+#     python scripts/run_design.py path/to/this_file.yaml
+#
+# The script validates your design, prints a human-readable summary for
+# confirmation, and then executes the run(s).
+#
+# WHAT YOU NEED TO CHANGE
+# -----------------------
+# At minimum: name, title, environment.family, policy.preset, world_seeds.
+# Everything else has a working default you can leave alone.
+#
+# GOING BEYOND THE PRESETS
+# ------------------------
+# This file only exposes the canonical authoring surface: three named
+# environment families, three named policy presets, and the standard
+# workforce/guardrail knobs. If you need something outside those bounds,
+# you have two options:
+#
+#   1. Add a new named preset to src/primordial_soup/presets.py, then
+#      use its name in the policy.preset field below. This is the
+#      right path for a new governance posture you expect to reuse.
+#
+#   2. Write a Python script that constructs RunDesignSpec directly,
+#      bypassing this YAML layer. See run_design_guide.md for the API.
+#      This is the right path for one-off experiments or parameter sweeps.
+#
+# Neither path requires changing the simulator boundary.
+#
+# =============================================================================
+
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+# name (required)
+#   Short identifier for this run design. Used in output filenames and
+#   manifest provenance. Must not be empty and must not contain spaces.
+#   Use underscores or hyphens.
+#   Examples: "baseline_balanced_v1", "discovery-heavy-moonshot-study"
+name: my_run_v1
+
+# title (required)
+#   Human-readable title. Appears in the summary printout and reports.
+#   May contain spaces and punctuation.
+title: "My simulation run"
+
+# description (optional, default: "")
+#   Longer free-text description of what this run is testing and why.
+#   Useful for your own records. Has no effect on simulation mechanics.
+description: ""
+
+
+# =============================================================================
+# LAYER 1: ENVIRONMENTAL CONDITIONS
+# =============================================================================
+#
+# Environmental conditions are everything fixed for a run that no participant
+# controls within the run. They define the world the organization operates in.
+# The key choice here is the initiative pool family.
+#
+# For most runs: change only `family`. Override `time` or `model` only if
+# you are deliberately testing a non-baseline world condition.
+
+environment:
+
+  # ---------------------------------------------------------------------------
+  # family (required)
+  # ---------------------------------------------------------------------------
+  # Selects the initiative pool composition. Families differ in right-tail
+  # initiative count, quality distribution, duration structure, and major-win
+  # threshold. All other world parameters (noise, learning, attention curve)
+  # are shared across families.
+  #
+  # "balanced_incumbent"
+  #     Mid-case major-win environment. 20 right-tail initiatives.
+  #     Beta(0.8, 2.0) quality distribution (~3% major-win incidence).
+  #     Right-tail durations 104–182 ticks. Major-win threshold q ≥ 0.80.
+  #     THE CANONICAL BASELINE — start here.
+  #
+  # "short_cycle_throughput"
+  #     Mature, quick-win-heavy world. 16 right-tail initiatives (fewer),
+  #     104 quick-win initiatives (more). Beta(0.6, 2.5) quality (~1%
+  #     major-win incidence). Shorter right-tail durations 80–156 ticks.
+  #     Major-win threshold q ≥ 0.80. Use to test governance in an
+  #     environment with less breakthrough opportunity.
+  #
+  # "discovery_heavy"
+  #     Favorable domain. 56 right-tail initiatives (more), 74 quick-win
+  #     (fewer). Beta(1.2, 1.8) quality (~5–8% major-win incidence).
+  #     Longer right-tail durations 130–260 ticks. Major-win threshold
+  #     q ≥ 0.80. Use to test governance in an environment with more
+  #     breakthrough opportunity but requiring genuine patience.
+  #
+  # All families share: 313-tick horizon (6 years), 200-initiative total pool,
+  # Flywheel count varies by family (70/50/40), 30 enabler, and the same ModelConfig.
+  #
+  # To define your own family: add it to presets.py (see GOING BEYOND
+  # THE PRESETS at the top of this file).
+  family: balanced_incumbent
+
+  # ---------------------------------------------------------------------------
+  # time (optional — omit to use the canonical baseline)
+  # ---------------------------------------------------------------------------
+  # Override the temporal structure of the run. The baseline is 313 ticks
+  # (one tick = one calendar week; 313 weeks ≈ 6 years). Only change this
+  # if you are deliberately exploring a different horizon. Changing
+  # tick_horizon affects how much time patient governance has to observe
+  # completions of long-duration initiatives.
+  #
+  # tick_horizon: number of ticks to simulate (must be > 0)
+  # tick_label:   display label for ticks in reports (e.g. "week", "quarter")
+  #
+  # Uncomment and edit to override:
+  # time:
+  #   tick_horizon: 313
+  #   tick_label: week
+
+  # ---------------------------------------------------------------------------
+  # staffing_response (optional — omit to use preset defaults)
+  # ---------------------------------------------------------------------------
+  # Per-family staffing-response scale ranges. Controls how strongly
+  # additional staffing above the minimum threshold accelerates learning
+  # for each initiative family. Each entry is a [min, max] range for
+  # uniform draw per generated initiative.
+  #
+  # When omitted, all families get the preset default of 0.0 (no staffing
+  # intensity effect). Different families may respond differently to
+  # additional staffing — for example, right-tail research may benefit
+  # more from extra staffing than quick wins that saturate quickly.
+  #
+  # This is a study hypothesis parameter, not an empirical truth.
+  #
+  # Uncomment and edit to override:
+  # staffing_response:
+  #   flywheel: [0.3, 0.8]
+  #   right_tail: [0.8, 2.0]
+  #   enabler: [0.5, 1.5]
+  #   quick_win: [0.0, 0.2]
+
+  # ---------------------------------------------------------------------------
+  # opportunity_supply (optional — omit to use preset defaults)
+  # ---------------------------------------------------------------------------
+  # Conductor-facing controls for opportunity supply and frontier dynamics.
+  # These override the family preset's frontier and pool settings without
+  # needing to define a new family in presets.py.
+  #
+  # right_tail_prize_count
+  #   Number of distinct right-tail opportunities in the initial pool.
+  #   More right-tail prizes = more re-attempt opportunities when right-tail
+  #   initiatives are stopped. Adjusts the quick-win count to maintain the
+  #   family's total pool size (200). Must be >= 1.
+  #   Default: depends on family (balanced_incumbent=20, short_cycle=16,
+  #   discovery_heavy=56).
+  #
+  # frontier_degradation_rate
+  #   Per-family frontier degradation rates. Lower values = deeper frontier
+  #   (more draws before quality degrades meaningfully).
+  #   0.0 = non-degrading (unlimited replenishment at original quality).
+  #   Only meaningful for families that have frontier enabled in the preset.
+  #   Default: depends on family preset (flywheel=0.01, quick_win=0.02,
+  #   enabler=0.005, right_tail=0.0).
+  #
+  # right_tail_refresh_degradation
+  #   Per-attempt quality degradation for right-tail prize re-attempts.
+  #   0.0 = each re-attempt draws from the original quality distribution.
+  #   Positive values degrade quality after each failed attempt on a
+  #   specific prize, modeling learning about difficulty.
+  #   Default: 0.0 (no per-attempt degradation).
+  #
+  # Uncomment and edit to override:
+  # opportunity_supply:
+  #   right_tail_prize_count: 50
+  #   frontier_degradation_rate:
+  #     flywheel: 0.01
+  #     quick_win: 0.02
+  #     enabler: 0.005
+  #   right_tail_refresh_degradation: 0.0
+
+  # ---------------------------------------------------------------------------
+  # model (optional — omit to use the canonical baseline)
+  # ---------------------------------------------------------------------------
+  # Override world-evolution parameters. These govern signal noise, belief
+  # learning, attention curve shape, and capability dynamics. They are NOT
+  # governance decision parameters — they control how the world behaves, not
+  # how governance decides. For the canonical study these are held fixed
+  # across all governance regimes.
+  #
+  # Only change these if you are deliberately testing how governance performance
+  # varies across different world conditions (a separate research question from
+  # the canonical governance comparison).
+  #
+  # ALL fields are required if you include this section — there are no
+  # partial overrides. Copy the full block from the baseline and edit the
+  # fields you want to change.
+  #
+  # Baseline values shown as defaults:
+  #
+  # model:
+  #
+  #   # Maximum executive attention budget per tick. The sum of all initiative
+  #   # attention allocations must not exceed this. Set conservatively high
+  #   # (30.0) so attention feasibility is not the binding constraint —
+  #   # governance policy determines attention allocation, not engine clamping.
+  #   exec_attention_budget: 30.0
+  #
+  #   # Default base noise std for quality signal observations (sigma_base).
+  #   # Per-initiative values may differ; this is the fallback default.
+  #   base_signal_st_dev_default: 0.15
+  #
+  #   # Exponent for dependency-adjusted noise amplification (alpha_d).
+  #   # effective_signal_st_dev = base_signal_st_dev * (1 + dependency)^alpha_d
+  #   dependency_noise_exponent: 1.0
+  #
+  #   # Initial quality belief assigned to new initiatives (c_0). Must be
+  #   # in [0, 1]. 0.5 = uninformative prior.
+  #   default_initial_quality_belief: 0.5
+  #
+  #   # Scaling reference for TAM patience window calculation.
+  #   # effective_T_tam = ceil(T_tam * observable_ceiling / reference_ceiling)
+  #   reference_ceiling: 50.0
+  #
+  #   # Attention curve g(a) parameters:
+  #   # g(a) maps executive attention to a learning-rate gain multiplier.
+  #   # Below attention_noise_threshold, g = min_attention_noise_modifier.
+  #   attention_noise_threshold: 0.15   # a_min: floor boundary
+  #   low_attention_penalty_slope: 2.0  # k_low: penalty exponent below a_min
+  #   attention_curve_exponent: 0.5     # k: gain exponent above a_min
+  #   min_attention_noise_modifier: 0.3 # g_min: floor of g(a)
+  #   max_attention_noise_modifier: ~   # g_max: null = uncapped
+  #
+  #   # Base learning rate for quality belief updates (eta).
+  #   learning_rate: 0.1
+  #
+  #   # Override for dependency-adjusted learning scale L(d).
+  #   # null = use canonical formula L(d) = 1 - d.
+  #   dependency_learning_scale: ~
+  #
+  #   # Execution signal parameters:
+  #   execution_signal_st_dev: 0.15     # sigma_exec: noise on execution observations
+  #   execution_learning_rate: 0.1      # eta_exec: learning rate for execution belief
+  #
+  #   # Portfolio capability scalar C_t parameters:
+  #   max_portfolio_capability: 3.0     # C_max: upper bound on C_t (must be >= 1.0)
+  #   capability_decay: 0.005           # per-tick decay toward C_t = 1.0
+
+
+# =============================================================================
+# LAYER 2: GOVERNANCE ARCHITECTURE
+# =============================================================================
+#
+# Governance architecture is how leadership chose to organize before the run
+# begins. These are design-time structural choices, fixed within a run and
+# varied across runs as experimental treatments. Two sub-sections:
+# workforce structure and portfolio guardrails.
+
+architecture:
+
+  # ---------------------------------------------------------------------------
+  # Workforce structure
+  # ---------------------------------------------------------------------------
+  # How total labor is decomposed into discrete parallel work units.
+  # total_labor_endowment is an environmental given (the aggregate productive
+  # capacity). team_count and ramp are architecture choices.
+
+  # total_labor_endowment (required)
+  #   Total labor units available to the organization. This is the aggregate
+  #   productive capacity — an environmental constraint. Must be a positive
+  #   integer. The canonical baseline is 210 (representing ~200 people).
+  total_labor_endowment: 210
+
+  # team_count (required)
+  #   Number of parallel work units. An architecture choice: more teams means
+  #   more parallelism but each team is smaller. Fewer, larger teams can staff
+  #   initiatives with higher required_team_size but offer less parallelism.
+  #   Must be a positive integer that divides evenly into total_labor_endowment
+  #   (unless you provide explicit team_sizes below).
+  #   The canonical baseline is 24 (10 squads of 5, 12 teams of 10, 2 programs of 20).
+  team_count: 24
+
+  # team_sizes (optional, default: equal-sized teams)
+  #   Per-team labor allocation as a list. If provided:
+  #     - Length must equal team_count.
+  #     - Values must sum to total_labor_endowment.
+  #     - Enables heterogeneous team sizes (e.g. one large team plus several
+  #       small ones).
+  #   If omitted, teams are equal-sized: total_labor_endowment / team_count.
+  #   That division must be exact (no remainder) when this field is omitted.
+  #
+  # Canonical baseline — 24 teams: 10 small squads (5), 12 medium teams (10),
+  # 2 large program teams (20):
+  team_sizes: [5,5,5,5,5,5,5,5,5,5,10,10,10,10,10,10,10,10,10,10,10,10,20,20]
+  #
+  # For equal-sized teams, omit team_sizes entirely.
+
+  # ramp_period (optional, default: 4)
+  #   Number of ticks over which a newly assigned team ramps up to full
+  #   productive capacity. Represents switching costs: a team reassigned to a
+  #   new initiative operates at reduced effectiveness during the ramp window.
+  #   In the current study framing, ramp is treated as a property of the chosen
+  #   team structure rather than an environmental given. Must be a non-negative
+  #   integer. The canonical baseline is 4.
+  ramp_period: 4
+
+  # ramp_shape (optional, default: linear)
+  #   Shape of the ramp multiplier curve over the ramp_period.
+  #   "linear" — ramp multiplier increases linearly from 0 to 1 over
+  #               ramp_period ticks. The canonical baseline.
+  #   (Other shapes may be added in future; linear is the only option now.)
+  ramp_shape: linear
+
+  # ---------------------------------------------------------------------------
+  # Portfolio guardrails (all optional — omit or set to null to disable)
+  # ---------------------------------------------------------------------------
+  # Structural concentration limits set before the run begins. These are
+  # architecture-level choices — analogous to an investment mandate's sector
+  # limits. They are passed to the governance policy for it to honor; the
+  # engine does not enforce them directly. The policy decides whether and how
+  # to respect them.
+  #
+  # All three are disabled (null) in the canonical baseline. Enable them only
+  # if you are testing a governance architecture with explicit portfolio
+  # risk controls.
+
+  # low_quality_belief_threshold (optional, default: null = disabled)
+  #   Quality belief level below which an initiative is considered
+  #   "low-confidence" for portfolio exposure purposes. Must be in (0, 1).
+  #   Example: 0.3 means initiatives whose quality_belief_t has fallen
+  #   below 0.3 are flagged as low-confidence.
+  #   Required if max_low_quality_belief_labor_share is set.
+  low_quality_belief_threshold: ~
+
+  # max_low_quality_belief_labor_share (optional, default: null = disabled)
+  #   Maximum share of active labor that may be allocated to low-confidence
+  #   initiatives (those below low_quality_belief_threshold). Must be in
+  #   (0, 1]. Requires low_quality_belief_threshold to also be set.
+  #   Example: 0.4 means at most 40% of active labor may be in low-confidence
+  #   initiatives.
+  max_low_quality_belief_labor_share: ~
+
+  # max_single_initiative_labor_share (optional, default: null = disabled)
+  #   Maximum share of active labor that any single initiative may receive.
+  #   Must be in (0, 1]. Independent of the low-quality threshold.
+  #   Example: 0.5 means no single initiative can absorb more than half
+  #   the active workforce.
+  max_single_initiative_labor_share: ~
+
+
+# =============================================================================
+# LAYER 3: OPERATING POLICY
+# =============================================================================
+#
+# Operating policy is how governance actually decides per-tick within the
+# chosen architecture: when to stop, how to allocate attention, how long to
+# wait. The policy is selected by naming a preset.
+#
+# PRESET-ONLY SELECTION IS DELIBERATE
+# Individually overriding policy fields (stop thresholds, patience windows,
+# etc.) is intentionally not supported here. Field-level overrides would
+# reintroduce the low-level config assembly problem this workbench is designed
+# to avoid — you would need to know how all fields interact and which
+# combinations are internally consistent.
+#
+# Systematic operating-policy variation (the core of this study) is handled
+# by the LHS sweep machinery in campaign.py, which was purpose-built for it.
+# The workbench's job is to define one named governance posture cleanly.
+#
+# If you need a posture no existing preset captures, add a new preset to
+# presets.py. See GOING BEYOND THE PRESETS at the top of this file.
+
+policy:
+
+  # preset (required)
+  #   Selects all per-tick decision parameters.
+  #
+  #   "balanced"
+  #       Moderate thresholds. All four stop rules active (confidence
+  #       decline, TAM adequacy, stagnation, execution overrun). Neither
+  #       strongly aggressive nor strongly patient. THE CANONICAL REFERENCE
+  #       BASELINE — use this to establish a reference point.
+  #       Key parameters: confidence_decline_threshold=0.3, tam_ratio=0.6,
+  #       tam_patience=10 ticks, stagnation_window=15 ticks, attention_min=0.15
+  #
+  #   "aggressive_stop_loss"
+  #       Tight thresholds. Short patience windows. Stops earlier and
+  #       redeploys teams faster than Balanced. Favors throughput over
+  #       exploration. Use to test whether early stopping improves or
+  #       harms long-run value creation.
+  #       Key parameters: confidence_decline_threshold=0.4, tam_ratio=0.7,
+  #       tam_patience=5 ticks, stagnation_window=8 ticks, exec_overrun=0.5
+  #
+  #   "patient_moonshot"
+  #       Confidence-decline stopping DISABLED. Long patience windows.
+  #       Higher execution overrun tolerance. Holds longer on high-potential
+  #       initiatives even through periods of declining belief. Use to test
+  #       whether patience with right-tail initiatives generates major wins.
+  #       Key parameters: confidence_decline=None (disabled), tam_ratio=0.4,
+  #       tam_patience=20 ticks, stagnation_window=25 ticks, exec_overrun=0.3
+  #
+  #   To add a new preset: edit src/primordial_soup/presets.py.
+  preset: balanced
+
+
+# =============================================================================
+# EXECUTION
+# =============================================================================
+
+# world_seeds (required)
+#   One or more integer seeds for initiative pool generation. Each seed
+#   produces one independent simulation run against the same governance
+#   design — the same environment family, architecture, and policy, but a
+#   different stochastic draw from the initiative generator.
+#
+#   Use multiple seeds to reduce variance in outcome estimates. For
+#   exploratory runs, one seed is fine. For results you intend to report,
+#   use at least 3; the canonical study uses more.
+#
+#   Seeds can be any integers. Convention: start from 42 for the first
+#   canonical run set.
+#
+#   One seed (single exploratory run):
+#     world_seeds: [42]
+#
+#   Three seeds (standard small set):
+#     world_seeds: [42, 43, 44]
+world_seeds: [42]
+
+# reporting (optional — omit to use canonical defaults)
+#   Controls which output channels are recorded. All channels are enabled
+#   in the canonical baseline. Disabling channels speeds up runs at the
+#   cost of reduced output detail — do not disable for runs you intend to
+#   analyze.
+#
+#   record_manifest: true   — records run metadata and resolved config
+#   record_per_tick_logs: true — records per-initiative per-tick state
+#   record_event_log: true  — records discrete events (stops, completions)
+#
+#   Uncomment to override:
+# reporting:
+#   record_manifest: true
+#   record_per_tick_logs: true
+#   record_event_log: true

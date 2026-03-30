@@ -1,0 +1,283 @@
+version: 1
+
+metadata:
+  name: primordial_soup_business_intent_registry
+  purpose: >-
+    Canonical business-intent translation registry for mapping executive-style
+    study requests into the existing three-layer RunDesignSpec vocabulary.
+  notes:
+    - This registry is a study/workbench artifact, not an engine artifact.
+    - It is intended for structured translation, not open-ended natural-language parsing.
+    - The final resolved authoring artifact remains RunDesignSpec.
+
+bucket_definitions:
+  flywheel:
+    generation_tag: flywheel
+    description: >-
+      Compounding work with longer-lived residual value.
+    canonical_signals:
+      observable_ceiling: null
+      capability_contribution_scale: 0
+      typical_duration_ticks:
+        min: 25
+        max: 70
+
+  right_tail:
+    generation_tag: right_tail
+    description: >-
+      Exploratory bounded-prize bets with observable upside ceiling.
+    canonical_signals:
+      observable_ceiling: present
+      capability_contribution_scale: 0
+      typical_duration_ticks:
+        varies_by_family: true
+
+  enabler:
+    generation_tag: enabler
+    description: >-
+      Capability-building work that improves portfolio capability.
+    canonical_signals:
+      observable_ceiling: null
+      capability_contribution_scale: positive
+      typical_duration_ticks:
+        min: 12
+        max: 35
+
+  quick_win:
+    generation_tag: quick_win
+    description: >-
+      Short-cycle delivery work with limited compounding effect.
+    canonical_signals:
+      observable_ceiling: null
+      capability_contribution_scale: 0
+      typical_duration_ticks:
+        min: 4
+        max: 12
+
+intents:
+  more_right_tail:
+    description: Increase exploratory opportunity representation.
+    layer: environment
+    examples:
+      - more right-tail
+      - more exploratory bets
+      - more moonshots
+    translation:
+      kind: environment_family_bias
+      preferred_families:
+        - discovery_heavy
+      fallback_notes: >-
+        If family selection is too coarse, later versions may support explicit
+        environment overrides or custom families.
+
+  shorter_cycle_world:
+    description: Use a faster-turnover environment.
+    layer: environment
+    examples:
+      - shorter-cycle world
+      - faster delivery environment
+      - throughput-heavy world
+    translation:
+      kind: environment_family_bias
+      preferred_families:
+        - short_cycle_throughput
+
+  balanced_baseline_world:
+    description: Use the canonical baseline environment.
+    layer: environment
+    examples:
+      - baseline world
+      - balanced incumbent
+      - canonical environment
+    translation:
+      kind: environment_family_choice
+      family: balanced_incumbent
+
+  discovery_heavy_world:
+    description: Use the favorable exploratory environment.
+    layer: environment
+    examples:
+      - discovery-heavy world
+      - opportunity-rich world
+    translation:
+      kind: environment_family_choice
+      family: discovery_heavy
+
+  patient_governance:
+    description: Use a patient operating posture.
+    layer: operating_policy
+    examples:
+      - patient posture
+      - patient governance
+      - hold longer on promising work
+    translation:
+      kind: policy_preset
+      preset: patient_moonshot
+
+  aggressive_stop_loss:
+    description: Use an aggressive stopping posture.
+    layer: operating_policy
+    examples:
+      - aggressive stop loss
+      - cut losers faster
+      - redeploy quickly
+    translation:
+      kind: policy_preset
+      preset: aggressive_stop_loss
+
+  balanced_governance:
+    description: Use the canonical balanced policy posture.
+    layer: operating_policy
+    examples:
+      - balanced policy
+      - balanced governance
+      - reference policy
+    translation:
+      kind: policy_preset
+      preset: balanced
+
+  fewer_larger_teams:
+    description: Reduce parallelism and increase per-team staffing capacity.
+    layer: governance_architecture
+    parameters:
+      team_count:
+        type: int
+        min: 1
+        required: true
+      total_labor_endowment:
+        type: int
+        min: 1
+        required: true
+    examples:
+      - fewer larger teams
+      - four teams of two
+      - reduce parallelism
+    translation:
+      kind: workforce_shape
+      rule: derive_equal_team_sizes
+
+  more_parallel_teams:
+    description: Increase parallelism with smaller teams.
+    layer: governance_architecture
+    parameters:
+      team_count:
+        type: int
+        min: 1
+        required: true
+      total_labor_endowment:
+        type: int
+        min: 1
+        required: true
+    examples:
+      - more parallel teams
+      - more smaller teams
+      - increase parallel capacity
+    translation:
+      kind: workforce_shape
+      rule: derive_equal_team_sizes
+
+  concentration_cap:
+    description: Apply a max labor share cap to any single initiative.
+    layer: governance_architecture
+    parameters:
+      max_single_initiative_labor_share:
+        type: float
+        min: 0.0
+        max: 1.0
+        required: true
+    examples:
+      - cap concentration at 40%
+      - no initiative gets more than half the labor
+    translation:
+      kind: governance_guardrail
+      field: max_single_initiative_labor_share
+
+  low_confidence_exposure_cap:
+    description: Limit labor share in low-confidence work.
+    layer: governance_architecture
+    parameters:
+      low_quality_belief_threshold:
+        type: float
+        min: 0.0
+        max: 1.0
+        required: true
+      max_low_quality_belief_labor_share:
+        type: float
+        min: 0.0
+        max: 1.0
+        required: true
+    examples:
+      - limit low-confidence exposure
+      - no more than 30% in weak bets below 0.25 confidence
+    translation:
+      kind: governance_guardrail_pair
+      fields:
+        - low_quality_belief_threshold
+        - max_low_quality_belief_labor_share
+
+  portfolio_mix_targets:
+    description: >-
+      Target labor-share mix across canonical initiative buckets.
+    layer: governance_architecture
+    parameters:
+      targets:
+        type: mapping
+        allowed_keys:
+          - flywheel
+          - right_tail
+          - enabler
+          - quick_win
+        required: true
+      tolerance:
+        type: float
+        min: 0.0
+        max: 1.0
+        required: false
+    examples:
+      - target 40 percent flywheel, 20 percent right-tail, 30 percent enabler, 10 percent quick wins
+      - 3 teams on flywheel, 2 on enablers, 1 on quick wins
+      - protect capacity for enablers while keeping flywheel bias
+    translation:
+      kind: portfolio_mix_targets
+      bucket_source: bucket_definitions
+      semantics: policy_side_soft_preference
+      notes:
+        - A request expressed as team counts should be translated into labor-share targets.
+        - This is not team reservation and does not introduce team types.
+
+conflicts:
+  - intents:
+      - patient_governance
+      - aggressive_stop_loss
+    resolution: error
+    message: Cannot request both patient and aggressive stop-loss posture in the same run.
+
+  - intents:
+      - balanced_baseline_world
+      - discovery_heavy_world
+    resolution: error
+    message: Cannot request two explicit environment families for the same run.
+
+defaults:
+  portfolio_mix_tolerance: 0.10
+
+translation_rules:
+  team_count_to_labor_share:
+    description: >-
+      Translate a request expressed as team counts into labor-share targets using
+      the resolved total team count or total labor endowment, depending on the
+      staffing representation chosen by the workbench.
+    notes:
+      - In the current canonical equal-team baseline, team share and labor share are equivalent.
+      - For heterogeneous team sizes, labor-share translation should use labor units, not raw team counts.
+
+  application_order:
+    - environment
+    - governance_architecture
+    - operating_policy
+
+  error_policy:
+    unknown_intent: error
+    invalid_parameters: error
+    conflicting_intents: error
+    unsupported_free_text: error

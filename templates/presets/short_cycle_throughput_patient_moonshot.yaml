@@ -1,0 +1,32 @@
+# Primordial Soup — Run Design
+# Environment : Short Cycle Throughput
+# Policy      : Patient Moonshot
+#
+# Generated from templates/run_design_template.yaml.
+# See that file for full documentation of every field.
+# Run with:  python scripts/run_design.py path/to/this_file.yaml
+
+name: short_cycle_throughput_patient_moonshot
+title: "Short Cycle Throughput — Patient Moonshot"
+description: ""
+
+environment:
+  # Mature, quick-win-heavy world. Lower right-tail representation and shorter durations.
+  family: short_cycle_throughput
+
+architecture:
+  total_labor_endowment: 210
+  team_count: 24
+  team_sizes: [5,5,5,5,5,5,5,5,5,5,10,10,10,10,10,10,10,10,10,10,10,10,20,20]
+  ramp_period: 4
+  ramp_shape: linear
+  # Portfolio guardrails — all disabled. Set to a float in (0, 1) to enable.
+  low_quality_belief_threshold: ~
+  max_low_quality_belief_labor_share: ~
+  max_single_initiative_labor_share: ~
+
+policy:
+  # Confidence-decline stopping disabled. Long patience. Holds on high-potential initiatives.
+  preset: patient_moonshot
+
+world_seeds: [42, 43, 44]

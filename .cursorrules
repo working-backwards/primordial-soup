@@ -1,0 +1,32 @@
+## Primordial Soup — AI Agent Context
+
+All project rules, coding conventions, and architecture decisions are
+in `CLAUDE.md` at the repo root. Read it before making changes.
+
+### Key references
+
+- **Project rules and coding style:** `CLAUDE.md`
+- **Design corpus (authoritative):** `docs/design/index.md`
+  has reading order; `docs/design/core_simulator.md`,
+  `docs/design/interfaces.md`, `docs/design/governance.md`, and
+  `docs/design/initiative_model.md` are the technical authority.
+- **Open issues:** `docs/implementation/open_implementation_issues.md`
+- **Calibration plan:** `docs/implementation/calibration_plan.md`
+
+### Critical rules
+
+- Python 3.12+, `from __future__ import annotations` in every module.
+- `frozen=True` on all dataclasses.
+- `logging` only, never `print`.
+- Engine never branches on initiative labels.
+- Latent `q` and `true_duration_ticks` never visible to governance.
+- Per-initiative CRN streams (no global RNG).
+- All iteration in stable `id` order.
+- Design corpus is frozen — do not change model semantics.
+
+### Source layout
+
+- `src/primordial_soup/` — simulation package
+- `tests/` — pytest tests
+- `docs/design/` — frozen design corpus
+- `docs/implementation/` — implementation state files

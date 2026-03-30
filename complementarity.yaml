@@ -1,0 +1,74 @@
+# Configuration for the complementarity tool
+# (https://github.com/working-backwards/complementarity).
+#
+# Complementarity generates dual academic/business versions of design
+# documents. The calibration_examples point to the two study briefs
+# that serve as style references for each perspective. Run the tool
+# against docs in docs_dir to produce paired versions.
+
+schema_version: "0.1"
+
+project:
+  name: "Primordial Soup"
+  description: >
+    A discrete-time Monte Carlo study of how governance regimes affect
+    long-run organizational value creation.
+  research_questions:
+    - >
+      How does governance patience affect major-win discovery rates
+      across different initiative portfolio compositions?
+    - >
+      Do governance regimes that invest in enablers produce materially
+      different long-run capability trajectories?
+    - >
+      What is the relationship between executive attention allocation
+      strategy and the quality of stop/continue decisions?
+
+perspectives:
+  - label: "Academic"
+    domain: "Formal simulation modeling, operations research, stochastic optimization"
+    intended_reader: >
+      A professor or researcher in Operations Research or simulation who
+      expects precise definitions, formal notation, explicit assumptions,
+      and complete technical specification. They do not need motivation or
+      analogy. They need precision, completeness, and honest acknowledgment
+      of modeling limitations.
+    analogy_source: >
+      Formal analogues from simulation, stochastic optimization, and decision
+      theory only. Do not use organizational or business analogies.
+    notation_preference: >
+      Use standard OR and simulation notation. Prefer descriptive variable
+      names in prose, reserve compact symbols for equations. Define symbols
+      on first use.
+    notation_equations: >
+      Include equations when they are the most precise way to express a
+      relationship. Format in code blocks. State domain, range, and
+      boundary conditions explicitly.
+
+  - label: "Business"
+    domain: "Organizational decision-making, resource allocation, governance design"
+    intended_reader: >
+      A senior executive or sophisticated organizational practitioner who is
+      intellectually serious and analytically capable, but who reasons in
+      terms of organizational decisions, resource tradeoffs, and long-run
+      value rather than formal models. They do not need things simplified.
+      They need every design decision expressed completely and faithfully in
+      the language they use to think and act.
+    analogy_source: >
+      Concrete examples drawn from organizational reality and executive
+      experience. Do not use analogies that require knowledge of simulation
+      or formal optimization.
+    notation_preference: >
+      Avoid formal notation entirely. Express relationships in plain language
+      that preserves the meaning of the formal version.
+    notation_equations: >
+      Do not reproduce equations. Express what each equation governs in terms
+      of observable organizational consequences.
+
+calibration_examples:
+  - perspective: "Academic"
+    path: "docs/study/brief_wave.md"
+  - perspective: "Business"
+    path: "docs/study/brief_particle.md"
+
+docs_dir: "docs/design"

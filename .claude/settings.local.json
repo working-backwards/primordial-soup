@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(.venv/Scripts/pip install:*)",
+      "Bash(.venv/Scripts/ruff check:*)",
+      "Bash(.venv/Scripts/python:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git status:*)",
+      "Bash(cd:*)",
+      "Bash(find:*)",
+      "Bash(grep -E \"^\\\\- \\\\`\")",
+      "Bash(ls -1 /c/Users/cbrya/.claude-worktrees/primordial-soup/docs/design/*.md)",
+      "Bash(xargs -I {} basename {})",
+      "Read(//tmp/**)",
+      "Bash(grep:*)",
+      "Bash(python3:*)",
+      "Bash(gh issue:*)",
+      "Bash(rm -rf trajectory_output_test)"
+    ]
+  }
+}
