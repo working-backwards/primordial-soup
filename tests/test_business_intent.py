@@ -873,14 +873,12 @@ class TestFullPathIntegration:
         for tag in ("flywheel", "right_tail", "enabler", "quick_win"):
             init = _make_initiative_obs(generation_tag=tag)
             classified = classify_initiative_bucket(init)
-            assert classified == tag, (
-                f"classify_initiative_bucket returned {classified!r} for "
-                f"generation_tag={tag!r}"
-            )
-            assert classified in target_buckets, (
-                f"Classified bucket {classified!r} is not in target vocabulary "
-                f"{target_buckets}"
-            )
+            assert (
+                classified == tag
+            ), f"classify_initiative_bucket returned {classified!r} for generation_tag={tag!r}"
+            assert (
+                classified in target_buckets
+            ), f"Classified bucket {classified!r} is not in target vocabulary {target_buckets}"
 
     def test_policy_reranking_uses_generation_tag(self) -> None:
         """Policy re-ranking is driven by generation_tag, not observable attrs.

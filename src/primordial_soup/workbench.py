@@ -417,13 +417,13 @@ class GovernanceArchitectureSpec:
             total = sum(share for _, share in pmt.bucket_targets)
             if abs(total - 1.0) > 0.01:
                 errors.append(
-                    f"portfolio_mix_targets: bucket shares must sum to 1.0, " f"got {total:.4f}."
+                    f"portfolio_mix_targets: bucket shares must sum to 1.0, got {total:.4f}."
                 )
 
             # Tolerance must be in [0, 1].
             if not (0.0 <= pmt.tolerance <= 1.0):
                 errors.append(
-                    f"portfolio_mix_targets: tolerance must be in [0, 1], " f"got {pmt.tolerance}."
+                    f"portfolio_mix_targets: tolerance must be in [0, 1], got {pmt.tolerance}."
                 )
 
 
@@ -707,7 +707,7 @@ class RunDesignSpec:
         ramp_shape_map: dict[str, RampShape] = {"linear": RampShape.LINEAR}
         if ramp_shape_str not in ramp_shape_map:
             raise ValueError(
-                f"Unknown ramp_shape {ramp_shape_str!r}. " f"Valid values: {list(ramp_shape_map)}."
+                f"Unknown ramp_shape {ramp_shape_str!r}. Valid values: {list(ramp_shape_map)}."
             )
         ramp_shape = ramp_shape_map[ramp_shape_str]
 
@@ -881,7 +881,7 @@ class ResolvedRunDesign:
             lines.append(f"  Frontier degradation: {', '.join(fd_parts)}")
         if env_spec.right_tail_refresh_degradation is not None:
             lines.append(
-                f"  Right-tail refresh degradation: " f"{env_spec.right_tail_refresh_degradation}"
+                f"  Right-tail refresh degradation: {env_spec.right_tail_refresh_degradation}"
             )
         lines.append("")
 
@@ -984,7 +984,7 @@ def validate_run_design(spec: RunDesignSpec) -> None:
         errors.append("name must not be empty.")
     elif " " in spec.name:
         errors.append(
-            f"name must not contain spaces (use underscores or hyphens), " f"got: {spec.name!r}."
+            f"name must not contain spaces (use underscores or hyphens), got: {spec.name!r}."
         )
     if not spec.title:
         errors.append("title must not be empty.")
@@ -1006,12 +1006,10 @@ def validate_run_design(spec: RunDesignSpec) -> None:
                     f">= 0, got ({lo}, {hi})."
                 )
             if lo > hi:
-                errors.append(f"staffing_response[{tag!r}]: min ({lo}) must be " f"<= max ({hi}).")
+                errors.append(f"staffing_response[{tag!r}]: min ({lo}) must be <= max ({hi}).")
 
     if env.right_tail_prize_count is not None and env.right_tail_prize_count < 1:
-        errors.append(
-            f"right_tail_prize_count must be >= 1, " f"got {env.right_tail_prize_count}."
-        )
+        errors.append(f"right_tail_prize_count must be >= 1, got {env.right_tail_prize_count}.")
 
     if env.frontier_degradation_rate_overrides is not None:
         for tag, rate in env.frontier_degradation_rate_overrides:
@@ -1022,7 +1020,7 @@ def validate_run_design(spec: RunDesignSpec) -> None:
                 )
             if rate < 0:
                 errors.append(
-                    f"frontier_degradation_rate[{tag!r}]: rate must be " f">= 0, got {rate}."
+                    f"frontier_degradation_rate[{tag!r}]: rate must be >= 0, got {rate}."
                 )
 
     if env.right_tail_refresh_degradation is not None and env.right_tail_refresh_degradation < 0:

@@ -454,14 +454,6 @@ def _run_tick_loop(
                 current_tick=current_tick,
             )
 
-        # --- Count idle teams at tick start (before any actions) ---
-        # Per core_simulator.md: a team-tick is idle when the team has
-        # no assigned initiative at the start of that tick.
-        idle_team_count = sum(
-            1 for team in world_state.team_states if team.assigned_initiative_id is None
-        )
-        collector.cumulative_idle_team_ticks += idle_team_count
-
         # ==============================================================
         # Step 2: Apply pending governance actions from prior tick
         # ==============================================================
@@ -484,6 +476,19 @@ def _run_tick_loop(
             )
             stop_events_this_tick = list(stop_events)
             collector.stop_events.extend(stop_events)
+
+        # --- Count idle teams AFTER actions are applied ---
+        # Idle is measured after pending assignments and stops take
+        # effect, because that is the effective state for this tick's
+        # execution. A team whose assignment was decided at the end of
+        # the prior tick and applied above is NOT idle — it has work
+        # for this tick. Counting before apply_actions would create a
+        # 1-tick idle artifact for every stop/reassignment cycle, which
+        # is a measurement bug, not a governance signal.
+        idle_team_count = sum(
+            1 for team in world_state.team_states if team.assigned_initiative_id is None
+        )
+        collector.cumulative_idle_team_ticks += idle_team_count
 
         # ==============================================================
         # Step 3: Step world (production, belief update, completion)
@@ -850,9 +855,28 @@ def _materialize_frontier_initiatives(
         frontier_spec = type_spec.frontier
         current_unassigned = unassigned_by_family.get(family_tag, 0)
 
-        # Materialize if unassigned count is at or below threshold.
-        # Per design note: v1 threshold is 0 (materialize when empty).
-        if current_unassigned <= frontier_spec.replenishment_threshold:
+        # --- Fill-to-threshold materialization ---
+        # When the unassigned count for this family is at or below the
+        # replenishment threshold, generate enough initiatives to bring
+        # it back up to the threshold. This maintains a buffer of
+        # diverse-sized initiatives so that freed teams of any size can
+        # find feasible work. Without the buffer, team-size mismatches
+        # (e.g. a size-5 team and only size-12 unassigned initiatives)
+        # create artificial idleness.
+        #
+        # Per dynamic_opportunity_frontier.md §1: "the runner generates
+        # enough initiatives to bring the unassigned count back up to
+        # the threshold."
+        #
+        # n_to_generate is 0 when pool is above threshold (no action),
+        # 1 when pool is at threshold (top-up by 1), and up to
+        # threshold + 1 when pool is empty and threshold > 0.
+        n_to_generate = max(
+            0,
+            frontier_spec.replenishment_threshold + 1 - current_unassigned,
+        )
+
+        for _ in range(n_to_generate):
             family_state = updated_frontier_entries.get(
                 family_tag,
                 FamilyFrontierState(),

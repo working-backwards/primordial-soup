@@ -284,7 +284,7 @@ because they interact at the simulation level.
    v
 6. Update design docs                     -- environment_families.md, calibration_note.md
 7. Update/fix tests                       -- test_presets.py, others asserting old values
-8. Validation run                          -- run_experiment.py --seeds 5
+8. Validation run                          -- baseline_governance_campaign.py --seeds 5
 ```
 
 Steps 1-5 can be implemented in one pass through presets.py (plus
@@ -308,7 +308,7 @@ produces sensible results.
 
 ## Verification criteria
 
-After recalibration, run `python scripts/run_experiment.py --seeds 5`
+After recalibration, run `python scripts/baseline_governance_campaign.py --seeds 5`
 and check:
 
 1. **Balanced regime produces meaningful value.** Total priced value

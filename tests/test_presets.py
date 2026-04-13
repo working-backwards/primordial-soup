@@ -890,3 +890,226 @@ class TestCanonicalFamilySemantics:
         """Right-tail does not contribute to portfolio capability (that's enabler's role)."""
         spec = self._get_spec(family, "right_tail")
         assert spec.capability_contribution_scale_range is None
+
+
+# ===========================================================================
+# Model 0 — Simplified "VW Beetle" configuration tests
+# ===========================================================================
+
+
+class TestModel0Presets:
+    """Tests for Model 0 simplified configuration presets.
+
+    Model 0 is a radically simplified configuration that isolates the
+    portfolio selection decision. All complexity layers (residual, major
+    wins, capability, attention, ramp, dependency, frontier, screening)
+    are disabled via parameter settings.
+    """
+
+    def test_all_configs_pass_validation(self) -> None:
+        """All three Model 0 archetypes produce valid configurations."""
+        from primordial_soup.presets import (
+            make_model0_balanced_config,
+            make_model0_exploration_config,
+            make_model0_throughput_config,
+        )
+
+        for factory in [
+            make_model0_throughput_config,
+            make_model0_balanced_config,
+            make_model0_exploration_config,
+        ]:
+            config = factory(42)
+            validate_configuration(config)
+
+    def test_flywheel_has_residual(self) -> None:
+        """Flywheels have residual enabled -- their defining characteristic."""
+        from primordial_soup.presets import make_model0_initiative_generator_config
+
+        gen = make_model0_initiative_generator_config()
+        fw_specs = [s for s in gen.type_specs if s.generation_tag == "flywheel"]
+        assert len(fw_specs) == 1
+        assert fw_specs[0].residual_enabled is True
+
+    def test_non_flywheel_no_residual(self) -> None:
+        """Non-flywheel types do not have residual."""
+        from primordial_soup.presets import make_model0_initiative_generator_config
+
+        gen = make_model0_initiative_generator_config()
+        for spec in gen.type_specs:
+            if spec.generation_tag != "flywheel":
+                assert (
+                    spec.residual_enabled is False
+                ), f"{spec.generation_tag} has residual_enabled=True"
+
+    def test_right_tail_has_major_win_enabled(self) -> None:
+        """Right-tail initiatives track major wins."""
+        from primordial_soup.presets import make_model0_initiative_generator_config
+
+        gen = make_model0_initiative_generator_config()
+        rt_specs = [s for s in gen.type_specs if s.generation_tag == "right_tail"]
+        assert len(rt_specs) == 1
+        assert rt_specs[0].major_win_event_enabled is True
+        assert rt_specs[0].q_major_win_threshold == 0.80
+
+    def test_non_right_tail_no_major_win(self) -> None:
+        """Non-right-tail types do not track major wins."""
+        from primordial_soup.presets import make_model0_initiative_generator_config
+
+        gen = make_model0_initiative_generator_config()
+        for spec in gen.type_specs:
+            if spec.generation_tag != "right_tail":
+                assert (
+                    spec.major_win_event_enabled is False
+                ), f"{spec.generation_tag} has major_win_event_enabled=True"
+
+    def test_all_completion_lump_enabled(self) -> None:
+        """All initiative types have completion lump as the value channel."""
+        from primordial_soup.presets import make_model0_initiative_generator_config
+
+        gen = make_model0_initiative_generator_config()
+        for spec in gen.type_specs:
+            assert (
+                spec.completion_lump_enabled is True
+            ), f"{spec.generation_tag} has completion_lump_enabled=False"
+
+    def test_uniform_team_size(self) -> None:
+        """All teams have the same size (no matching artifact)."""
+        from primordial_soup.presets import make_model0_workforce_config
+
+        wf = make_model0_workforce_config()
+        assert isinstance(wf.team_size, int), "team_size should be a scalar"
+
+    def test_no_ramp_penalty(self) -> None:
+        """Ramp period is 1 (effectively no ramp)."""
+        from primordial_soup.presets import make_model0_workforce_config
+
+        wf = make_model0_workforce_config()
+        assert wf.ramp_period == 1
+
+    def test_no_dependency_friction(self) -> None:
+        """All initiative types have zero dependency."""
+        from primordial_soup.presets import make_model0_initiative_generator_config
+
+        gen = make_model0_initiative_generator_config()
+        for spec in gen.type_specs:
+            assert spec.dependency_level_range == (
+                0.0,
+                0.0,
+            ), f"{spec.generation_tag} has non-zero dependency"
+
+    def test_no_frontier(self) -> None:
+        """All initiative types use fixed pool (no dynamic frontier)."""
+        from primordial_soup.presets import make_model0_initiative_generator_config
+
+        gen = make_model0_initiative_generator_config()
+        for spec in gen.type_specs:
+            assert spec.frontier is None, f"{spec.generation_tag} has frontier set"
+
+    def test_no_screening(self) -> None:
+        """All initiative types have no screening signal."""
+        from primordial_soup.presets import make_model0_initiative_generator_config
+
+        gen = make_model0_initiative_generator_config()
+        for spec in gen.type_specs:
+            assert (
+                spec.screening_signal_st_dev is None
+            ), f"{spec.generation_tag} has screening_signal_st_dev set"
+
+    def test_capability_enabled(self) -> None:
+        """Portfolio capability mechanism is active."""
+        from primordial_soup.presets import make_model0_model_config
+
+        model = make_model0_model_config()
+        assert model.max_portfolio_capability > 1.0
+        assert model.capability_decay > 0.0
+
+    def test_enabler_has_capability_contribution(self) -> None:
+        """Enablers contribute to organizational capability on completion."""
+        from primordial_soup.presets import make_model0_initiative_generator_config
+
+        gen = make_model0_initiative_generator_config()
+        en_specs = [s for s in gen.type_specs if s.generation_tag == "enabler"]
+        assert len(en_specs) == 1
+        assert en_specs[0].capability_contribution_scale_range is not None
+
+    def test_attention_disabled(self) -> None:
+        """Attention has no effect on signals (g(a) = 1.0 everywhere)."""
+        from primordial_soup.presets import make_model0_model_config
+
+        model = make_model0_model_config()
+        assert model.exec_attention_budget == 0.0
+        assert model.min_attention_noise_modifier == 1.0
+        assert model.max_attention_noise_modifier == 1.0
+
+    def test_zero_budget_attention_min(self) -> None:
+        """attention_min is 0.0 (valid because budget is 0)."""
+        from primordial_soup.presets import make_model0_balanced_governance_config
+
+        gov = make_model0_balanced_governance_config()
+        assert gov.attention_min == 0.0
+        assert gov.exec_attention_budget == 0.0
+
+    def test_stop_rules_disabled(self) -> None:
+        """All stop rules are effectively disabled."""
+        from primordial_soup.presets import make_model0_balanced_governance_config
+
+        gov = make_model0_balanced_governance_config()
+        assert gov.confidence_decline_threshold is None
+        assert gov.exec_overrun_threshold is None
+        assert gov.stagnation_window_staffed_ticks >= 900
+        assert gov.base_tam_patience_window >= 900
+
+    def test_archetypes_have_different_mix_targets(self) -> None:
+        """The three archetypes produce different portfolio mix targets."""
+        from primordial_soup.presets import (
+            make_model0_balanced_governance_config,
+            make_model0_exploration_governance_config,
+            make_model0_throughput_governance_config,
+        )
+
+        t = make_model0_throughput_governance_config()
+        b = make_model0_balanced_governance_config()
+        e = make_model0_exploration_governance_config()
+
+        # Right-tail target should increase: throughput < balanced < exploration
+        t_rt = dict(t.portfolio_mix_targets.bucket_targets)["right_tail"]
+        b_rt = dict(b.portfolio_mix_targets.bucket_targets)["right_tail"]
+        e_rt = dict(e.portfolio_mix_targets.bucket_targets)["right_tail"]
+        assert t_rt < b_rt < e_rt
+
+    def test_smoke_run_produces_value(self) -> None:
+        """End-to-end: Model 0 run produces non-zero completions and value."""
+        from primordial_soup.presets import make_model0_balanced_config
+        from primordial_soup.workbench import make_policy, summarize_run_result
+
+        config = make_model0_balanced_config(42)
+        policy = make_policy(config.governance)
+        result, _ = run_single_regime(config, policy)
+        summary = summarize_run_result(result)
+
+        assert summary["initiatives_completed"] > 0
+        assert summary["cumulative_value"] > 0.0
+        # All value is lump (no residual in Model 0).
+        # Flywheels produce residual value; it should be non-zero.
+        assert summary["residual_value"] > 0.0
+        # Total value = lump + residual.
+        assert summary["cumulative_value"] == pytest.approx(
+            summary["lump_value"] + summary["residual_value"]
+        )
+        # Capability should increase above 1.0 (enablers contribute).
+        assert result.terminal_capability_t > 1.0
+        # No ramp cost.
+        assert summary["ramp_labor_fraction"] == pytest.approx(0.0)
+
+    def test_smoke_run_no_stops(self) -> None:
+        """With stop rules disabled, no initiatives are stopped."""
+        from primordial_soup.presets import make_model0_balanced_config
+        from primordial_soup.workbench import make_policy, summarize_run_result
+
+        config = make_model0_balanced_config(42)
+        policy = make_policy(config.governance)
+        result, _ = run_single_regime(config, policy)
+        summary = summarize_run_result(result)
+
+        assert summary["initiatives_stopped"] == 0

@@ -103,11 +103,14 @@ class TestFrontierSpecDataModel:
     """Tests for FrontierSpec frozen dataclass."""
 
     def test_default_values(self):
-        """FrontierSpec defaults: rate=0.0, floor=0.1, threshold=0."""
+        """FrontierSpec defaults: rate=0.0, floor=0.1, threshold=3."""
         spec = FrontierSpec()
         assert spec.frontier_degradation_rate == 0.0
         assert spec.frontier_quality_floor == 0.1
-        assert spec.replenishment_threshold == 0
+        # Default threshold=3 keeps a buffer of diverse-sized initiatives
+        # so freed teams of any size can find feasible work. See
+        # dynamic_opportunity_frontier.md §1 for rationale.
+        assert spec.replenishment_threshold == 3
 
     def test_custom_values(self):
         """FrontierSpec accepts custom degradation parameters."""

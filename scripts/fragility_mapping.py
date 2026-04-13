@@ -312,8 +312,7 @@ def print_2d_slice_cdt_vs_eot(
     Holds attention_min fixed at the given value.
     """
     _print_section(
-        f"{FAMILY_LABELS[family]}: Major wins | "
-        f"CDT vs EOT (attn_min={attention_min_value:.2f})"
+        f"{FAMILY_LABELS[family]}: Major wins | CDT vs EOT (attn_min={attention_min_value:.2f})"
     )
 
     # Header row: exec_overrun_threshold values.
@@ -343,7 +342,7 @@ def print_2d_slice_cdt_vs_amin(
     Holds exec_overrun_threshold fixed.
     """
     _print_section(
-        f"{FAMILY_LABELS[family]}: Major wins | " f"CDT vs Attn_min (EOT={exec_overrun_value:.2f})"
+        f"{FAMILY_LABELS[family]}: Major wins | CDT vs Attn_min (EOT={exec_overrun_value:.2f})"
     )
 
     header = f"{'CDT':>6s}  " + "  ".join(f"{amin:>6.2f}" for amin in ATTENTION_MIN_VALUES)

@@ -347,9 +347,13 @@ def make_initiative_generator_config(
         # Dynamic frontier: slow declining quality as the flywheel
         # landscape is consumed. Per dynamic_opportunity_frontier.md §1:
         # degradation_rate=0.01 means alpha drops ~1% per resolved initiative.
+        # replenishment_threshold=3 keeps a buffer of unassigned initiatives
+        # per family so freed teams of any size can find feasible work
+        # (avoids artificial idleness from team-size mismatches).
         frontier=FrontierSpec(
             frontier_degradation_rate=0.01,
             frontier_quality_floor=0.1,
+            replenishment_threshold=3,
         ),
     )
 
@@ -384,6 +388,7 @@ def make_initiative_generator_config(
         frontier=FrontierSpec(
             frontier_degradation_rate=0.005,
             frontier_quality_floor=0.1,
+            replenishment_threshold=3,
         ),
     )
 
@@ -429,6 +434,7 @@ def make_initiative_generator_config(
         frontier=FrontierSpec(
             frontier_degradation_rate=0.02,
             frontier_quality_floor=0.1,
+            replenishment_threshold=3,
         ),
     )
 
@@ -525,6 +531,7 @@ def _make_right_tail_spec(family: EnvironmentFamilyName) -> InitiativeTypeSpec:
             frontier=FrontierSpec(
                 frontier_degradation_rate=0.0,
                 frontier_quality_floor=0.1,
+                replenishment_threshold=3,
                 right_tail_refresh_quality_degradation=0.0,
             ),
         )
@@ -561,6 +568,7 @@ def _make_right_tail_spec(family: EnvironmentFamilyName) -> InitiativeTypeSpec:
             frontier=FrontierSpec(
                 frontier_degradation_rate=0.0,
                 frontier_quality_floor=0.1,
+                replenishment_threshold=3,
                 right_tail_refresh_quality_degradation=0.0,
             ),
         )
@@ -598,6 +606,7 @@ def _make_right_tail_spec(family: EnvironmentFamilyName) -> InitiativeTypeSpec:
             frontier=FrontierSpec(
                 frontier_degradation_rate=0.0,
                 frontier_quality_floor=0.1,
+                replenishment_threshold=3,
                 right_tail_refresh_quality_degradation=0.0,
             ),
         )
@@ -1031,4 +1040,405 @@ def make_baseline_workforce_architecture_spec() -> WorkforceArchitectureSpec:
         team_count=24,
         ramp_period=4,
         ramp_multiplier_shape=RampShape.LINEAR,
+    )
+
+
+# ===========================================================================
+# Model 0 — Simplified "VW Beetle" configuration
+# ===========================================================================
+#
+# Model 0 is a radically simplified configuration that isolates the
+# portfolio selection decision: which initiatives to start, given
+# limited team capacity. All other complexity layers (residual value,
+# major wins, capability, attention effects, team ramp, dependency
+# friction, dynamic frontier, screening signals) are disabled via
+# parameter settings — no engine code is removed.
+#
+# The three Model 0 governance archetypes differ ONLY in portfolio
+# mix targets — what fraction of teams they allocate to each initiative
+# type. All use BalancedPolicy since the differentiation is in the
+# config, not the policy logic.
+#
+# Design reference: results/model0_plan.md
+
+
+def make_model0_time_config() -> TimeConfig:
+    """Build the Model 0 TimeConfig.
+
+    Horizon of 100 ticks (weeks), approximately 2 years. Shorter than
+    the full model's 313 weeks. Long enough that most initiatives can
+    complete; short enough that right-tail investments started late may
+    not finish before horizon, creating a genuine governance tension
+    between safe short-term bets and risky long-term investments.
+    """
+    return TimeConfig(
+        tick_horizon=100,
+        tick_label="week",
+    )
+
+
+def make_model0_workforce_config() -> WorkforceConfig:
+    """Build the Model 0 WorkforceConfig.
+
+    10 uniform teams of size 5 (50 total labor). Uniform team sizes
+    eliminate the team-size matching artifact that causes 25-36% idle
+    in the full model. Every team can work on every initiative.
+
+    Ramp period is 1 tick (effectively instant), disabling the ramp
+    penalty. Teams are immediately productive after assignment.
+    """
+    return WorkforceConfig(
+        team_count=10,
+        team_size=5,
+        ramp_period=1,
+        ramp_multiplier_shape=RampShape.LINEAR,
+    )
+
+
+def make_model0_model_config() -> ModelConfig:
+    """Build the Model 0 ModelConfig.
+
+    All complexity layers disabled via parameter settings:
+
+    - exec_attention_budget=0: no executive attention allocated.
+      Per governance.md §Zero-budget special case.
+    - Attention noise modifier g(a) = 1.0 everywhere: attention has
+      no effect on signal quality even if allocated.
+    - dependency_noise_exponent=0: no dependency-based noise.
+    - max_portfolio_capability=3.0: capability mechanism active.
+      Enabler completions increase C_t, improving signal quality.
+    - capability_decay=0.005: slow decay toward 1.0.
+
+    What remains active:
+    - base_signal_st_dev_default=0.15: signals are noisy (learning
+      is not instant).
+    - learning_rate=0.1: beliefs update via EMA toward true quality.
+    - execution_signal_st_dev=0.15 and execution_learning_rate=0.1:
+      execution beliefs update, but execution overrun stopping is
+      disabled in the governance config.
+    """
+    return ModelConfig(
+        # No executive attention allocated.
+        exec_attention_budget=0.0,
+        # --- Signal noise: active but simple ---
+        base_signal_st_dev_default=0.15,
+        # No dependency noise amplification.
+        dependency_noise_exponent=0.0,
+        # Uninformative prior: all initiatives start at belief 0.5.
+        default_initial_quality_belief=0.5,
+        # Reference ceiling: irrelevant with no TAM/bounded-prize
+        # initiatives, but must be > 0 for validation.
+        reference_ceiling=50.0,
+        # --- Attention curve g(a): flat at 1.0 (attention has no effect) ---
+        attention_noise_threshold=0.15,
+        low_attention_penalty_slope=0.0,
+        attention_curve_exponent=0.5,
+        min_attention_noise_modifier=1.0,
+        max_attention_noise_modifier=1.0,
+        # --- Learning: active ---
+        learning_rate=0.1,
+        dependency_learning_scale=None,  # canonical formula, but d=0 so L(d)=1
+        # --- Execution signal: active but overrun stopping disabled ---
+        execution_signal_st_dev=0.15,
+        execution_learning_rate=0.1,
+        # --- Portfolio capability: active ---
+        # Enabler completions increase C_t, improving signal quality
+        # for all initiatives. This is one of the three success
+        # dimensions (value, major wins, organizational learning).
+        max_portfolio_capability=3.0,
+        capability_decay=0.005,  # slow decay toward 1.0
+    )
+
+
+def make_model0_initiative_generator_config() -> InitiativeGeneratorConfig:
+    """Build the Model 0 InitiativeGeneratorConfig.
+
+    50 initiatives across 4 types, each producing a different kind of
+    outcome. No frontier, no screening signals, no dependency.
+
+    The four types represent the core portfolio selection tradeoff:
+    - quick_win: immediate certain value (completion lump only)
+    - flywheel: ongoing compounding value (residual after completion)
+    - enabler: organizational capability (C_t improvement)
+    - right_tail: transformational discoveries (major wins)
+
+    The types differ in risk/return/duration profile:
+    - quick_win (15): low value (1-3), short (3-8 wk), high quality
+    - flywheel (15): moderate-high value (3-8), moderate (15-30 wk)
+    - enabler (10): moderate value (2-5), moderate (8-20 wk)
+    - right_tail (10): wide value range (1-20), long (30-60 wk),
+      low mean quality, high signal noise — the speculative bet
+
+    All initiatives require team_size=5 (matching the uniform teams)
+    so team-size matching is never a constraint.
+    """
+    # --- Quick-win: safe, short, low value ---
+    quick_win_spec = InitiativeTypeSpec(
+        generation_tag="quick_win",
+        count=40,
+        # High mean quality: Beta(5,3) → mean ≈ 0.63
+        quality_distribution=BetaDistribution(alpha=5.0, beta=3.0),
+        base_signal_st_dev_range=(0.05, 0.15),
+        dependency_level_range=(0.0, 0.0),
+        required_team_size=5,
+        true_duration_range=(3, 8),
+        planned_duration_range=(4, 10),
+        # Completion lump is the only value channel.
+        completion_lump_enabled=True,
+        completion_lump_value_range=(1.0, 3.0),
+        # All other channels disabled.
+        residual_enabled=False,
+        major_win_event_enabled=False,
+    )
+
+    # --- Flywheel: reliable, moderate duration, compounding value ---
+    # Flywheels are the compounding-value type. Their defining
+    # characteristic is ongoing residual value after completion —
+    # the "flywheel" that keeps spinning. Small completion lump
+    # but persistent residual stream. This makes them strategically
+    # different from quick wins (immediate lump, no tail).
+    flywheel_spec = InitiativeTypeSpec(
+        generation_tag="flywheel",
+        count=40,
+        # High mean quality: Beta(6,2) → mean ≈ 0.75
+        quality_distribution=BetaDistribution(alpha=6.0, beta=2.0),
+        base_signal_st_dev_range=(0.05, 0.15),
+        dependency_level_range=(0.0, 0.0),
+        required_team_size=5,
+        true_duration_range=(15, 30),
+        planned_duration_range=(18, 35),
+        # Small lump on completion — the upfront value is modest.
+        completion_lump_enabled=True,
+        completion_lump_value_range=(1.0, 3.0),
+        # Residual: ongoing compounding value after completion.
+        # Moderate rate with slow decay — the flywheel persists.
+        residual_enabled=True,
+        residual_activation_state="completed",
+        residual_rate_range=(0.5, 2.0),
+        residual_decay_range=(0.005, 0.02),
+        major_win_event_enabled=False,
+    )
+
+    # --- Enabler: moderate quality, moderate duration and value ---
+    # Enablers contribute to organizational capability (C_t) on
+    # completion, improving signal quality for all initiatives.
+    enabler_spec = InitiativeTypeSpec(
+        generation_tag="enabler",
+        count=25,
+        # Moderate quality: Beta(4,4) → mean = 0.50
+        quality_distribution=BetaDistribution(alpha=4.0, beta=4.0),
+        base_signal_st_dev_range=(0.05, 0.20),
+        dependency_level_range=(0.0, 0.0),
+        required_team_size=5,
+        true_duration_range=(8, 20),
+        planned_duration_range=(10, 25),
+        completion_lump_enabled=True,
+        completion_lump_value_range=(2.0, 5.0),
+        # Capability contribution: enabler completions increase C_t.
+        capability_contribution_scale_range=(0.1, 0.5),
+        residual_enabled=False,
+        major_win_event_enabled=False,
+    )
+
+    # --- Right-tail: speculative, long, high-variance value ---
+    # Right-tail initiatives can surface major wins — transformational
+    # discoveries that represent qualitatively different outcomes.
+    # Major wins are tracked as a count, one of the three success
+    # dimensions alongside value and organizational learning.
+    right_tail_spec = InitiativeTypeSpec(
+        generation_tag="right_tail",
+        count=25,
+        # Low mean, right-skewed: Beta(0.8,2) → mean ≈ 0.29
+        # Most are low quality, but occasional draws above 0.7
+        # produce the high end of the value range.
+        quality_distribution=BetaDistribution(alpha=0.8, beta=2.0),
+        base_signal_st_dev_range=(0.20, 0.35),
+        dependency_level_range=(0.0, 0.0),
+        required_team_size=5,
+        # Long duration: 30-60 weeks. Some will not complete
+        # within the 100-tick horizon if started after tick 40-70.
+        true_duration_range=(30, 60),
+        planned_duration_range=(35, 70),
+        # Wide value range: most produce 1-5, but occasional
+        # high-quality draws produce up to 20. This creates the
+        # genuine safe-vs-speculative governance tradeoff.
+        completion_lump_enabled=True,
+        completion_lump_value_range=(1.0, 20.0),
+        residual_enabled=False,
+        # Major-win tracking: q >= 0.80 at completion is a
+        # transformational discovery. Same threshold as full model.
+        major_win_event_enabled=True,
+        q_major_win_threshold=0.80,
+    )
+
+    return InitiativeGeneratorConfig(
+        type_specs=(
+            flywheel_spec,
+            right_tail_spec,
+            enabler_spec,
+            quick_win_spec,
+        ),
+    )
+
+
+def _make_model0_governance_config(
+    *,
+    policy_label: str,
+    portfolio_mix_targets: PortfolioMixTargets,
+) -> GovernanceConfig:
+    """Build a Model 0 GovernanceConfig with the given mix targets.
+
+    All stop rules are effectively disabled. The governance decision
+    is purely about initiative selection via portfolio_mix_targets.
+
+    Args:
+        policy_label: Descriptive label for this archetype (used as
+            policy_id for reporting, not for policy class dispatch).
+        portfolio_mix_targets: The portfolio selection strategy that
+            differentiates this archetype.
+    """
+    return GovernanceConfig(
+        # All Model 0 archetypes use BalancedPolicy (policy_id="balanced"
+        # for policy dispatch). The policy_label is for display only.
+        policy_id="balanced",
+        exec_attention_budget=0.0,
+        default_initial_quality_belief=0.5,
+        # --- All stop rules disabled ---
+        confidence_decline_threshold=None,
+        tam_threshold_ratio=0.6,
+        base_tam_patience_window=999,
+        stagnation_window_staffed_ticks=999,
+        stagnation_belief_change_threshold=0.02,
+        # --- Attention: zero budget, zero floor ---
+        attention_min=0.0,
+        attention_max=None,
+        # --- Execution overrun: disabled ---
+        exec_overrun_threshold=None,
+        # --- Portfolio risk controls: all off ---
+        low_quality_belief_threshold=None,
+        max_low_quality_belief_labor_share=None,
+        max_single_initiative_labor_share=None,
+        # --- Portfolio selection: the primary governance lever ---
+        portfolio_mix_targets=portfolio_mix_targets,
+    )
+
+
+def make_model0_throughput_governance_config() -> GovernanceConfig:
+    """Build the Model 0 Throughput-Focused GovernanceConfig.
+
+    Prioritizes safe, short-duration initiatives. Heavy quick-win
+    allocation (60%) with moderate flywheel (30%), minimal investment
+    in speculative or enabling work.
+    """
+    return _make_model0_governance_config(
+        policy_label="throughput",
+        portfolio_mix_targets=PortfolioMixTargets(
+            bucket_targets=(
+                ("flywheel", 0.30),
+                ("right_tail", 0.05),
+                ("enabler", 0.05),
+                ("quick_win", 0.60),
+            ),
+            tolerance=0.05,
+        ),
+    )
+
+
+def make_model0_balanced_governance_config() -> GovernanceConfig:
+    """Build the Model 0 Balanced GovernanceConfig.
+
+    Even allocation across initiative types. The reference baseline.
+    """
+    return _make_model0_governance_config(
+        policy_label="balanced",
+        portfolio_mix_targets=PortfolioMixTargets(
+            bucket_targets=(
+                ("flywheel", 0.35),
+                ("right_tail", 0.15),
+                ("enabler", 0.15),
+                ("quick_win", 0.35),
+            ),
+            tolerance=0.10,
+        ),
+    )
+
+
+def make_model0_exploration_governance_config() -> GovernanceConfig:
+    """Build the Model 0 Exploration-Focused GovernanceConfig.
+
+    Prioritizes long-horizon speculative investments. Heavy right-tail
+    allocation (40%) with moderate enabler support (20%). Willing to
+    sacrifice short-term throughput for potential high-value outcomes.
+    """
+    return _make_model0_governance_config(
+        policy_label="exploration",
+        portfolio_mix_targets=PortfolioMixTargets(
+            bucket_targets=(
+                ("flywheel", 0.25),
+                ("right_tail", 0.40),
+                ("enabler", 0.20),
+                ("quick_win", 0.15),
+            ),
+            tolerance=0.05,
+        ),
+    )
+
+
+def make_model0_throughput_config(world_seed: int) -> SimulationConfiguration:
+    """Build a complete Model 0 Throughput-Focused SimulationConfiguration.
+
+    Args:
+        world_seed: Seed for deterministic world generation.
+
+    Returns:
+        Complete SimulationConfiguration for one Model 0 Throughput run.
+    """
+    return SimulationConfiguration(
+        world_seed=world_seed,
+        time=make_model0_time_config(),
+        teams=make_model0_workforce_config(),
+        model=make_model0_model_config(),
+        governance=make_model0_throughput_governance_config(),
+        reporting=make_baseline_reporting_config(),
+        initiative_generator=make_model0_initiative_generator_config(),
+    )
+
+
+def make_model0_balanced_config(world_seed: int) -> SimulationConfiguration:
+    """Build a complete Model 0 Balanced SimulationConfiguration.
+
+    Args:
+        world_seed: Seed for deterministic world generation.
+
+    Returns:
+        Complete SimulationConfiguration for one Model 0 Balanced run.
+    """
+    return SimulationConfiguration(
+        world_seed=world_seed,
+        time=make_model0_time_config(),
+        teams=make_model0_workforce_config(),
+        model=make_model0_model_config(),
+        governance=make_model0_balanced_governance_config(),
+        reporting=make_baseline_reporting_config(),
+        initiative_generator=make_model0_initiative_generator_config(),
+    )
+
+
+def make_model0_exploration_config(world_seed: int) -> SimulationConfiguration:
+    """Build a complete Model 0 Exploration-Focused SimulationConfiguration.
+
+    Args:
+        world_seed: Seed for deterministic world generation.
+
+    Returns:
+        Complete SimulationConfiguration for one Model 0 Exploration run.
+    """
+    return SimulationConfiguration(
+        world_seed=world_seed,
+        time=make_model0_time_config(),
+        teams=make_model0_workforce_config(),
+        model=make_model0_model_config(),
+        governance=make_model0_exploration_governance_config(),
+        reporting=make_baseline_reporting_config(),
+        initiative_generator=make_model0_initiative_generator_config(),
     )

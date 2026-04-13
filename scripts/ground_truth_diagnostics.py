@@ -279,8 +279,7 @@ def print_belief_at_stop_table(
     _print_section("Belief-at-stop for major-win-eligible (pooled across seeds)")
 
     header = (
-        f"{'Family':>14s}  {'Policy':>12s}  "
-        f"{'Count':>5s}  {'Mean':>6s}  {'Min':>6s}  {'Max':>6s}"
+        f"{'Family':>14s}  {'Policy':>12s}  {'Count':>5s}  {'Mean':>6s}  {'Min':>6s}  {'Max':>6s}"
     )
     print(header)
     print("-" * len(header))

@@ -180,15 +180,41 @@ formal description of how the system evolves.
 
 <!-- specification-gap: timing of n_resolved increment and prize-lifecycle updates (stop → available, complete → consumed) relative to the three-step cycle is not specified in this document; state_definition_and_markov_property.md defines a fourth runner-owned step for these updates, occurring after step 3 -->
 
-**Trigger for materialization:** The runner materializes new initiatives
-when the unassigned pool for a family falls below that family's
-replenishment threshold. In v1, the replenishment threshold is zero: the
-runner materializes only when the family's unassigned pool is completely
-empty. This keeps the realized pool compact while leaving room for a
-small-buffer strategy in future versions (e.g., materializing when the pool
-drops to one or two rather than zero) without changing the architecture.
+**Trigger and fill-to-threshold materialization:** The runner materializes
+new initiatives when the unassigned pool for a family falls to or below
+that family's `replenishment_threshold`. When triggered, the runner
+generates enough initiatives to bring the unassigned count back up to
+the threshold. For example, if the threshold is 3 and the current
+unassigned count is 0, the runner generates 3 initiatives in a single
+materialization pass. Each draw increments `n_frontier_draws` and
+consumes one step of the frontier RNG stream.
 
-<!-- specification-gap: the number of initiatives materialized per replenishment event is not specified — whether the runner creates exactly one initiative per depleted family, or enough to reach some target buffer size, is left unresolved -->
+**Rationale for the buffer.** With mixed-size teams (e.g. 5, 10, 20)
+and initiatives drawn from a `required_team_size_range` (e.g. 5-15),
+a single unassigned initiative may be infeasible for the available
+teams — a size-5 team cannot start a size-12 initiative. A buffer of
+several initiatives per family ensures that the unassigned pool
+contains sufficient team-size diversity for freed teams to find
+feasible work. Without the buffer, teams sit idle not because the
+opportunity landscape is exhausted, but because the single initiative
+in the pool happens to require a team size that no free team can
+provide. This is an artifact of the discrete team-size model, not a
+meaningful governance signal.
+
+The threshold is a per-family parameter on `FrontierSpec`. A threshold
+of 0 recovers the original compact-pool behavior (materialize only
+when the pool is completely empty, generate exactly one). The canonical
+baseline presets use a threshold of 3 per family.
+
+**Frontier team-size rule.** Frontier-generated initiatives always use
+the minimum of the type spec's `required_team_size_range` (or the fixed
+`required_team_size` if no range is specified). This ensures that any
+team, including the smallest, can staff a frontier initiative. The
+initial pool retains the full team-size range, representing the
+organization's pre-existing portfolio of committed work at various
+scales. Frontier initiatives represent the ongoing flow of new
+opportunities that must be staffable by available teams — in practice,
+new proposals are scoped to match available capacity.
 
 ### Business
 With the dynamic frontier, the complete cycle for each week of the simulation becomes a three-step process. Understanding where the boundaries fall matters because it determines who owns what — and ensures that the engine's purity and the observation boundary are preserved.
@@ -513,10 +539,9 @@ The runner must NOT:
 - Read or use latent quality from existing initiatives. The runner operates
   on frontier state and family-level configuration parameters, not on the
   latent attributes of individual initiatives.
-- Generate initiatives for families whose unassigned pool is at or above
-  the replenishment threshold. Materialization occurs only when a family's
-  pool is depleted below the threshold; the runner does not pre-fill pools
-  or maintain buffers beyond what the threshold specifies.
+- Generate initiatives for families whose unassigned pool is above the
+  replenishment threshold. Materialization occurs only when a family's
+  pool is at or below the threshold, and fills up to the threshold.
 
 ### Business
 The engine still receives fully resolved initiative specifications. What changes with the dynamic frontier is how and when those specifications are produced — not what the engine sees or how it operates. This is a deliberate architectural choice: the frontier mechanism adds complexity to the orchestration layer but does not change the engine's contract or behavior.
@@ -553,7 +578,7 @@ The runner must NOT:
 - Call engine functions. The runner materializes initiatives; the engine advances the simulation. These responsibilities do not overlap.
 - Alter team states. Team assignment is a governance decision applied by the engine, not a runner-side operation.
 - Read or use the hidden true quality from existing initiatives. The runner operates on frontier state and family-level parameters, not on the latent attributes of individual initiatives.
-- Generate initiatives for families whose unassigned pool is at or above the replenishment threshold. Materialization occurs only when a family's pool is depleted below the threshold — the runner does not pre-fill pools or maintain buffers beyond what the threshold specifies.
+- Generate initiatives for families whose unassigned pool is above the replenishment threshold. Materialization occurs only when a family's pool is at or below the threshold, and fills up to the threshold.
 
 ## Canonical core update
 

@@ -243,6 +243,12 @@ GovernanceConfig = {
   #   substantive claim about a harmful shallow-attention region below a minimum
   #   threshold. That threshold must therefore exist in canonical runs rather than
   #   being optional.
+  # - Exception: attention_min = 0.0 is valid when exec_attention_budget = 0.0.
+  #   This represents a governance configuration where no executive attention is
+  #   allocated. When the budget is zero, the policy emits no SetExecAttention
+  #   actions and all initiatives receive attention = 0.0 via the omission-means-zero
+  #   contract. The attention curve g(a) still applies at a = 0, so signal quality
+  #   is determined entirely by g(0) and the base noise parameters.
   # - If attention_max is None, the canonical interpretation is 1.0.
   "attention_min": float,
   "attention_max": float | None,
@@ -317,7 +323,11 @@ The runner should validate required parameters are present and that numeric boun
 - `0 < default_initial_quality_belief < 1` or, if boundary values are permitted in
   implementation, at minimum `0 <= default_initial_quality_belief <= 1`. The canonical
   default is `0.5`.
-- `attention_min` must be present and satisfy `0 < attention_min <= 1`
+- `attention_min` must be present and satisfy `0 < attention_min <= 1`.
+  **Exception:** `attention_min = 0.0` is valid when `exec_attention_budget = 0.0`,
+  representing a governance configuration where no executive attention is allocated.
+  When the budget is zero, the policy emits no `SetExecAttention` actions and all
+  initiatives receive attention = 0.0 (the omission-means-zero contract)
 - if `attention_max` is set, then `0 <= attention_max <= 1`
 - if `attention_max` is set, then `attention_min <= attention_max`
 - `base_tam_patience_window` must be a Python `int`, not a float. YAML parsers may silently coerce

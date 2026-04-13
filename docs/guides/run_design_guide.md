@@ -457,7 +457,7 @@ You can override these defaults with the `base_*` keyword arguments to `build_ru
 
 **Systematic parameter sweeps:** This tool is for a single named governance design point. If you need to run many governance configurations systematically (the core study), use `CampaignSpec` and `run_campaign()` in `campaign.py` directly. That machinery was built for exactly this purpose.
 
-**Comparative experiments with full reporting:** For the canonical governance comparison study (3 archetypes × 3 environments × N seeds), use `scripts/run_experiment.py`. It produces a complete **run bundle** with Parquet tables, PNG figures, an HTML report, and validation — the canonical on-disk artifact for the study. See the README for usage and the conductor guide (`docs/guides/study_conductor_guide.md`) for interpreting outputs.
+**Comparative experiments with full reporting:** For the canonical governance comparison study (3 archetypes × 3 environments × N seeds), use `scripts/baseline_governance_campaign.py`. It produces a complete **run bundle** with Parquet tables, PNG figures, an HTML report, and validation — the canonical on-disk artifact for the study. See the README for usage and the conductor guide (`docs/guides/study_conductor_guide.md`) for interpreting outputs.
 
 **Python API:** If you need more control than the YAML surface provides, you can construct a `RunDesignSpec` directly in Python. See `src/primordial_soup/workbench.py` for the full API.
 

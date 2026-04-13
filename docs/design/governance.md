@@ -856,6 +856,25 @@ Therefore:
 
 This separation keeps the main comparative findings clean. In the main experiment, attention differences between regimes reflect governance philosophy. In the scarce-attention experiment, attention differences reflect resource constraints. Mixing the two would make it impossible to attribute attention patterns to governance choices versus budget constraints.
 
+### Zero-budget special case
+
+`exec_attention_budget = 0.0` is a valid governance configuration representing
+an executive who allocates no time to initiative oversight. When the budget is
+zero:
+
+- The policy should emit no `SetExecAttention` actions. Per the omission-means-zero
+  contract (§SetExecAttention above), all initiatives receive attention = 0.0.
+- `attention_min = 0.0` is valid in this configuration (see interfaces.md
+  validation rules). The usual `attention_min > 0` constraint applies only when
+  the budget is positive.
+- The attention curve `g(a)` still applies at `a = 0`. Signal quality is
+  determined entirely by `g(0)` and the base noise parameters. If the attention
+  noise modifier is configured so that `g(0) = 1.0` (e.g., by setting
+  `min_attention_noise_modifier = max_attention_noise_modifier = 1.0`), then
+  attention has no effect on signal quality — the "attention off" configuration.
+- This configuration is useful for simplified model variants that isolate
+  governance decisions other than attention allocation (e.g., portfolio selection).
+
 ## Conflict resolution
 
 ### Academic

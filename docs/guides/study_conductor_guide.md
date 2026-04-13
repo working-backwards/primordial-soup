@@ -177,7 +177,7 @@ This limitation is most material for findings about aggressive stop-loss governa
 
 ## Reading run-bundle outputs
 
-When a comparative experiment is run via `scripts/run_experiment.py`, the output is a **run bundle** — a self-contained directory with all artifacts needed to understand, reproduce, and present the experiment. The conductor should know what each part of the bundle contains.
+When a comparative experiment is run via `scripts/baseline_governance_campaign.py`, the output is a **run bundle** — a self-contained directory with all artifacts needed to understand, reproduce, and present the experiment. The conductor should know what each part of the bundle contains.
 
 The **manifest** (`manifest.json`) identifies the bundle: experiment name, seed set, condition count, provenance (git commit, platform, command), and telemetry (timing, completion status). Start here to confirm the experiment ran as intended.
 

@@ -206,7 +206,7 @@ def _validate_registry_structure(registry: dict[str, Any]) -> None:
         missing = CANONICAL_BUCKET_NAMES - registry_buckets
         if missing:
             errors.append(
-                f"Registry bucket_definitions missing canonical buckets: " f"{sorted(missing)}."
+                f"Registry bucket_definitions missing canonical buckets: {sorted(missing)}."
             )
 
     # Validate that each intent has required fields.
@@ -356,7 +356,7 @@ def translate_business_intents(
             val = params.get(guardrail_field)
             if val is None:
                 raise ValueError(
-                    f"Intent {intent.intent_id!r} requires parameter: " f"{guardrail_field!r}."
+                    f"Intent {intent.intent_id!r} requires parameter: {guardrail_field!r}."
                 )
             if guardrail_field == "max_single_initiative_labor_share":
                 max_single = float(val)
@@ -372,7 +372,7 @@ def translate_business_intents(
             for f in fields:
                 val = params.get(f)
                 if val is None:
-                    raise ValueError(f"Intent {intent.intent_id!r} requires parameter: " f"{f!r}.")
+                    raise ValueError(f"Intent {intent.intent_id!r} requires parameter: {f!r}.")
             lqb_threshold = float(params["low_quality_belief_threshold"])
             lqb_share = float(params["max_low_quality_belief_labor_share"])
 
@@ -412,7 +412,7 @@ def translate_business_intents(
 
         else:
             warnings.append(
-                f"Unknown translation kind: {kind!r} for intent " f"{intent.intent_id!r}. Skipped."
+                f"Unknown translation kind: {kind!r} for intent {intent.intent_id!r}. Skipped."
             )
 
     return TranslationResult(

@@ -212,7 +212,36 @@ class TestValidation:
             validate_configuration(config)
 
     def test_attention_min_positive(self) -> None:
+        """attention_min=0 is rejected when exec_attention_budget > 0."""
         config = make_simulation_config(governance=make_governance_config(attention_min=0.0))
+        with pytest.raises(ValueError, match="attention_min"):
+            validate_configuration(config)
+
+    def test_attention_min_zero_valid_when_budget_zero(self) -> None:
+        """attention_min=0 is valid when exec_attention_budget=0.
+
+        Per governance.md §Zero-budget special case: when the executive
+        allocates no time, attention_min=0 is valid because the attention
+        floor is irrelevant.
+        """
+        config = make_simulation_config(
+            model=make_model_config(exec_attention_budget=0.0),
+            governance=make_governance_config(
+                exec_attention_budget=0.0,
+                attention_min=0.0,
+            ),
+        )
+        validate_configuration(config)  # should not raise
+
+    def test_attention_min_zero_still_invalid_when_budget_positive(self) -> None:
+        """attention_min=0 is still rejected when budget > 0."""
+        config = make_simulation_config(
+            model=make_model_config(exec_attention_budget=5.0),
+            governance=make_governance_config(
+                exec_attention_budget=5.0,
+                attention_min=0.0,
+            ),
+        )
         with pytest.raises(ValueError, match="attention_min"):
             validate_configuration(config)
 

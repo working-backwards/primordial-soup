@@ -497,6 +497,33 @@ def generate_frontier_initiative(
         rng=rng,
     )
 
+    # --- Frontier team-size override: use minimum of the range ---
+    # The initial pool draws required_team_size uniformly from the type
+    # spec's range, creating diversity (small probes through large programs).
+    # Frontier-generated initiatives use the MINIMUM of that range instead.
+    #
+    # Rationale: frontier initiatives represent the next-best opportunity
+    # that the organization can propose when its backlog is depleted. In
+    # practice, new proposals are scoped to match available team capacity —
+    # a small team proposes work it can do, not work requiring a larger
+    # team. Using the minimum ensures that any team, including the smallest,
+    # can staff a frontier initiative. Without this override, team-size
+    # mismatches create artificial idleness: the frontier generates a
+    # size-12 initiative while only size-5 teams are free.
+    #
+    # The initial pool retains the full team-size range because those
+    # initiatives represent the organization's pre-existing portfolio of
+    # committed work at various scales. The frontier represents the ongoing
+    # flow of new opportunities that must be staffable.
+    #
+    # Per dynamic_opportunity_frontier.md §1.
+    if type_spec.required_team_size_range is not None:
+        min_team_size = type_spec.required_team_size_range[0]
+        initiative = dataclasses.replace(
+            initiative,
+            required_team_size=min_team_size,
+        )
+
     # Set created_tick for frontier-generated initiatives. The initial
     # pool uses created_tick=0 (default); frontier initiatives record
     # the tick at which they were materialized for age tracking and
@@ -607,11 +634,20 @@ def generate_prize_refresh_initiative(
     # (instead of drawing a fresh one from the distribution).
     # Also set the prize_id to link this attempt to the prize descriptor,
     # and set created_tick for frontier-generated initiatives.
+    #
+    # Frontier team-size override: use minimum of range so any team can
+    # staff the initiative. Same rationale as generate_frontier_initiative
+    # — see comment there for the full explanation.
+    min_team_size = initiative.required_team_size
+    if type_spec.required_team_size_range is not None:
+        min_team_size = type_spec.required_team_size_range[0]
+
     initiative = dataclasses.replace(
         initiative,
         observable_ceiling=observable_ceiling,
         prize_id=prize_id,
         prize_attempt_count=attempt_count,
+        required_team_size=min_team_size,
         created_tick=created_tick if created_tick > 0 else initiative.created_tick,
     )
 

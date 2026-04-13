@@ -94,7 +94,7 @@ def validate_bundle(bundle_path: Path) -> ValidationResult:
     world_seeds = manifest.get("world_seeds", [])
     if seed_count is not None and len(world_seeds) != seed_count:
         errors.append(
-            f"seed_count ({seed_count}) disagrees with " f"len(world_seeds) ({len(world_seeds)})"
+            f"seed_count ({seed_count}) disagrees with len(world_seeds) ({len(world_seeds)})"
         )
 
     # Authoritative file paths exist (except diagnostic_flags which is Phase 2).
@@ -237,7 +237,7 @@ def validate_bundle(bundle_path: Path) -> ValidationResult:
         total = telemetry.get("seed_run_count_total")
         if completed is not None and total is not None and completed > total:
             errors.append(
-                f"seed_runs_completed ({completed}) exceeds " f"seed_run_count_total ({total})"
+                f"seed_runs_completed ({completed}) exceeds seed_run_count_total ({total})"
             )
 
     # --- 6. Required figures ---

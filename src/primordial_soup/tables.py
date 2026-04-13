@@ -140,7 +140,7 @@ def _build_seed_run_rows(
                     "experiment_name": experiment_spec.experiment_name,
                     "experimental_condition_id": cond_spec.experimental_condition_id,
                     "seed_run_id": (
-                        f"{cond_spec.experimental_condition_id}" f"__seed_{seed_rec.world_seed}"
+                        f"{cond_spec.experimental_condition_id}__seed_{seed_rec.world_seed}"
                     ),
                     "world_seed": seed_rec.world_seed,
                     # --- Outcome metrics ---
@@ -381,7 +381,7 @@ def _build_family_outcome_rows(
                     "experiment_name": experiment_spec.experiment_name,
                     "experimental_condition_id": cond_spec.experimental_condition_id,
                     "seed_run_id": (
-                        f"{cond_spec.experimental_condition_id}" f"__seed_{seed_rec.world_seed}"
+                        f"{cond_spec.experimental_condition_id}__seed_{seed_rec.world_seed}"
                     ),
                     "world_seed": seed_rec.world_seed,
                     "grouping_namespace": "initiative_family",

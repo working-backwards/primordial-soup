@@ -161,7 +161,7 @@ def _build_trajectory_figures_html(figures_dir: Path) -> str:
         caption = f"Quality Belief Trajectories — {condition_id}"
         html_parts.append('<figure style="margin:1em 0;">')
         html_parts.append(
-            f'<img src="../figures/{fpath.name}" ' f'style="max-width:100%;" alt="{caption}">'
+            f'<img src="../figures/{fpath.name}" style="max-width:100%;" alt="{caption}">'
         )
         html_parts.append(f"<figcaption>{caption}</figcaption>")
         html_parts.append("</figure>")
@@ -171,7 +171,7 @@ def _build_trajectory_figures_html(figures_dir: Path) -> str:
         caption = f"Trajectory Overlay — {condition_id}"
         html_parts.append('<figure style="margin:1em 0;">')
         html_parts.append(
-            f'<img src="../figures/{fpath.name}" ' f'style="max-width:100%;" alt="{caption}">'
+            f'<img src="../figures/{fpath.name}" style="max-width:100%;" alt="{caption}">'
         )
         html_parts.append(f"<figcaption>{caption}</figcaption>")
         html_parts.append("</figure>")
@@ -191,7 +191,7 @@ def _build_trajectory_figures_markdown(figures_dir: Path) -> str:
 
     if not beliefs_files and not overlay_files:
         md_parts.append(
-            "*No trajectory figures available " "(per-tick logging may not have been enabled).*"
+            "*No trajectory figures available (per-tick logging may not have been enabled).*"
         )
         return "\n\n".join(md_parts)
 
@@ -243,7 +243,7 @@ def _generate_html_report(
         if fpath.exists():
             figure_html += '<figure style="margin:1em 0;">\n'
             img_src = f"../figures/{fname}"
-            figure_html += f'<img src="{img_src}" style="max-width:100%;"' f' alt="{caption}">\n'
+            figure_html += f'<img src="{img_src}" style="max-width:100%;" alt="{caption}">\n'
             figure_html += f"<figcaption>{caption}</figcaption>\n"
             figure_html += "</figure>\n"
 
@@ -257,7 +257,7 @@ def _generate_html_report(
         if fpath.exists():
             appendix_html += '<figure style="margin:1em 0;">\n'
             img_src = f"../figures/{fname}"
-            appendix_html += f'<img src="{img_src}" style="max-width:100%;"' f' alt="{caption}">\n'
+            appendix_html += f'<img src="{img_src}" style="max-width:100%;" alt="{caption}">\n'
             appendix_html += f"<figcaption>{caption}</figcaption>\n"
             appendix_html += "</figure>\n"
 
@@ -288,7 +288,7 @@ def _generate_html_report(
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>{manifest.get('title', 'Experiment Report')}</title>
+<title>{manifest.get("title", "Experiment Report")}</title>
 <style>
 body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
        max-width: 1200px; margin: 0 auto; padding: 2em; line-height: 1.6; color: #333; }}
@@ -302,16 +302,16 @@ figcaption {{ font-style: italic; font-size: 0.9em; color: #666; }}
 </head>
 <body>
 
-<h1>{manifest.get('title', 'Experiment Report')}</h1>
+<h1>{manifest.get("title", "Experiment Report")}</h1>
 
 <div class="meta">
-<strong>Run Bundle:</strong> {manifest.get('run_bundle_id', '')}<br>
-<strong>Script:</strong> {manifest.get('script', '')}<br>
-<strong>Created:</strong> {manifest.get('created_at', '')}<br>
-<strong>Git Commit:</strong> {manifest.get('git_commit', '')}<br>
-<strong>Schema Version:</strong> {manifest.get('schema_version', '')}<br>
-<strong>Conditions:</strong> {manifest.get('experimental_condition_count', '')},
-<strong>Seeds:</strong> {manifest.get('seed_count', '')}
+<strong>Run Bundle:</strong> {manifest.get("run_bundle_id", "")}<br>
+<strong>Script:</strong> {manifest.get("script", "")}<br>
+<strong>Created:</strong> {manifest.get("created_at", "")}<br>
+<strong>Git Commit:</strong> {manifest.get("git_commit", "")}<br>
+<strong>Schema Version:</strong> {manifest.get("schema_version", "")}<br>
+<strong>Conditions:</strong> {manifest.get("experimental_condition_count", "")},
+<strong>Seeds:</strong> {manifest.get("seed_count", "")}
 </div>
 
 <h2>Study Interpretation Notes</h2>
@@ -351,11 +351,11 @@ latent quality, attention allocation, and stop/completion/major-win events.</p>
 
 <h2>Methods and Reproducibility</h2>
 <ul>
-<li><strong>Seeds:</strong> {manifest.get('world_seeds', [])}</li>
-<li><strong>Conditions:</strong> {manifest.get('experimental_condition_count', '')}</li>
+<li><strong>Seeds:</strong> {manifest.get("world_seeds", [])}</li>
+<li><strong>Conditions:</strong> {manifest.get("experimental_condition_count", "")}</li>
 <li><strong>Completed seed runs:</strong> {seed_runs_completed}</li>
 <li><strong>Horizon:</strong> per run configuration</li>
-<li><strong>Command:</strong> <code>{manifest.get('command', '')}</code></li>
+<li><strong>Command:</strong> <code>{manifest.get("command", "")}</code></li>
 </ul>
 
 <h2>Appendix</h2>
@@ -391,13 +391,13 @@ def _generate_markdown_report(
     telemetry = manifest.get("telemetry", {})
     seed_runs_completed = telemetry.get("seed_runs_completed", "")
 
-    md = f"""# {manifest.get('title', 'Experiment Report')}
+    md = f"""# {manifest.get("title", "Experiment Report")}
 
-**Run Bundle:** {manifest.get('run_bundle_id', '')}
-**Script:** {manifest.get('script', '')}
-**Created:** {manifest.get('created_at', '')}
-**Git Commit:** {manifest.get('git_commit', '')}
-**Schema Version:** {manifest.get('schema_version', '')}
+**Run Bundle:** {manifest.get("run_bundle_id", "")}
+**Script:** {manifest.get("script", "")}
+**Created:** {manifest.get("created_at", "")}
+**Git Commit:** {manifest.get("git_commit", "")}
+**Schema Version:** {manifest.get("schema_version", "")}
 
 ## Study Interpretation Notes
 
@@ -450,10 +450,10 @@ latent quality, attention allocation, and stop/completion/major-win events.
 
     md += f"""## Methods and Reproducibility
 
-- **Seeds:** {manifest.get('world_seeds', [])}
-- **Conditions:** {manifest.get('experimental_condition_count', '')}
+- **Seeds:** {manifest.get("world_seeds", [])}
+- **Conditions:** {manifest.get("experimental_condition_count", "")}
 - **Completed seed runs:** {seed_runs_completed}
-- **Command:** `{manifest.get('command', '')}`
+- **Command:** `{manifest.get("command", "")}`
 
 ## Appendix
 

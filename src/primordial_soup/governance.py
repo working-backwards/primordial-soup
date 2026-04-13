@@ -217,6 +217,13 @@ def compute_equal_attention(
     if active_staffed_count <= 0:
         return 0.0
 
+    # Zero budget means no executive attention is allocated. Per
+    # governance.md §Zero-budget special case: the policy should emit
+    # no SetExecAttention actions, relying on the omission-means-zero
+    # contract. Return 0.0 so the caller can skip attention actions.
+    if config.exec_attention_budget == 0.0:
+        return 0.0
+
     # Raw equal share of the budget.
     raw_share = config.exec_attention_budget / active_staffed_count
 
@@ -252,6 +259,12 @@ def compute_weighted_attention(
     """
     if not initiative_weights:
         return ()
+
+    # Zero budget means no executive attention is allocated. Per
+    # governance.md §Zero-budget special case: return all-zero
+    # allocations so the caller can skip attention actions.
+    if config.exec_attention_budget == 0.0:
+        return tuple((init_id, 0.0) for init_id, _ in initiative_weights)
 
     # Resolve effective max: None means 1.0 per interfaces.md.
     attention_max_effective = config.attention_max if config.attention_max is not None else 1.0

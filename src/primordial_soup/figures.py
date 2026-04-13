@@ -1408,7 +1408,7 @@ def generate_trajectory_figures(
             continue
 
         logger.info(
-            "Generating trajectory figures for condition %s " "(seed %d, %d representatives)",
+            "Generating trajectory figures for condition %s (seed %d, %d representatives)",
             condition_id,
             representative_world_seed,
             len(selected_initiatives),

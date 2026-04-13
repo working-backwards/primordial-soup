@@ -76,33 +76,33 @@ different presets with the same seeds to see how governance regime
 alone changes outcomes. Use `--dry-run` to inspect the resolved
 configuration without running.
 
-### Level 2: Compare governance regimes (console output)
+### Level 2: Compare governance regimes (run bundle)
 
 ```bash
 python scripts/baseline_governance_campaign.py
-python scripts/baseline_governance_campaign.py --seeds 3    # fewer seeds = faster
+python scripts/baseline_governance_campaign.py --seeds 3                        # fewer seeds = faster
+python scripts/baseline_governance_campaign.py --families balanced_incumbent    # single environment
 ```
 
 Runs all three governance archetypes across all three environment
 families (Balanced Incumbent, Short Cycle Throughput, Discovery
-Heavy) with multiple seeds. Prints comparison tables to the console:
-value by channel, initiative outcomes by family, timing metrics,
-frontier state, and policy deltas vs. the Balanced baseline.
+Heavy) with multiple seeds and produces a self-contained **run
+bundle** — the canonical on-disk artifact for the study. Open
+`report/index.html` in a browser to see the full report.
 
 This is a 3 x 3 x 7 = 63-run experiment by default. Takes about
-a minute.
+90 seconds.
 
-### Level 3: Produce a full analysis package (run bundle)
+A simplified variant isolates the selection decision alone:
 
 ```bash
-python scripts/run_experiment.py --output-dir runs/
-python scripts/run_experiment.py --seeds 3 --output-dir runs/   # smaller
-python scripts/run_experiment.py --families balanced_incumbent --presets balanced --seeds 2 --output-dir runs/  # minimal
+python scripts/model0_campaign.py
 ```
 
-Produces a self-contained **run bundle** — the canonical on-disk
-artifact for the study. Open `report/index.html` in a browser to
-see the full report.
+Model 0 disables stopping, attention, ramp, frontier, and screening.
+The three archetypes differ only in portfolio mix targets. Comparing
+Model 0 to the baseline reveals how much of the outcome spread is
+explained by selection vs. the full governance machinery.
 
 A run bundle contains:
 
@@ -164,8 +164,8 @@ src/primordial_soup/
 
 scripts/
     run_design.py                      # Level 1: single YAML-configured run bundle
-    baseline_governance_campaign.py    # Level 2: comparison tables
-    run_experiment.py                  # Level 3: full multi-condition run bundle
+    baseline_governance_campaign.py    # Level 2: full 3x3 comparison run bundle
+    model0_campaign.py                 # Level 2: simplified selection-only comparison
     ground_truth_diagnostics.py        # false-stop, survival, hazard analysis
     fragility_mapping.py               # 3D parameter-sensitivity grid sweep
     calibration_sanity_check.py        # right-tail calibration verification

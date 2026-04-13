@@ -2,10 +2,10 @@
 """Baseline governance comparison campaign.
 
 Runs all three governance archetypes across all three environment families
-with multiple seeds. This is the canonical study — the one everything else
-is compared against.
+with multiple seeds and produces a self-contained run bundle with HTML
+report, Parquet tables, and figures.
 
-Design: 3 archetypes × 3 families × 7 seeds = 63 runs.
+Design: 3 archetypes x 3 families x 7 seeds = 63 runs.
 
 Usage:
     python scripts/baseline_governance_campaign.py
@@ -21,11 +21,34 @@ from __future__ import annotations
 import argparse
 import logging
 import time
+from pathlib import Path
 
-from primordial_soup.evaluator import GovernanceParams, ObjectiveResult, evaluate_policy
-from primordial_soup.presets import EnvironmentFamilyName, make_environment_spec
+from primordial_soup.config import (
+    ReportingConfig,
+    SimulationConfiguration,
+)
+from primordial_soup.presets import (
+    EnvironmentFamilyName,
+    make_aggressive_stop_loss_governance_config,
+    make_balanced_governance_config,
+    make_environment_spec,
+    make_patient_moonshot_governance_config,
+)
+from primordial_soup.run_bundle import (
+    ExperimentalConditionRecord,
+    ExperimentalConditionSpec,
+    ExperimentSpec,
+    SeedRunRecord,
+    create_run_bundle,
+    extract_initiative_final_states,
+)
+from primordial_soup.runner import run_single_regime
+from primordial_soup.workbench import make_policy
 
-logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 # ============================================================================
@@ -42,296 +65,21 @@ FAMILIES: tuple[EnvironmentFamilyName, ...] = (
 
 PRESET_LABELS: dict[str, str] = {
     "balanced": "Balanced",
-    "aggressive_stop_loss": "Aggressive",
-    "patient_moonshot": "Patient",
+    "aggressive_stop_loss": "Aggressive Stop-Loss",
+    "patient_moonshot": "Patient Moonshot",
 }
 
 FAMILY_LABELS: dict[str, str] = {
-    "balanced_incumbent": "Balanced Inc.",
-    "short_cycle_throughput": "Short Cycle",
-    "discovery_heavy": "Discovery",
+    "balanced_incumbent": "Balanced Incumbent",
+    "short_cycle_throughput": "Short Cycle Throughput",
+    "discovery_heavy": "Discovery Heavy",
 }
 
-
-# ============================================================================
-# Printing helpers
-# ============================================================================
-
-
-def _print_header(title: str, width: int = 78) -> None:
-    print()
-    print("=" * width)
-    print(f"  {title}")
-    print("=" * width)
-
-
-def _print_section(title: str, width: int = 78) -> None:
-    print()
-    print(f"  {title}")
-    print("-" * width)
-
-
-def _print_overview_table(
-    results: dict[tuple[str, str], ObjectiveResult],
-    families: tuple[EnvironmentFamilyName, ...],
-) -> None:
-    """Print the main comparison table: one row per archetype × family."""
-    _print_section("Overview: aggregate metrics (mean across seeds)")
-
-    header = (
-        f"{'Environment':>14s}  {'Regime':>12s}  "
-        f"{'TotalVal':>8s}  {'Lump':>7s}  {'Resid':>7s}  "
-        f"{'Wins':>5s}  {'Learn':>5s}  "
-        f"{'Val/wk':>7s}  {'Idle%':>6s}  {'Ramp%':>6s}"
-    )
-    print(header)
-    print("-" * len(header))
-
-    for family in families:
-        for preset in PRESETS:
-            r = results[(family, preset)]
-            n = r.n_seeds
-            mean_lump = sum(sr.summary["lump_value"] for sr in r.per_seed_results) / n
-            mean_resid = sum(sr.summary["residual_value"] for sr in r.per_seed_results) / n
-
-            print(
-                f"{FAMILY_LABELS[family]:>14s}  {PRESET_LABELS[preset]:>12s}  "
-                f"{r.mean_cumulative_value:>8.1f}  {mean_lump:>7.1f}  {mean_resid:>7.1f}  "
-                f"{r.total_major_wins:>5d}  {r.mean_terminal_capability:>5.2f}  "
-                f"{r.mean_free_value_per_tick:>7.3f}  "
-                f"{r.mean_idle_fraction:>6.1%}  {r.mean_ramp_labor_fraction:>6.1%}"
-            )
-        if family != families[-1]:
-            print()
-
-
-def _print_value_by_family_table(
-    results: dict[tuple[str, str], ObjectiveResult],
-    families: tuple[EnvironmentFamilyName, ...],
-) -> None:
-    """Print value decomposition by initiative family."""
-    _print_section("Value by initiative family (mean across seeds)")
-
-    families_init = ["flywheel", "right_tail", "enabler", "quick_win"]
-
-    for family in families:
-        print(f"\n  Environment: {FAMILY_LABELS[family]}")
-        header = f"    {'Policy':>12s}  " + "  ".join(f"{f:>12s}" for f in families_init)
-        print(header)
-
-        for preset in PRESETS:
-            r = results[(family, preset)]
-            n = r.n_seeds
-            mean_by_fam: dict[str, float] = {}
-            for fi in families_init:
-                mean_by_fam[fi] = (
-                    sum(sr.summary["value_by_family"].get(fi, 0.0) for sr in r.per_seed_results)
-                    / n
-                )
-
-            parts = "  ".join(f"{mean_by_fam[fi]:>12.1f}" for fi in families_init)
-            print(f"    {PRESET_LABELS[preset]:>12s}  {parts}")
-
-
-def _print_completion_table(
-    results: dict[tuple[str, str], ObjectiveResult],
-    families: tuple[EnvironmentFamilyName, ...],
-) -> None:
-    """Print completed/stopped counts by initiative family."""
-    _print_section("Initiative outcomes by family (mean across seeds)")
-
-    families_init = ["flywheel", "right_tail", "enabler", "quick_win"]
-
-    for family in families:
-        print(f"\n  Environment: {FAMILY_LABELS[family]}")
-
-        for preset in PRESETS:
-            r = results[(family, preset)]
-            n = r.n_seeds
-            print(f"    {PRESET_LABELS[preset]}:")
-            for fi in families_init:
-                avg_comp = (
-                    sum(sr.summary["completed_by_label"].get(fi, 0) for sr in r.per_seed_results)
-                    / n
-                )
-                avg_stop = (
-                    sum(sr.summary["stopped_by_label"].get(fi, 0) for sr in r.per_seed_results) / n
-                )
-                print(f"      {fi:>12s}:  completed={avg_comp:5.1f}  stopped={avg_stop:5.1f}")
-            print()
-
-
-def _print_timing_table(
-    results: dict[tuple[str, str], ObjectiveResult],
-    families: tuple[EnvironmentFamilyName, ...],
-) -> None:
-    """Print family timing metrics."""
-    _print_section("Timing: first completion tick by family (mean across seeds)")
-
-    families_init = ["flywheel", "right_tail", "enabler", "quick_win"]
-
-    for family in families:
-        print(f"\n  Environment: {FAMILY_LABELS[family]}")
-        header = (
-            f"    {'Policy':>12s}  "
-            + "  ".join(f"{f:>12s}" for f in families_init)
-            + f"  {'PeakCap':>8s}  {'1stRTStop':>9s}"
-        )
-        print(header)
-
-        for preset in PRESETS:
-            r = results[(family, preset)]
-            n = r.n_seeds
-
-            parts = []
-            for fi in families_init:
-                ticks = [
-                    sr.summary["first_completion_tick_by_family"].get(fi)
-                    for sr in r.per_seed_results
-                ]
-                valid = [t for t in ticks if t is not None]
-                if valid:
-                    parts.append(f"{sum(valid) / len(valid):>12.0f}")
-                else:
-                    parts.append(f"{'--':>12s}")
-
-            # Peak capability tick.
-            mean_peak = sum(sr.summary["peak_capability_tick"] for sr in r.per_seed_results) / n
-
-            # First right-tail stop.
-            rt_stops = [sr.summary["first_right_tail_stop_tick"] for sr in r.per_seed_results]
-            valid_rt = [t for t in rt_stops if t is not None]
-            rt_str = f"{sum(valid_rt) / len(valid_rt):>9.0f}" if valid_rt else f"{'--':>9s}"
-
-            print(
-                f"    {PRESET_LABELS[preset]:>12s}  "
-                f"{'  '.join(parts)}  {mean_peak:>8.0f}  {rt_str}"
-            )
-
-
-def _print_frontier_table(
-    results: dict[tuple[str, str], ObjectiveResult],
-    families: tuple[EnvironmentFamilyName, ...],
-) -> None:
-    """Print frontier exhaustion state at end of run."""
-    _print_section("Frontier state at end of run (mean across seeds)")
-
-    families_init = ["flywheel", "right_tail", "enabler", "quick_win"]
-
-    for family in families:
-        print(f"\n  Environment: {FAMILY_LABELS[family]}")
-
-        for preset in PRESETS:
-            r = results[(family, preset)]
-            print(f"    {PRESET_LABELS[preset]}:")
-
-            for fi in families_init:
-                resolved_vals = []
-                draws_vals = []
-                alpha_vals = []
-                for sr in r.per_seed_results:
-                    fs = sr.summary.get("frontier_state_by_family", {})
-                    if fi in fs:
-                        resolved_vals.append(fs[fi]["n_resolved"])
-                        draws_vals.append(fs[fi]["n_frontier_draws"])
-                        alpha_vals.append(fs[fi]["effective_alpha_multiplier"])
-
-                if resolved_vals:
-                    avg_res = sum(resolved_vals) / len(resolved_vals)
-                    avg_draws = sum(draws_vals) / len(draws_vals)
-                    avg_alpha = sum(alpha_vals) / len(alpha_vals)
-                    print(
-                        f"      {fi:>12s}:  resolved={avg_res:5.1f}  "
-                        f"draws={avg_draws:5.1f}  alpha={avg_alpha:.3f}"
-                    )
-            print()
-
-
-def _print_diagnostic_summary(
-    results: dict[tuple[str, str], ObjectiveResult],
-    families: tuple[EnvironmentFamilyName, ...],
-) -> None:
-    """Print per-archetype diagnostic summary for calibration work.
-
-    Shows what each governance regime actually did: completions,
-    stops by rule, stop timing, and governance parameters. This is
-    the equivalent of a portfolio review — "here is what we invested
-    in, here is what we stopped and why, here is what finished."
-    """
-    families_init = ["flywheel", "right_tail", "enabler", "quick_win"]
-
-    for family in families:
-        _print_section(f"Diagnostic: {FAMILY_LABELS[family]}")
-
-        for preset in PRESETS:
-            r = results[(family, preset)]
-            n = r.n_seeds
-            print(f"\n    {PRESET_LABELS[preset]} regime:")
-
-            # --- Initiative outcomes by family ---
-            total_comp = 0.0
-            total_stop = 0.0
-            for fi in families_init:
-                avg_comp = (
-                    sum(sr.summary["completed_by_label"].get(fi, 0) for sr in r.per_seed_results)
-                    / n
-                )
-                avg_stop = (
-                    sum(sr.summary["stopped_by_label"].get(fi, 0) for sr in r.per_seed_results) / n
-                )
-                total_comp += avg_comp
-                total_stop += avg_stop
-                print(f"      {fi:>12s}:  completed={avg_comp:5.1f}  stopped={avg_stop:5.1f}")
-            print(f"      {'TOTAL':>12s}:  completed={total_comp:5.1f}  stopped={total_stop:5.1f}")
-
-            # --- Stop rule breakdown ---
-            stop_rules: dict[str, int] = {}
-            for sr in r.per_seed_results:
-                for rule, count in sr.summary.get("stop_rule_counts", {}).items():
-                    stop_rules[rule] = stop_rules.get(rule, 0) + count
-            if stop_rules:
-                print("      Stop reasons (total across seeds):")
-                for rule in sorted(stop_rules.keys()):
-                    print(f"        {rule}: {stop_rules[rule]}")
-
-            # --- Value decomposition ---
-            mean_lump = sum(sr.summary["lump_value"] for sr in r.per_seed_results) / n
-            mean_resid = sum(sr.summary["residual_value"] for sr in r.per_seed_results) / n
-            print(
-                f"      Value: total={r.mean_cumulative_value:.1f}  "
-                f"lump={mean_lump:.1f}  residual={mean_resid:.1f}  "
-                f"capability={r.mean_terminal_capability:.2f}x"
-            )
-            print(
-                f"      Efficiency: idle={r.mean_idle_fraction:.1%}  "
-                f"ramp={r.mean_ramp_labor_fraction:.1%}  "
-                f"wins={r.total_major_wins}"
-            )
-        print()
-
-
-def _print_policy_delta_table(
-    results: dict[tuple[str, str], ObjectiveResult],
-    families: tuple[EnvironmentFamilyName, ...],
-) -> None:
-    """Print value deltas relative to Balanced baseline."""
-    _print_section("Value delta vs. Balanced baseline")
-
-    for family in families:
-        baseline = results[(family, "balanced")].mean_cumulative_value
-        print(f"  {FAMILY_LABELS[family]}:")
-        for preset in PRESETS:
-            val = results[(family, preset)].mean_cumulative_value
-            delta = val - baseline
-            pct = (delta / baseline * 100) if baseline != 0 else 0
-            wins = results[(family, preset)].total_major_wins
-            base_wins = results[(family, "balanced")].total_major_wins
-            print(
-                f"    {PRESET_LABELS[preset]:>12s}:  "
-                f"value={val:8.1f}  delta={delta:+8.1f} ({pct:+.1f}%)  "
-                f"wins={wins} (baseline={base_wins})"
-            )
-        print()
+GOVERNANCE_FACTORIES = {
+    "balanced": make_balanced_governance_config,
+    "aggressive_stop_loss": make_aggressive_stop_loss_governance_config,
+    "patient_moonshot": make_patient_moonshot_governance_config,
+}
 
 
 # ============================================================================
@@ -339,7 +87,163 @@ def _print_policy_delta_table(
 # ============================================================================
 
 
+def run_baseline_campaign(
+    families: tuple[EnvironmentFamilyName, ...],
+    presets: tuple[str, ...],
+    seeds: tuple[int, ...],
+    output_dir: Path,
+) -> Path:
+    """Run the baseline campaign and produce a run bundle.
+
+    Iterates over the family x preset grid, runs each cell across the
+    given seeds, collects full RunResult + WorldState per seed, and
+    passes the assembled ExperimentSpec to create_run_bundle() for
+    table/figure/report generation.
+
+    Args:
+        families: Environment family names to evaluate.
+        presets: Governance preset names to evaluate.
+        seeds: World seeds for Monte Carlo replications.
+        output_dir: Parent directory for the run bundle.
+
+    Returns:
+        Path to the created run-bundle directory.
+    """
+    total_runs = len(families) * len(presets) * len(seeds)
+    logger.info(
+        "Starting baseline campaign: %d families x %d presets x %d seeds = %d runs",
+        len(families),
+        len(presets),
+        len(seeds),
+        total_runs,
+    )
+    campaign_start = time.time()
+
+    # Bundle runs require all logging channels for complete reporting.
+    reporting = ReportingConfig(
+        record_manifest=True,
+        record_per_tick_logs=True,
+        record_event_log=True,
+    )
+
+    condition_records: list[ExperimentalConditionRecord] = []
+    run_count = 0
+
+    for family in families:
+        env_spec = make_environment_spec(family)
+
+        for preset in presets:
+            condition_id = f"{family}__{preset}"
+            logger.info("Condition: %s", condition_id)
+
+            # Build governance config from the preset factory.
+            gov_factory = GOVERNANCE_FACTORIES[preset]
+            governance = gov_factory(
+                exec_attention_budget=env_spec.model.exec_attention_budget,
+                default_initial_quality_belief=env_spec.model.default_initial_quality_belief,
+            )
+
+            policy = make_policy(governance)
+
+            seed_run_records: list[SeedRunRecord] = []
+            representative_config = None
+
+            for seed in seeds:
+                run_count += 1
+                logger.info(
+                    "  Run %d/%d: seed=%d, %s / %s",
+                    run_count,
+                    total_runs,
+                    seed,
+                    FAMILY_LABELS.get(family, family),
+                    PRESET_LABELS.get(preset, preset),
+                )
+
+                sim_config = SimulationConfiguration(
+                    world_seed=seed,
+                    time=env_spec.time,
+                    teams=env_spec.teams,
+                    model=env_spec.model,
+                    governance=governance,
+                    reporting=reporting,
+                    initiative_generator=env_spec.initiative_generator,
+                )
+                representative_config = sim_config
+
+                # Run the simulation — collect both RunResult and WorldState
+                # for the reporting pipeline.
+                run_result, world_state = run_single_regime(sim_config, policy)
+
+                seed_run_records.append(
+                    SeedRunRecord(
+                        world_seed=seed,
+                        run_result=run_result,
+                        initiative_final_states=extract_initiative_final_states(
+                            world_state,
+                        ),
+                        initiative_configs=run_result.manifest.resolved_initiatives,
+                    )
+                )
+
+            assert representative_config is not None
+
+            family_label = FAMILY_LABELS.get(family, family)
+            preset_label = PRESET_LABELS.get(preset, preset)
+
+            condition_spec = ExperimentalConditionSpec(
+                experimental_condition_id=condition_id,
+                environmental_conditions_id=family,
+                environmental_conditions_name=family_label,
+                governance_architecture_id="default",
+                governance_architecture_name="Default",
+                operating_policy_id=preset,
+                operating_policy_name=preset_label,
+                # Include both family and regime so the 9-row headline
+                # table in the HTML report is readable without cross-
+                # referencing condition IDs.
+                governance_regime_label=f"{family_label} / {preset_label}",
+            )
+
+            condition_records.append(
+                ExperimentalConditionRecord(
+                    condition_spec=condition_spec,
+                    seed_run_records=tuple(seed_run_records),
+                    simulation_config=representative_config,
+                )
+            )
+
+    # Build experiment spec.
+    experiment_spec = ExperimentSpec(
+        experiment_name="baseline_governance_comparison",
+        title="Baseline Governance Comparison",
+        description=(
+            f"{len(presets)} governance regimes across {len(families)} "
+            f"environmental conditions with {len(seeds)} shared seeds."
+        ),
+        world_seeds=seeds,
+        condition_records=tuple(condition_records),
+        script_name="scripts/baseline_governance_campaign.py",
+        study_phase="evaluation",
+    )
+
+    # Create the run bundle — generates Parquet tables, figures, and
+    # the HTML report under output_dir/<timestamped_bundle_id>/.
+    logger.info("Creating run bundle...")
+    bundle_path = create_run_bundle(experiment_spec, output_dir)
+
+    elapsed = time.time() - campaign_start
+    logger.info(
+        "Baseline campaign complete: %d runs in %.1fs. Bundle: %s",
+        total_runs,
+        elapsed,
+        bundle_path,
+    )
+
+    return bundle_path
+
+
 def main() -> None:
+    """Parse arguments and run the baseline campaign."""
     parser = argparse.ArgumentParser(
         description="Baseline governance comparison campaign.",
     )
@@ -347,7 +251,7 @@ def main() -> None:
         "--seeds",
         type=int,
         default=7,
-        help="Number of seeds per archetype×family (default: 7).",
+        help="Number of seeds per archetype x family (default: 7).",
     )
     parser.add_argument(
         "--families",
@@ -356,95 +260,41 @@ def main() -> None:
         default=None,
         help="Environment families to test (default: all three).",
     )
+    parser.add_argument(
+        "--presets",
+        nargs="+",
+        default=list(PRESETS),
+        help="Governance presets to include (default: all three).",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="results",
+        help="Output directory for the run bundle (default: results/).",
+    )
+    parser.add_argument(
+        "--seed-start",
+        type=int,
+        default=42,
+        help="First seed value (default: 42).",
+    )
     args = parser.parse_args()
 
-    seed_count: int = args.seeds
     families: tuple[EnvironmentFamilyName, ...] = (
         tuple(args.families) if args.families else FAMILIES
     )
-    seeds = tuple(range(42, 42 + seed_count))
-    total_runs = len(PRESETS) * len(families) * seed_count
+    seeds = tuple(range(args.seed_start, args.seed_start + args.seeds))
+    output_dir = Path(args.output_dir)
 
-    _print_header("Baseline Governance Comparison Campaign")
-    print(f"  Archetypes: {[PRESET_LABELS[p] for p in PRESETS]}")
-    print(f"  Families:   {[FAMILY_LABELS[f] for f in families]}")
-    print(f"  Seeds:      {list(seeds)} ({seed_count} per cell)")
-    print(f"  Total runs: {total_runs}")
-    print()
+    bundle_path = run_baseline_campaign(
+        families=families,
+        presets=tuple(args.presets),
+        seeds=seeds,
+        output_dir=output_dir,
+    )
 
-    t0 = time.time()
-
-    # --- Run all cells ---
-    results: dict[tuple[str, str], ObjectiveResult] = {}
-    for family in families:
-        env = make_environment_spec(family)
-        for preset in PRESETS:
-            label = f"{FAMILY_LABELS[family]} / {PRESET_LABELS[preset]}"
-            print(f"  Running {label} ({seed_count} seeds)...", end="", flush=True)
-            cell_t0 = time.time()
-
-            params = GovernanceParams(policy_preset=preset)
-            result = evaluate_policy(params, seeds=seeds, environment_spec=env)
-            results[(family, preset)] = result
-
-            cell_elapsed = time.time() - cell_t0
-            print(f" {cell_elapsed:.1f}s")
-
-    elapsed = time.time() - t0
-
-    # --- Results ---
-    _print_header("Results")
-    _print_overview_table(results, families)
-    _print_value_by_family_table(results, families)
-    _print_completion_table(results, families)
-    _print_timing_table(results, families)
-    _print_frontier_table(results, families)
-    _print_policy_delta_table(results, families)
-
-    # --- Per-archetype diagnostic summary (#20) ---
-    _print_header("Per-Archetype Diagnostic Summary")
-    _print_diagnostic_summary(results, families)
-
-    # --- Metric guide (#17) ---
-    _print_header("Metric Guide")
-    print()
-    print("  TotalVal  Total cumulative value (lump + residual). Higher is better.")
-    print("  Lump      One-time value realized at initiative completion.")
-    print("  Resid     Ongoing compounding value from completed initiatives.")
-    print("  Wins      Major-win discoveries surfaced (high-value right-tail events).")
-    print("  Learn     Organizational learning capability multiplier (1.0 = baseline).")
-    print("            Higher means better signal clarity for future decisions.")
-    print("  Val/wk    Value generated per week of simulation. Higher is better.")
-    print("  Idle%     Fraction of total capacity sitting idle (teams with no initiative).")
-    print("            Lower is better — idle teams are wasted capacity.")
-    print("  Ramp%     Fraction of total capacity spent on team ramp-up after reassignment.")
-    print("            Higher means more switching cost from frequent reassignments.")
-    print()
-
-    # --- Interpretation guidance ---
-    _print_header("Interpretation Guide")
-    print()
-    print("  Key questions to answer from this campaign:")
-    print()
-    print("  RQ1: Does attention allocation breadth matter?")
-    print("    Compare Idle% across archetypes. If all archetypes have")
-    print("      similar Idle%, attention is not the differentiator.")
-    print()
-    print("  RQ2: When does aggressive stopping help vs. hurt?")
-    print("    Compare Aggressive vs. Balanced value delta across environments.")
-    print("      Does the advantage hold in all environments?")
-    print()
-    print("  Look for:")
-    print("    - Which regime wins on total value? Is it consistent across environments?")
-    print("    - Where do major wins appear? Does Patient generate more?")
-    print("    - How does value decomposition differ? (flywheel vs. quick-win vs. right-tail)")
-    print("    - Does Aggressive complete more quick-wins but fewer flywheels?")
-    print("    - Does Patient build more capability but waste labor on stalled initiatives?")
-    print("    - How do frontier exhaustion patterns differ across regimes?")
-    print()
-
-    print(f"  Total elapsed: {elapsed:.0f}s ({total_runs} runs)")
-    print()
+    print(f"\nRun bundle created: {bundle_path}")
+    print(f"Open report: {bundle_path / 'report' / 'index.html'}")
 
 
 if __name__ == "__main__":

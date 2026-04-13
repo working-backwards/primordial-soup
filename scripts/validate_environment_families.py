@@ -190,8 +190,7 @@ def run_validation() -> dict[tuple[str, str], CellResult]:
             for seed in SEED_PANEL:
                 run_index += 1
                 print(
-                    f"  [{run_index}/{total_runs}] "
-                    f"{family} x {archetype_name} (seed={seed}) ...",
+                    f"  [{run_index}/{total_runs}] {family} x {archetype_name} (seed={seed}) ...",
                     flush=True,
                 )
 

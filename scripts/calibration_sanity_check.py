@@ -330,7 +330,7 @@ def print_empirical_report(seed_count: int) -> None:
         # Check RT completion rate > 0 under at least one archetype.
         any_rt_completed = any(results[(family, p)]["mean_rt_completed"] > 0 for p in PRESETS)
         if not any_rt_completed:
-            print(f"  FAIL: {family_label}: zero right-tail completions " f"under all archetypes")
+            print(f"  FAIL: {family_label}: zero right-tail completions under all archetypes")
             all_ok = False
         else:
             print(f"  OK:   {family_label}: right-tail completions observed")
@@ -340,9 +340,7 @@ def print_empirical_report(seed_count: int) -> None:
         if total_mw > 0:
             print(f"  OK:   {family_label}: {total_mw} total major wins")
         else:
-            print(
-                f"  NOTE: {family_label}: zero major wins (may be " f"acceptable with few seeds)"
-            )
+            print(f"  NOTE: {family_label}: zero major wins (may be acceptable with few seeds)")
 
     if all_ok:
         print()

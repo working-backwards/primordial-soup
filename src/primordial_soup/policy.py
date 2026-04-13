@@ -396,6 +396,12 @@ def _allocate_equal_attention(
 
     attention_level = compute_equal_attention(count, config)
 
+    # Zero attention means no attention is being allocated (budget=0).
+    # Per governance.md §Zero-budget special case: rely on the
+    # omission-means-zero contract rather than emitting explicit zeros.
+    if attention_level == 0.0:
+        return ()
+
     # Deterministic ordering by initiative_id.
     sorted_ids = sorted(all_receiving_attention)
     return tuple(

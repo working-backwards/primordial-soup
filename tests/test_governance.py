@@ -327,6 +327,19 @@ class TestComputeEqualAttention:
         result = compute_equal_attention(1, config)
         assert result == pytest.approx(1.0)
 
+    def test_zero_budget_returns_zero(self) -> None:
+        """Budget=0 returns 0.0 regardless of initiative count.
+
+        Per governance.md §Zero-budget special case: no executive
+        attention is allocated when the budget is zero.
+        """
+        config = make_governance_config(
+            exec_attention_budget=0.0,
+            attention_min=0.0,
+        )
+        assert compute_equal_attention(5, config) == pytest.approx(0.0)
+        assert compute_equal_attention(1, config) == pytest.approx(0.0)
+
 
 class TestComputeWeightedAttention:
     """Test compute_weighted_attention helper."""
@@ -369,6 +382,22 @@ class TestComputeWeightedAttention:
         result = compute_weighted_attention(weights, config)
         result_dict = dict(result)
         assert result_dict["A"] == pytest.approx(0.4)
+
+    def test_zero_budget_returns_all_zeros(self) -> None:
+        """Budget=0 returns zero attention for all initiatives.
+
+        Per governance.md §Zero-budget special case: no executive
+        attention is allocated when the budget is zero.
+        """
+        config = make_governance_config(
+            exec_attention_budget=0.0,
+            attention_min=0.0,
+        )
+        weights = (("A", 3.0), ("B", 1.0))
+        result = compute_weighted_attention(weights, config)
+        result_dict = dict(result)
+        assert result_dict["A"] == pytest.approx(0.0)
+        assert result_dict["B"] == pytest.approx(0.0)
 
 
 # ============================================================================

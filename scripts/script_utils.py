@@ -1,17 +1,20 @@
 """Shared utilities for simulation scripts.
 
 This module provides common infrastructure used across scripts in the
-scripts/ directory. It is not part of the primordial_soup package —
+scripts/ directory. It is not part of the primordial_soup package --
 it supports the script layer only.
 
-Current utilities:
+Utilities:
     - create_results_dir: Create a timestamped results subdirectory.
 """
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # All simulation output goes under this directory (gitignored).
 RESULTS_ROOT = Path("results")

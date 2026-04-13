@@ -441,14 +441,27 @@ class FrontierSpec:
             degradation (non-degrading dynamic mode).
         frontier_quality_floor: Minimum multiplier on alpha. Prevents
             the Beta distribution from collapsing. Must be > 0.
-        replenishment_threshold: Number of unassigned initiatives at or
-            below which the runner materializes new ones. In v1, default
-            is 0 (materialize only when pool is completely empty).
+        replenishment_threshold: Target buffer size for the unassigned
+            pool per family. When the unassigned count for this family
+            falls to or below this value, the runner materializes enough
+            initiatives to bring the count back up to the threshold.
+
+            The buffer exists because mixed-size teams and variable
+            required_team_size create feasibility mismatches: a single
+            unassigned initiative requiring team_size 12 cannot be
+            started by a free team of size 5, causing artificial
+            idleness. A buffer of several initiatives per family
+            ensures team-size diversity in the pool so freed teams can
+            find feasible work.
+
+            A threshold of 0 recovers compact-pool behavior: materialize
+            only when the pool is completely empty, generate exactly one.
+            Per dynamic_opportunity_frontier.md §1.
     """
 
     frontier_degradation_rate: float = 0.0
     frontier_quality_floor: float = 0.1
-    replenishment_threshold: int = 0
+    replenishment_threshold: int = 3
 
     # Per-attempt quality degradation for right-tail prize refresh.
     # When > 0, each failed attempt on a specific prize shifts the
@@ -706,7 +719,17 @@ def validate_configuration(config: SimulationConfiguration) -> None:
             f"stagnation_belief_change_threshold must be >= 0, "
             f"got {governance.stagnation_belief_change_threshold}."
         )
-    if not (0 < governance.attention_min <= 1):
+    # attention_min must be in (0, 1] when exec_attention_budget > 0.
+    # When exec_attention_budget == 0.0, attention_min = 0.0 is valid because
+    # no attention is allocated and the attention_min floor is irrelevant.
+    # Per governance.md §Zero-budget special case and interfaces.md validation rules.
+    if model.exec_attention_budget == 0.0:
+        if not (0 <= governance.attention_min <= 1):
+            errors.append(
+                f"attention_min must be in [0, 1] when exec_attention_budget is 0, "
+                f"got {governance.attention_min}."
+            )
+    elif not (0 < governance.attention_min <= 1):
         errors.append(f"attention_min must be in (0, 1], got {governance.attention_min}.")
     if governance.attention_max is not None:
         if not (0 <= governance.attention_max <= 1):
