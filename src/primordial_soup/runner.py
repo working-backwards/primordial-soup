@@ -490,6 +490,16 @@ def _run_tick_loop(
         )
         collector.cumulative_idle_team_ticks += idle_team_count
 
+        # --- Baseline work value accrual ---
+        # Idle (unassigned) teams produce baseline value each tick. This is
+        # runner-side accounting only — the engine itself does not consume
+        # or expose baseline_value_per_tick. When the config sets
+        # baseline_value_per_tick=0 (the default), this is a no-op. Per
+        # governance.md "Baseline work semantics".
+        collector.cumulative_baseline_value += (
+            idle_team_count * config.model.baseline_value_per_tick
+        )
+
         # ==============================================================
         # Step 3: Step world (production, belief update, completion)
         # ==============================================================

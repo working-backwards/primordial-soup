@@ -212,6 +212,17 @@ class ModelConfig:
     # Per-tick decay rate for capability (capability moves toward 1.0).
     capability_decay: float
 
+    # --- Baseline work — per governance.md "Baseline work semantics" ---
+
+    # Per-team value accrual each tick when the team is NOT assigned to
+    # a portfolio initiative. Models baseline productive activity:
+    # maintenance, operational improvements, customer support, incremental
+    # process work. Accumulated runner-side as cumulative_baseline_value;
+    # the engine itself does not consume this field. A default of 0.0 is
+    # opt-in — presets/studies that want to recognize baseline value set
+    # this explicitly (calibrated value is 0.1/tick per calibration_note.md).
+    baseline_value_per_tick: float = 0.0
+
 
 @dataclass(frozen=True)
 class GovernanceConfig:

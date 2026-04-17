@@ -444,6 +444,12 @@ class RunResult:
     # --- Idle capacity ---
     idle_capacity_profile: IdleCapacityProfile
 
+    # --- Baseline work value ---
+    # Cumulative value accrued by teams when idle/on baseline over
+    # the run. Runner-side accounting only; the engine does not
+    # consume this field. Per governance.md "Baseline work semantics".
+    cumulative_baseline_value: float
+
     # --- Exploration cost ---
     exploration_cost_profile: ExplorationCostProfile
 
@@ -523,6 +529,14 @@ class RunCollector:
     # Idle capacity tracking.
     cumulative_idle_team_ticks: int = 0
     pool_exhaustion_tick: int | None = None
+
+    # Baseline work value accrual (runner-side accounting).
+    # Each tick, idle teams accrue `config.model.baseline_value_per_tick`
+    # per team. This represents productive non-portfolio activity
+    # (maintenance, operational improvements, customer support, etc.).
+    # Per governance.md "Baseline work semantics". When
+    # baseline_value_per_tick is 0 (default), this stays 0 for the run.
+    cumulative_baseline_value: float = 0.0
 
     # Ramp labor tracking (team-ticks during ramp).
     cumulative_ramp_labor: float = 0.0
@@ -1219,6 +1233,7 @@ def assemble_run_result(
         max_portfolio_capability_t=max_portfolio_capability_t,
         terminal_aggregate_residual_rate=terminal_residual_rate,
         idle_capacity_profile=idle_capacity,
+        cumulative_baseline_value=collector.cumulative_baseline_value,
         exploration_cost_profile=exploration_cost,
         right_tail_false_stop_profile=right_tail_false_stop,
         reassignment_profile=reassignment_profile,

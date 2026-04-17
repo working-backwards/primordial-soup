@@ -175,6 +175,7 @@ def _make_run_result(
             idle_team_tick_fraction=0.0,
             pool_exhaustion_tick=None,
         ),
+        cumulative_baseline_value=0.0,
         exploration_cost_profile=ExplorationCostProfile(
             cumulative_labor_in_stopped_initiatives=0.0,
             cumulative_attention_in_stopped_initiatives=0.0,
