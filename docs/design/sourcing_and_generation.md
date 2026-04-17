@@ -29,16 +29,28 @@ The simulation engine itself never sees or uses these labels to apply different 
 ### Academic
 In the canonical study, the initiative pool is deterministically seeded
 from `world_seed`. An initial pool is resolved at run start from the
-`initiative_generator`. As the run progresses, the runner may materialize
-additional initiatives from family-specific frontier distributions when a
-family's unassigned pool is depleted. This runner-side inter-tick frontier
+`initiative_generator`. As the run progresses, the runner materializes
+additional initiatives from family-specific frontier distributions when
+a family's unassigned pool falls to or below its
+`replenishment_threshold` (default 3); the runner fills the pool back
+up to `threshold + 1`. This runner-side inter-tick frontier
 materialization is documented in `dynamic_opportunity_frontier.md`.
 
 For families using a declining frontier (flywheel, quick-win, enabler),
-quality degrades as more initiatives are resolved. For right-tail, stopped
-initiatives make their observable ceiling available for re-attempt with
-fresh latent quality (prize-preserving refresh). The engine never generates
-initiatives; the runner owns all materialization.
+quality degrades as more initiatives are resolved. Selected observable
+attributes may also thin for later frontier initiatives: the
+`planned_duration` range grows for flywheel and quick-win
+(`duration_thinning_rate` and `duration_thinning_ceiling`), and the
+`capability_contribution_scale` upper bound shrinks for enabler
+(`capability_scale_thinning_rate` and `capability_scale_thinning_floor`).
+These give governance visible signals that the remaining frontier is
+less attractive, alongside the latent quality decline. Thinning is
+opt-in per family: defaults of `None` leave observable attributes
+untouched. Right-tail is exempt from observable thinning; stopped
+right-tail initiatives instead make their observable ceiling available
+for re-attempt with fresh latent quality (prize-preserving refresh).
+The engine never generates initiatives; the runner owns all
+materialization.
 
 The realized pool for a given seed and governance trajectory is fully
 reproducible. Different governance trajectories may produce different

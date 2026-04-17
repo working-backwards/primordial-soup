@@ -191,6 +191,15 @@ ModelConfig = {
   # remain in distinct configuration domains.
   "max_portfolio_capability": float,  # C_max in the design docs; ceiling on portfolio capability C_t; C_t is clamped to [1.0, max_portfolio_capability] after each capability update. Must be >= 1.0.
   "capability_decay": float,  # per-tick exponential decay rate applied to the excess capability stock (C_t - 1.0). Must be >= 0.
+
+  # Per-team value accrual each tick when the team is NOT assigned to a
+  # portfolio initiative. Runner-side accounting; the engine does not
+  # consume this field. Surfaced on RunResult.cumulative_baseline_value.
+  # Default 0.0 (opt-in) — studies that want to credit baseline work
+  # (maintenance, operational improvements, etc.) set it explicitly.
+  # Per governance.md "Baseline work semantics" and design_decisions.md
+  # decision 23.
+  "baseline_value_per_tick": float,  # default 0.0; calibrated nonzero value 0.1
 }
 ```
 

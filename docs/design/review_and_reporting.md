@@ -212,6 +212,16 @@ downstream analysis proceeds.
     unassigned initiatives were below the governance policy's activation
     threshold and at least one team was idle as a result. None if this
     condition never occurs.
+- `cumulative_baseline_value`: total value credited across the run for
+  teams on baseline. Each tick, idle (unassigned) teams accrue
+  `ModelConfig.baseline_value_per_tick` per team. Runner-side
+  accounting only — the engine does not consume this field. Default
+  `baseline_value_per_tick` is `0.0`, so this is `0.0` for runs that
+  don't enable baseline-value accounting; calibrated nonzero rate is
+  `0.1`/tick. Pairs with `idle_capacity_profile` to distinguish
+  "idle = wasted" runs (baseline=0) from "idle = on baseline"
+  runs (baseline>0). Per governance.md "Baseline work semantics"
+  and design_decisions.md decision 23.
 - `exploration_cost_profile`:
   - `cumulative_labor_in_stopped_initiatives`: total team-ticks invested in
     initiatives that were stopped before completing.

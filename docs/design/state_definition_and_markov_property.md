@@ -390,6 +390,22 @@ With the dynamic frontier, the complete cycle for each week of the simulation be
 
 Steps 1 and 4 are owned by the runner. Steps 2 and 3 are owned by the engine. The engine boundary is preserved: the engine never generates initiatives and never updates frontier state. The runner owns when and how new initiatives are drawn from the evolving frontier, and when frontier tracking state is updated to reflect initiative resolution. The frontier's evolving state is environment-owned — it describes how the opportunity landscape changes as the organization works through it — and is tracked in the world state for completeness and reproducibility.
 
+## Runner-side reporting state (not Markov-relevant)
+
+### Academic
+
+The following state is tracked by the runner for reporting purposes only. It does not affect the engine's transitions and is not part of the simulation's Markov state — the engine does not consume it, and no governance decision depends on it.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `cumulative_baseline_value` | `float` | Total baseline value credited across the run. Each tick, idle (unassigned) teams accrue `ModelConfig.baseline_value_per_tick` per team. Captures the counterfactual value the organization would have produced from routine operations without any portfolio investment. Opt-in: default per-tick rate is `0.0`. Per `governance.md` "Baseline work semantics". |
+
+Because this field is runner-owned and governance-invisible, it can be added or removed without changing the engine's Markov state or invalidating optimization analyses based on the engine state definition above.
+
+### Business
+
+The simulator tracks one run-level quantity that exists purely for post-hoc analysis rather than for driving the simulation: the cumulative value produced by teams while on baseline work. This is not part of the state that governance can see or react to, and it does not affect how the simulation evolves. It exists so that analysts can compare the value the organization produced by investing in portfolio initiatives against the value it would have produced by simply continuing routine operations — the "would we have been better off doing nothing" counterfactual.
+
 ## Optimization readiness
 
 
