@@ -489,6 +489,13 @@ def generate_frontier_initiative(
     # Create a modified type spec with the degraded quality distribution.
     modified_spec = _apply_quality_degradation(type_spec, alpha_multiplier)
 
+    # Apply observable thinning (planned_duration range grows, capability
+    # contribution scale upper bound shrinks) on top of latent quality
+    # degradation. Thinning is a no-op if the frontier spec does not
+    # configure it for this family. Per dynamic_opportunity_frontier.md
+    # observable-thinning section.
+    modified_spec = _apply_observable_thinning(modified_spec, frontier_spec, n_resolved)
+
     # Generate the initiative using standard generation logic with the
     # frontier RNG (not the pool RNG).
     initiative = _generate_single_initiative(
@@ -569,6 +576,106 @@ def _apply_quality_degradation(
     )
 
     return dataclasses.replace(type_spec, quality_distribution=degraded_dist)
+
+
+def _apply_observable_thinning(
+    type_spec: InitiativeTypeSpec,
+    frontier_spec: FrontierSpec,
+    n_resolved: int,
+) -> InitiativeTypeSpec:
+    """Apply selective observable attribute thinning to a type spec.
+
+    Modifies observable attributes of frontier initiatives based on how
+    many initiatives of this family have been resolved. Unlike quality
+    degradation (which is latent and must be learned from signals),
+    observable thinning makes later initiatives visibly less attractive
+    to governance at intake time: durations grow, capability scales
+    shrink. Governance may choose to act on that visible signal.
+
+    Thinning for each dimension is active only when BOTH the rate and
+    the corresponding ceiling/floor are set on the FrontierSpec, AND
+    the corresponding range is defined on the type spec. Otherwise the
+    relevant dimension is left untouched.
+
+    Duration thinning (planned_duration range grows; true_duration
+    scaled by the same multiplier to preserve the planned/true ratio):
+        multiplier = min(ceiling, 1.0 + rate * n_resolved)
+        new_range = round(base_range * multiplier)
+
+    Capability scale thinning (upper bound of the scale range shrinks;
+    lower bound stays fixed):
+        multiplier = max(floor, 1.0 - rate * n_resolved)
+        new_upper = max(base_lower, base_upper * multiplier)
+
+    Per dynamic_opportunity_frontier.md §observable-thinning and
+    calibration_note.md.
+
+    Args:
+        type_spec: The type spec (may already be quality-degraded).
+        frontier_spec: Frontier parameters including thinning rates.
+        n_resolved: Number of resolved initiatives in this family.
+
+    Returns:
+        A new InitiativeTypeSpec with thinned observable attributes,
+        or the original spec unchanged if no thinning applies.
+    """
+    # Collect replacements rather than mutating; both InitiativeTypeSpec
+    # and its ranges are frozen/immutable so we build one replace() call.
+    replacements: dict[str, object] = {}
+
+    # --- Duration thinning (flywheel, quick_win) ---
+    # Applies when: duration_thinning_rate AND ceiling are set AND the
+    # type spec defines a planned_duration_range. true_duration_range is
+    # scaled by the same multiplier so the planned/true relationship
+    # stays consistent (a doubled planned implies a doubled true).
+    if (
+        frontier_spec.duration_thinning_rate is not None
+        and frontier_spec.duration_thinning_ceiling is not None
+        and type_spec.planned_duration_range is not None
+    ):
+        multiplier = min(
+            frontier_spec.duration_thinning_ceiling,
+            1.0 + frontier_spec.duration_thinning_rate * n_resolved,
+        )
+        base_low, base_high = type_spec.planned_duration_range
+        # Round to int — planned_duration_ticks and true_duration_ticks
+        # are integer tick counts.
+        replacements["planned_duration_range"] = (
+            round(base_low * multiplier),
+            round(base_high * multiplier),
+        )
+        if type_spec.true_duration_range is not None:
+            true_low, true_high = type_spec.true_duration_range
+            replacements["true_duration_range"] = (
+                round(true_low * multiplier),
+                round(true_high * multiplier),
+            )
+
+    # --- Capability scale thinning (enabler) ---
+    # Applies when: capability_scale_thinning_rate AND floor are set AND
+    # the type spec defines a capability_contribution_scale_range. Only
+    # the upper bound shrinks; the lower bound is preserved so the
+    # range always contains at least the floor value. We also clamp the
+    # new upper bound to be >= lower bound so the range stays valid.
+    if (
+        frontier_spec.capability_scale_thinning_rate is not None
+        and frontier_spec.capability_scale_thinning_floor is not None
+        and type_spec.capability_contribution_scale_range is not None
+    ):
+        multiplier = max(
+            frontier_spec.capability_scale_thinning_floor,
+            1.0 - frontier_spec.capability_scale_thinning_rate * n_resolved,
+        )
+        base_low, base_high = type_spec.capability_contribution_scale_range
+        new_high = max(base_low, base_high * multiplier)
+        replacements["capability_contribution_scale_range"] = (base_low, new_high)
+
+    if not replacements:
+        # No thinning dimensions active — return the original spec
+        # unchanged to avoid allocating a pointless copy.
+        return type_spec
+
+    return dataclasses.replace(type_spec, **replacements)
 
 
 def generate_prize_refresh_initiative(

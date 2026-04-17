@@ -19,6 +19,7 @@ from __future__ import annotations
 import pytest
 
 from primordial_soup.config import (
+    FrontierSpec,
     InitiativeGeneratorConfig,
     InitiativeTypeSpec,
 )
@@ -848,3 +849,132 @@ class TestScreeningSignal:
         # not all be the same value.
         unique_beliefs = set(beliefs)
         assert len(unique_beliefs) > 1
+
+
+class TestObservableThinning:
+    """Tests for selective observable frontier thinning.
+
+    Observable thinning degrades governance-visible attributes of
+    frontier initiatives based on how many initiatives of the family
+    have been resolved. Verifies _apply_observable_thinning in
+    isolation — actual wiring into generate_frontier_initiative is
+    covered by frontier tests.
+    """
+
+    def test_duration_thinning_increases_planned_duration(self):
+        """With rate=0.01 and 50 resolved, multiplier caps at 1.5.
+
+        Base range [10, 20] scales to [15, 30]; true_duration scales
+        by the same multiplier so the planned/true relationship is
+        preserved.
+        """
+        from primordial_soup.pool import _apply_observable_thinning
+
+        type_spec = InitiativeTypeSpec(
+            generation_tag="quick_win",
+            count=1,
+            quality_distribution=BetaDistribution(alpha=5.0, beta=3.0),
+            base_signal_st_dev_range=(0.1, 0.2),
+            dependency_level_range=(0.0, 0.2),
+            true_duration_range=(8, 16),
+            planned_duration_range=(10, 20),
+        )
+        frontier_spec = FrontierSpec(
+            duration_thinning_rate=0.01,
+            duration_thinning_ceiling=1.5,
+        )
+
+        thinned = _apply_observable_thinning(type_spec, frontier_spec, n_resolved=50)
+
+        # multiplier = min(1.5, 1.0 + 0.01*50) = min(1.5, 1.5) = 1.5
+        assert thinned.planned_duration_range == (15, 30)
+        assert thinned.true_duration_range == (12, 24)
+
+    def test_duration_thinning_capped_at_ceiling(self):
+        """Multiplier saturates at the configured ceiling."""
+        from primordial_soup.pool import _apply_observable_thinning
+
+        type_spec = InitiativeTypeSpec(
+            generation_tag="flywheel",
+            count=1,
+            quality_distribution=BetaDistribution(alpha=6.0, beta=2.0),
+            base_signal_st_dev_range=(0.1, 0.2),
+            dependency_level_range=(0.1, 0.4),
+            true_duration_range=(20, 60),
+            planned_duration_range=(25, 70),
+        )
+        frontier_spec = FrontierSpec(
+            duration_thinning_rate=0.005,
+            duration_thinning_ceiling=1.4,
+        )
+
+        # n_resolved=200 uncapped = 2.0 but ceiling = 1.4
+        thinned = _apply_observable_thinning(type_spec, frontier_spec, n_resolved=200)
+        assert thinned.planned_duration_range == (35, 98)
+
+    def test_capability_scale_thinning_shrinks_upper_bound(self):
+        """Enabler thinning shrinks only the upper bound."""
+        from primordial_soup.pool import _apply_observable_thinning
+
+        type_spec = InitiativeTypeSpec(
+            generation_tag="enabler",
+            count=1,
+            quality_distribution=BetaDistribution(alpha=4.0, beta=4.0),
+            base_signal_st_dev_range=(0.1, 0.2),
+            dependency_level_range=(0.0, 0.2),
+            capability_contribution_scale_range=(0.1, 0.5),
+        )
+        frontier_spec = FrontierSpec(
+            capability_scale_thinning_rate=0.008,
+            capability_scale_thinning_floor=0.5,
+        )
+
+        # n_resolved=30 → multiplier = max(0.5, 1 - 0.008*30) = max(0.5, 0.76) = 0.76
+        thinned = _apply_observable_thinning(type_spec, frontier_spec, n_resolved=30)
+        low, high = thinned.capability_contribution_scale_range
+        assert low == pytest.approx(0.1)  # lower bound unchanged
+        assert high == pytest.approx(0.5 * 0.76)  # upper bound shrinks
+
+    def test_capability_scale_thinning_respects_floor(self):
+        """Multiplier never falls below the configured floor."""
+        from primordial_soup.pool import _apply_observable_thinning
+
+        type_spec = InitiativeTypeSpec(
+            generation_tag="enabler",
+            count=1,
+            quality_distribution=BetaDistribution(alpha=4.0, beta=4.0),
+            base_signal_st_dev_range=(0.1, 0.2),
+            dependency_level_range=(0.0, 0.2),
+            capability_contribution_scale_range=(0.1, 0.5),
+        )
+        frontier_spec = FrontierSpec(
+            capability_scale_thinning_rate=0.008,
+            capability_scale_thinning_floor=0.5,
+        )
+
+        # n_resolved=200 uncapped = 1 - 0.008*200 = -0.6, clamped to 0.5
+        thinned = _apply_observable_thinning(type_spec, frontier_spec, n_resolved=200)
+        low, high = thinned.capability_contribution_scale_range
+        assert low == pytest.approx(0.1)
+        assert high == pytest.approx(0.5 * 0.5)
+
+    def test_no_thinning_when_rates_none(self):
+        """Default FrontierSpec leaves observable attributes untouched."""
+        from primordial_soup.pool import _apply_observable_thinning
+
+        type_spec = InitiativeTypeSpec(
+            generation_tag="flywheel",
+            count=1,
+            quality_distribution=BetaDistribution(alpha=6.0, beta=2.0),
+            base_signal_st_dev_range=(0.1, 0.2),
+            dependency_level_range=(0.1, 0.4),
+            true_duration_range=(20, 60),
+            planned_duration_range=(25, 70),
+        )
+        # All thinning-related fields default to None — no-op path.
+        frontier_spec = FrontierSpec()
+
+        thinned = _apply_observable_thinning(type_spec, frontier_spec, n_resolved=100)
+        # Identity: same object is returned when no dimension is active.
+        assert thinned is type_spec
+        assert thinned.planned_duration_range == (25, 70)

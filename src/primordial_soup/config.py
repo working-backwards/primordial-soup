@@ -463,6 +463,38 @@ class FrontierSpec:
     frontier_quality_floor: float = 0.1
     replenishment_threshold: int = 3
 
+    # --- Observable frontier thinning ---
+    # Selective degradation of observable (governance-visible) attributes
+    # alongside latent quality. Unlike quality degradation — which is
+    # latent and must be learned — observable thinning makes later
+    # frontier initiatives visibly less attractive to governance at
+    # intake time. Governance can see durations grow or capability
+    # scales shrink as the frontier is consumed, and can act on that
+    # signal when deciding what to staff.
+    #
+    # Defaults of None mean "no thinning" (identity transform); existing
+    # presets are unaffected unless they opt in by setting both the
+    # rate and ceiling/floor for a thinning dimension.
+    #
+    # Duration thinning (applies to planned_duration_range and, to
+    # preserve the planned/true relationship, true_duration_range):
+    #     multiplier = min(ceiling, 1.0 + rate * n_resolved)
+    #     new_range = base_range * multiplier
+    # Calibration defaults per calibration_note.md:
+    #     flywheel (rate=0.005, ceiling=1.4)
+    #     quick_win (rate=0.008, ceiling=1.5)
+    duration_thinning_rate: float | None = None
+    duration_thinning_ceiling: float | None = None
+
+    # Capability scale thinning (applies to the upper bound of
+    # capability_contribution_scale_range; lower bound stays fixed):
+    #     multiplier = max(floor, 1.0 - rate * n_resolved)
+    #     new_upper = base_upper * multiplier
+    # Calibration defaults per calibration_note.md:
+    #     enabler (rate=0.008, floor=0.5)
+    capability_scale_thinning_rate: float | None = None
+    capability_scale_thinning_floor: float | None = None
+
     # Per-attempt quality degradation for right-tail prize refresh.
     # When > 0, each failed attempt on a specific prize shifts the
     # quality alpha downward by this amount, modeling learning about
