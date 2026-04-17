@@ -40,7 +40,7 @@ from primordial_soup.config import (
 from primordial_soup.policy import BalancedPolicy
 from primordial_soup.reporting import RunResult
 from primordial_soup.runner import (
-    ENGINE_VERSION,
+    BASELINE_SPEC_VERSION,
     _build_governance_observation,
     _detect_reassignments,
     _initialize_world_state,
@@ -437,7 +437,7 @@ class TestRunSingleRegime:
         result, _ = run_single_regime(config, policy)
 
         assert isinstance(result, RunResult)
-        assert result.manifest.engine_version == ENGINE_VERSION
+        assert result.manifest.baseline_spec_version == BASELINE_SPEC_VERSION
         assert result.manifest.world_seed == 42
 
     def test_deterministic_replay(self) -> None:

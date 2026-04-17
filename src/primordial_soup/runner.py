@@ -93,8 +93,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Engine version identifier for manifest provenance.
-ENGINE_VERSION: str = "0.1.0"
+# Baseline specification version for manifest provenance.
+# Distinguishes results produced under different model-revision baselines
+# so that comparisons across bundles are not conflated when the baseline
+# changes (calibration revisions, new attribute-thinning semantics, etc.).
+# Git handles code-level versioning; this string identifies the
+# calibration/modeling revision the run was produced under. Bump this
+# whenever a change to the baseline would invalidate cross-version
+# comparisons. Per calibration_model_revision_carryover.md §Provenance.
+BASELINE_SPEC_VERSION: str = "v2-intake-baseline-thinning"
 
 
 # ---------------------------------------------------------------------------
@@ -149,7 +156,7 @@ def run_single_regime(
         is_replay=False,
         resolved_configuration=config,
         resolved_initiatives=initiative_configs,
-        engine_version=ENGINE_VERSION,
+        baseline_spec_version=BASELINE_SPEC_VERSION,
     )
 
     # --- Step 6: Main tick loop ---

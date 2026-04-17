@@ -116,7 +116,7 @@ def _make_seed_run_record(seed: int = 42) -> SeedRunRecord:
         is_replay=False,
         resolved_configuration=config,
         resolved_initiatives=init_configs,
-        engine_version="0.1.0",
+        baseline_spec_version="0.1.0",
     )
 
     collector = RunCollector()

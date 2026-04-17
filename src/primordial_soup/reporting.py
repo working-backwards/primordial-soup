@@ -339,8 +339,8 @@ class RunManifest:
     """Provenance artifact for exact replay of a simulation run.
 
     Contains all information needed to reproduce the run: seed,
-    resolved configuration, resolved initiative list, and engine
-    version identifier.
+    resolved configuration, resolved initiative list, and baseline
+    specification version identifier.
 
     Per interfaces.md RunManifest schema.
     """
@@ -350,7 +350,10 @@ class RunManifest:
     is_replay: bool
     resolved_configuration: SimulationConfiguration
     resolved_initiatives: tuple[ResolvedInitiativeConfig, ...]
-    engine_version: str
+    # Identifies the calibration / model-revision baseline the run was
+    # produced under. Distinct from git version; see
+    # calibration_model_revision_carryover.md §Provenance.
+    baseline_spec_version: str
 
     @property
     def flat_governance_params(self) -> dict[str, object]:

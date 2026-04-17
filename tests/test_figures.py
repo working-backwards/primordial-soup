@@ -106,7 +106,7 @@ def _make_table_data() -> dict[str, list[dict]]:
         is_replay=False,
         resolved_configuration=config,
         resolved_initiatives=init_configs,
-        engine_version="0.1.0",
+        baseline_spec_version="0.1.0",
     )
 
     collector = RunCollector()
@@ -393,7 +393,7 @@ def _make_seed_run_record(
         is_replay=False,
         resolved_configuration=config,
         resolved_initiatives=init_configs,
-        engine_version="0.1.0",
+        baseline_spec_version="0.1.0",
     )
 
     collector = RunCollector()

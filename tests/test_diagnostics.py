@@ -147,7 +147,7 @@ def _make_run_result(
         is_replay=False,
         resolved_configuration=None,  # type: ignore[arg-type]
         resolved_initiatives=configs,
-        engine_version="test",
+        baseline_spec_version="test",
     )
 
     return RunResult(

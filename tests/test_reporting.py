@@ -116,7 +116,7 @@ class TestRunManifest:
             is_replay=False,
             resolved_configuration=config,
             resolved_initiatives=config.initiatives or (),
-            engine_version="0.1.0",
+            baseline_spec_version="0.1.0",
         )
         with pytest.raises(AttributeError):
             manifest.world_seed = 99  # type: ignore[misc]
@@ -631,7 +631,7 @@ class TestAssembleRunResult:
             is_replay=False,
             resolved_configuration=config,
             resolved_initiatives=init_configs,
-            engine_version="0.1.0",
+            baseline_spec_version="0.1.0",
         )
 
         collector = RunCollector()
@@ -715,7 +715,7 @@ class TestAssembleRunResult:
             is_replay=False,
             resolved_configuration=config,
             resolved_initiatives=init_configs,
-            engine_version="0.1.0",
+            baseline_spec_version="0.1.0",
         )
 
         collector = RunCollector()
@@ -784,7 +784,7 @@ class TestAssembleRunResult:
             is_replay=False,
             resolved_configuration=config,
             resolved_initiatives=init_configs,
-            engine_version="0.1.0",
+            baseline_spec_version="0.1.0",
         )
 
         collector = RunCollector()
@@ -1487,7 +1487,7 @@ class TestComputeRightTailFalseStopProfile:
             is_replay=False,
             resolved_configuration=config,
             resolved_initiatives=init_configs,
-            engine_version="0.1.0",
+            baseline_spec_version="0.1.0",
         )
 
         collector = RunCollector()

@@ -170,7 +170,7 @@ def run_manifest_to_dict(manifest: RunManifest) -> dict[str, Any]:
         "policy_id": manifest.policy_id,
         "world_seed": manifest.world_seed,
         "is_replay": manifest.is_replay,
-        "engine_version": manifest.engine_version,
+        "baseline_spec_version": manifest.baseline_spec_version,
         "governance_config": governance_config_to_dict(manifest.resolved_configuration.governance),
     }
 

@@ -18,7 +18,13 @@
       "Bash(grep:*)",
       "Bash(python3:*)",
       "Bash(gh issue:*)",
-      "Bash(rm -rf trajectory_output_test)"
+      "Bash(rm -rf trajectory_output_test)",
+      "Bash(git branch:*)",
+      "Bash(.venv/Scripts/mkdocs build:*)",
+      "Bash(git pull:*)",
+      "Bash(rm:*)",
+      "Bash(git fetch *)",
+      "Bash(git checkout *)"
     ]
   }
 }
