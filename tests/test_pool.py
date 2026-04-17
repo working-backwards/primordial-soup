@@ -850,6 +850,44 @@ class TestScreeningSignal:
         unique_beliefs = set(beliefs)
         assert len(unique_beliefs) > 1
 
+    def test_screening_signal_correlated_with_quality(self):
+        """High-q initiatives have higher mean screening belief than low-q.
+
+        Verifies the screening signal's positive correlation structure:
+        splitting the pool at median latent_quality, the upper half should
+        have a higher mean initial_quality_belief than the lower half.
+        With 200 draws, the law of large numbers makes this a stable
+        assertion even under moderate screening noise. Complements the
+        low/high-noise magnitude tests above.
+        """
+        spec = InitiativeTypeSpec(
+            generation_tag="test_correlation",
+            count=200,
+            quality_distribution=BetaDistribution(alpha=2.0, beta=2.0),
+            base_signal_st_dev_range=(0.1, 0.2),
+            dependency_level_range=(0.0, 0.3),
+            screening_signal_st_dev=0.15,
+        )
+        config = InitiativeGeneratorConfig(type_specs=(spec,))
+        pool = generate_initiative_pool(config, world_seed=42)
+
+        for init in pool:
+            assert init.initial_quality_belief is not None
+
+        # Split at median latent_quality; compare mean beliefs of halves.
+        sorted_pool = sorted(pool, key=lambda i: i.latent_quality)
+        midpoint = len(sorted_pool) // 2
+        low_half = sorted_pool[:midpoint]
+        high_half = sorted_pool[midpoint:]
+
+        low_mean = sum(i.initial_quality_belief for i in low_half) / len(low_half)
+        high_mean = sum(i.initial_quality_belief for i in high_half) / len(high_half)
+
+        assert high_mean > low_mean, (
+            f"Expected high-q mean belief ({high_mean:.3f}) > "
+            f"low-q mean belief ({low_mean:.3f})"
+        )
+
 
 class TestObservableThinning:
     """Tests for selective observable frontier thinning.
