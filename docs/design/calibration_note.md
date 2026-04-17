@@ -24,8 +24,9 @@ structural justifications.
 The document is organized as a diagnostic narrative: Section 1 traces the
 right-tail collapse, the evidence used to correct it, and the resulting
 parameters. Sections 2–4 record the remaining generator parameters with
-their calibration basis. Section 5 ranks parameters by expected sensitivity.
-Section 6 catalogues the limitations of the evidence chain.
+their calibration basis. Section 5 covers screening-signal noise.
+Section 6 ranks parameters by expected sensitivity. Section 7
+catalogues the limitations of the evidence chain.
 
 ---
 
@@ -804,7 +805,46 @@ experiments, not a concern for the baseline study.
 
 ---
 
-## 5. Sensitivity Ranking
+## 5. Screening Signal Noise
+
+The screening signal (`screening_signal_st_dev` on `InitiativeTypeSpec`)
+sets the initial quality belief at generation time, before any
+staffing or execution observation has occurred. It represents a
+pre-execution screening assessment — the organization's estimate of
+an initiative's strategic quality based on whatever due diligence
+occurs before a team is assigned.
+
+Per-family noise defaults reflect how accurately organizations can
+assess strategic quality at intake:
+
+| Family | `sigma_screen` | Rationale |
+|--------|---------------|-----------|
+| Quick-win | 0.10 | Short, bounded scope — easiest to screen pre-execution |
+| Flywheel | 0.15 | Compounding potential partially predictable from market structure |
+| Enabler | 0.15 | Capability needs assessable from existing technical landscape |
+| Right-tail | 0.25 | Speculative, high inherent uncertainty — hardest to evaluate pre-execution |
+
+The generator formula:
+
+    initial_quality_belief = clamp(latent_quality + Normal(0, sigma_screen), 0, 1)
+
+This is a pre-execution screening signal, not a post-staffing posterior.
+The clamp to `[0, 1]` is the natural range of a quality belief.
+
+The noise ordering mirrors the in-run signal noise ordering in Section 4
+but operates at a different point in the initiative lifecycle. Signal
+noise (Section 4) governs the clarity of evidence produced by staffed
+work; screening noise governs the accuracy of the organization's
+pre-staffing assessment. Quick-win initiatives are easiest to evaluate
+both before and during execution. Right-tail initiatives are hardest
+at both stages — the high pre-execution uncertainty is one reason why
+governance patience is required to resolve quality beliefs.
+
+Per design_decisions.md decision 24.
+
+---
+
+## 6. Sensitivity Ranking
 
 
 ### Academic
@@ -951,7 +991,7 @@ will reveal, ordered from most consequential to least.
 
 ---
 
-## 6. Evidence Limitations
+## 7. Evidence Limitations
 
 
 ### Academic

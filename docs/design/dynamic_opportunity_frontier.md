@@ -483,6 +483,71 @@ This is conceptually distinct from the declining frontier. The flywheel and quic
 
 - *Frontier quality floor.* Default: 10% of the original distribution parameter (same as flywheel and quick-win).
 
+## Observable attribute thinning
+
+Alongside latent quality degradation (which governance can only infer
+through execution signals), selected observable attributes of later
+frontier initiatives degrade as the frontier is consumed. This matches
+the organizational reality that the declining pipeline is partially
+visible at intake: what remains visibly takes longer, offers smaller
+capability gains, or has less favorable economics. Governance can act
+on this signal when deciding what to staff — a regime that slows
+investment as the pipeline visibly thins is making a qualitatively
+different decision from one that continues at the same rate because it
+cannot see the decline.
+
+**Duration thinning (flywheel, quick-win).** The planned-duration range
+(and, to preserve the planned/true relationship, the true-duration
+range) grows as more initiatives of the family are resolved:
+
+    multiplier = min(ceiling, 1.0 + rate * n_resolved)
+    new_range = round(base_range * multiplier)
+
+Per-family defaults:
+
+| Family | `duration_thinning_rate` | `duration_thinning_ceiling` |
+|--------|--------------------------|-----------------------------|
+| Flywheel | 0.005 | 1.4 |
+| Quick-win | 0.008 | 1.5 |
+
+Low-hanging fruit gets picked first; later opportunities require more
+effort for comparable outcomes.
+
+**Capability-scale thinning (enabler).** The upper bound of the
+capability-contribution-scale range shrinks; the lower bound is
+preserved so basic infrastructure work remains available:
+
+    multiplier = max(floor, 1.0 - rate * n_resolved)
+    new_upper = max(base_lower, base_upper * multiplier)
+
+Per-family default:
+
+| Family | `capability_scale_thinning_rate` | `capability_scale_thinning_floor` |
+|--------|----------------------------------|-----------------------------------|
+| Enabler | 0.008 | 0.5 |
+
+The highest-leverage platform investments are identified first; later
+enablers still contribute but with a lower ceiling on transformative
+impact.
+
+**Right-tail exemption.** Right-tail initiatives receive no observable
+thinning. The right-tail value mechanism is prize-based, and the
+ceiling on a major discovery is a property of the specific prize, not
+of the generation cohort. The prize-preserving refresh mechanism
+(§2) handles right-tail dynamics.
+
+**Scope.** Dependency structure, signal noise, and value-channel
+parameters are drawn from their base ranges unchanged. Thinning is
+deliberately narrow — only attributes that carry planning meaning —
+to avoid an artificially uniform "everything gets worse" signal.
+
+**Opt-in.** Each thinning dimension activates only when both the rate
+and the corresponding ceiling/floor are set on the family's
+`FrontierSpec`. Defaults of `None` mean "no thinning" (identity
+transform), so existing presets are unaffected unless they opt in.
+
+Per design_decisions.md decision 25.
+
 ## Interface to the engine and simulator boundary
 
 

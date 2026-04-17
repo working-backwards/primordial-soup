@@ -784,6 +784,67 @@ An initiative that governance does not mention in its attention allocation for a
 
 Well-designed governance policies should avoid budget violations by computing their total allocation against the available budget before submitting decisions.
 
+## Baseline work semantics
+
+### Academic
+
+Teams not assigned to portfolio initiatives are not wasted: they are on
+*baseline*, performing routine maintenance, operational work, customer
+support, incremental process improvements, and other productive
+non-portfolio activity. When `ModelConfig.baseline_value_per_tick` is
+set, each unassigned team accrues that amount per tick as runner-side
+accounting, surfaced on `RunResult.cumulative_baseline_value`. The
+engine itself does not consume this field; baseline work has no
+signals, no learning, no capability contribution, no completion
+mechanics.
+
+Baseline value changes the substantive framing of governance decisions.
+Without it, "do not staff" is indistinguishable from "waste a team,"
+which unfairly penalizes a regime that rationally holds back from
+marginal portfolio candidates. With baseline value, the decision
+becomes: *is this initiative worth pulling a team off baseline
+work?* That is the opportunity-cost framing organizations actually
+face.
+
+The default is `0.0` (opt-in): studies that want to credit baseline
+work declare it explicitly. The calibrated nonzero value is
+`0.1/tick` per `calibration_note.md`. A `0.0` baseline value reduces
+to the legacy "idle = zero value" semantics and preserves comparability
+with bundles produced before the field existed.
+
+The intake screening signal (per `initiative_model.md` and decision 24)
+pairs naturally with baseline value: screening gives governance
+pre-execution information that a given initiative is likely worse than
+baseline, and the hold-back decision becomes observable as a
+governance behavior. Without screening, the flat default prior would
+make baseline-versus-portfolio tradeoffs arbitrary at t=0.
+
+Per design_decisions.md decision 23.
+
+### Business
+
+Teams that are not assigned to portfolio initiatives are not idle in
+any meaningful business sense. They are doing the routine work that
+keeps the organization running: maintenance, operational improvements,
+customer support, process work. This baseline activity produces value
+at a steady rate, independent of what the portfolio is doing.
+
+The simulator represents this by accruing a small per-team value
+(`baseline_value_per_tick`) for each unassigned team each tick. That
+amount can be zero (the default, for studies that want to compare
+against the "idle teams produce nothing" assumption), or a modest
+positive number — the calibrated value is `0.1` per tick — when the
+study wants to credit baseline work.
+
+Treating unassigned teams as productive changes what the study can
+observe. Without baseline value, a governance regime that holds back
+from marginal portfolio initiatives looks wasteful: it "left teams
+idle" and therefore produced less. With baseline value, that same
+regime is rationally choosing routine operations over speculative
+investment, which is a substantively meaningful governance decision
+that organizations actually make. The study needs to be able to
+observe that decision, not penalize it.
+
 ## Deterministic application order (engine)
 
 ### Academic

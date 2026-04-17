@@ -1368,6 +1368,230 @@ These are not unresolved issues in the current design. The current design is com
 
 ---
 
+## 22. Why frontier replenishment uses a threshold-plus-one fill
+
+### Decision
+
+When a family's unassigned pool falls to or below
+`replenishment_threshold` (default 3), the runner materializes enough
+new initiatives to bring the count back up to `threshold + 1`.
+Materialization is triggered only by the inter-tick depletion check,
+never as a direct consequence of a governance assignment.
+
+### Why this choice was made
+
+Governance must always have a meaningful selection choice within each
+initiative family. A compact-pool model (materialize exactly one when
+the pool hits zero) creates states in which a family has no available
+candidates, forcing degenerate decisions driven by pipeline exhaustion
+rather than by the governance regime being tested.
+
+The threshold buffer also addresses a heterogeneous-team-size concern:
+with mixed team sizes, a single unassigned initiative requiring a
+large team cannot be started by a smaller free team, producing
+artificial idleness. Holding several initiatives per family in the
+unassigned pool gives any free team a better chance of finding
+feasible work; the frontier team-size rule (frontier-generated
+initiatives use the minimum of the type spec's team-size range)
+complements this by keeping new supply broadly staffable.
+
+Setting `threshold = 3` and fill-to-N+1 was tuned empirically against
+run-time idle rates (reducing 34-38% → 1-10%). Uniform thresholds
+across families are sufficient for v1; per-family tuning can be
+added as an extension if family-specific pipeline dynamics prove
+material.
+
+### Alternatives rejected
+
+Assignment-triggered spawning — where a new initiative is generated
+whenever governance assigns a team to an existing one — was rejected
+because it couples the opportunity environment to governance
+behavior, violating the principle that the frontier is an
+environmental feature of the study rather than a consequence of
+governance action.
+
+Compact-pool (threshold=0, generate one) was rejected because it
+produces frequent zero-availability states and, combined with
+heterogeneous team sizes, causes avoidable idleness.
+
+A two-parameter threshold/target-buffer model (maintain between a
+minimum and a maximum) was considered and rejected as unnecessary
+complexity; a single threshold with fill-to-N+1 achieves the same
+"always at least one candidate per family" invariant with one fewer
+knob.
+
+Per `dynamic_opportunity_frontier.md` §1.
+
+---
+
+## 23. Why unassigned teams can produce baseline value
+
+### Decision
+
+When `model.baseline_value_per_tick` is set on `ModelConfig`, unassigned
+teams accrue that amount per team per tick as runner-side accounting.
+The value is surfaced on `RunResult.cumulative_baseline_value`; the
+engine itself does not consume it. The default is `0.0` (opt-in): only
+studies that want to credit baseline work enable it explicitly.
+
+### Why this choice was made
+
+Without baseline value, governance is penalized for leaving teams
+"idle" even when the remaining portfolio candidates are worse than
+the organization's routine work. A regime that rationally holds back
+from marginal initiatives scores lower than one that staffs everything
+indiscriminately — which is the opposite of the substantive finding
+the study is trying to surface.
+
+Baseline value redefines "idle" as "on baseline." Teams are always
+productive at some rate; the governance decision becomes whether a
+portfolio initiative is worth the opportunity cost of pulling a team
+off baseline, which is the decision organizations actually face.
+
+Runner-side accounting keeps the engine unchanged: no extra state, no
+extra signals, no learning. Baseline work has none of the mechanics
+the engine models (uncertainty, signals, completion) and does not
+belong in the initiative pipeline.
+
+The default is `0.0` because making baseline value always-on would
+silently change the scoring of every existing preset. Studies opt in
+explicitly (calibrated value is 0.1/tick per `calibration_note.md`).
+
+### Alternatives rejected
+
+Modeling baseline work as a special initiative type was rejected as
+over-engineering. It has no learning dynamics, no completion event,
+no signals — routing it through the initiative engine adds complexity
+without adding explanatory value.
+
+Baking a nonzero default into `ModelConfig` was rejected because it
+would silently alter comparisons against bundles produced before the
+field existed. Opt-in preserves backward-compatibility of stored
+results; studies that want baseline accounting declare it.
+
+Per `governance.md` "Baseline work semantics".
+
+---
+
+## 24. Why the generator provides a screening signal for initial quality belief
+
+### Decision
+
+When `screening_signal_st_dev` is set on an `InitiativeTypeSpec`, the
+generator draws
+`initial_quality_belief = clamp(latent_quality + Normal(0, sigma_screen), 0, 1)`.
+Per-family noise defaults express how accurately organizations can
+assess strategic quality before execution begins:
+
+| Family | `sigma_screen` | Rationale |
+|--------|---------------|-----------|
+| Quick-win | 0.10 | Bounded scope; easiest to screen pre-execution |
+| Flywheel | 0.15 | Compounding potential partially predictable |
+| Enabler | 0.15 | Capability needs assessable from technical landscape |
+| Right-tail | 0.25 | Speculative; hardest to evaluate before staffing |
+
+This is a pre-execution intake assessment, not a posterior formed
+from observed signals. The clamp to `[0, 1]` is the natural range of
+a quality belief; no margin off the boundary is imposed.
+
+### Why this choice was made
+
+Without a screening signal, all non-bounded initiatives enter the
+portfolio with the default strategic prior (typically 0.5). Governance
+has no basis for differentiating among available initiatives before
+execution begins — an arbitrary t=0 ranking. The screening signal
+models the organizational reality that intake processes provide
+imperfect but nonzero information: a business case, market analysis,
+sponsor assessment, technical feasibility review.
+
+The screening signal also makes the baseline-value tradeoff
+meaningful (decision 23). With a flat 0.5 prior, governance cannot
+identify which candidates are likely worse than baseline before
+committing a team. With screening, low-screening-belief initiatives
+can be rationally held back in favor of baseline work.
+
+Per-family noise levels reflect a substantive modeling claim: some
+types of work are easier to evaluate at intake than others.
+Quick-wins with well-defined deliverables are more evaluable than
+right-tail bets whose payoff depends on unpredictable discovery.
+This is a study-design choice, not a calibration convenience.
+
+### Alternatives rejected
+
+Perfect initial beliefs (intake signal equal to latent quality) were
+rejected because they eliminate the study's core question: whether
+governance learns to distinguish good from bad initiatives through
+execution signals. If governance knows quality at intake, the
+execution-learning mechanism is bypassed.
+
+Uniform noise across all families was rejected because it ignores
+evaluability differences. A process-automation quick-win and a
+research moonshot are not equally hard to screen.
+
+Per `initiative_model.md` and `sourcing_and_generation.md`.
+
+---
+
+## 25. Why later frontier opportunities thin observably, not just latently
+
+### Decision
+
+Alongside latent quality degradation of later-arriving frontier
+initiatives, a small number of observable attributes degrade per
+family as the frontier is consumed. Flywheel and quick-win planned
+durations grow (rates 0.005 and 0.008; ceilings 1.4 and 1.5).
+Enabler capability-contribution-scale upper bound shrinks (rate
+0.008; floor 0.5). Right-tail initiatives receive no observable
+thinning, preserving their prize-driven refresh dynamics.
+
+### Why this choice was made
+
+If the frontier degrades only in latent quality, governance cannot
+observe that opportunities are becoming less attractive. That
+creates an information asymmetry that does not match the
+organizational phenomenon being modeled: in real organizations, the
+decline of the remaining pipeline is partially visible at intake.
+What's left visibly takes longer, offers smaller capability gains,
+or has less favorable economics.
+
+Observable thinning lets governance rationally respond to frontier
+degradation rather than continuing to invest at the same rate in a
+pipeline that has invisibly deteriorated. A regime that slows
+investment as the pipeline visibly thins is making a qualitatively
+different decision from one that continues investing because it
+cannot see the decline — exactly the difference the study is
+designed to distinguish.
+
+The specific attributes chosen for thinning match family-level
+economics. Flywheel and quick-win durations grow because the
+low-hanging fruit has been picked; later opportunities require more
+effort for comparable outcomes. Enabler capability contributions
+shrink because the highest-leverage infrastructure investments are
+made first. Right-tail initiatives are exempt because value comes
+from rare prize events whose characteristics are per-draw, not
+per-generation — the ceiling on a breakthrough does not shrink
+just because earlier right-tail work has been done.
+
+### Alternatives rejected
+
+Degrading all observable attributes across all families was rejected
+as overdetermined. If every visible characteristic worsens
+simultaneously, the thinning signal becomes artificially uniform and
+does not match how real pipelines degrade.
+
+No observable degradation at all was rejected because it hides the
+declining frontier from governance. A study that investigates
+governance under declining opportunity but prevents governance from
+seeing the decline is testing a different, less useful question.
+
+Right-tail observable thinning was rejected because the right-tail
+value mechanism is prize-based. The ceiling on a major discovery is
+a property of the prize itself, not of the generation cohort.
+
+Per `dynamic_opportunity_frontier.md` §observable-thinning.
+
+---
+
 ## Final note
 
 
