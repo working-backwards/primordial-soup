@@ -213,11 +213,26 @@ class EnvironmentConditionsSpec:
     # Per opportunity_staffing_intensity_design_for_claude_v2.md.
     staffing_response_overrides: tuple[tuple[str, tuple[float, float]], ...] | None = None
 
+    # ── Portfolio mix count overrides (per exec_intent_spec.md #5) ────
+    # Each bucket's initial-pool count can be overridden independently.
+    # When None, the family preset default applies. When set, the value is
+    # used verbatim — total pool size is a derived quantity, not a separate
+    # input, so these do not rebalance each other. Must be >= 0 when set.
+    # These correspond to the exec-facing "portfolio mix as counts of
+    # QW / FW / EN / RT" input: specifying 80 / 70 / 30 / 20 here reproduces
+    # the balanced_incumbent default; setting any subset keeps the others
+    # at the family default.
+
     # Right-tail prize abundance: override the right-tail count in the
     # initial pool. More right-tail prizes = more re-attempt opportunities
-    # when right-tail initiatives are stopped. Adjusts quick-win count to
-    # maintain the family's total pool size. Must be > 0.
+    # when right-tail initiatives are stopped. Must be >= 0.
     right_tail_prize_count: int | None = None
+
+    # Per-bucket count overrides. Independent of right_tail_prize_count.
+    # When set, replaces the family default for that bucket verbatim.
+    flywheel_count: int | None = None
+    enabler_count: int | None = None
+    quick_win_count: int | None = None
 
     # Per-family frontier degradation rate overrides. Each entry is
     # (generation_tag, degradation_rate). Lower rate = deeper frontier
@@ -265,6 +280,9 @@ class EnvironmentConditionsSpec:
         has_generator_overrides = (
             self.staffing_response_overrides is not None
             or self.right_tail_prize_count is not None
+            or self.flywheel_count is not None
+            or self.enabler_count is not None
+            or self.quick_win_count is not None
             or self.frontier_degradation_rate_overrides is not None
             or self.right_tail_refresh_degradation is not None
         )
@@ -273,6 +291,9 @@ class EnvironmentConditionsSpec:
                 generator=generator,
                 staffing_response_overrides=self.staffing_response_overrides,
                 right_tail_prize_count=self.right_tail_prize_count,
+                flywheel_count=self.flywheel_count,
+                enabler_count=self.enabler_count,
+                quick_win_count=self.quick_win_count,
                 frontier_degradation_rate_overrides=self.frontier_degradation_rate_overrides,
                 right_tail_refresh_degradation=self.right_tail_refresh_degradation,
             )
@@ -346,6 +367,16 @@ class GovernanceArchitectureSpec:
     # Per portfolio_allocation_targets_proposal.md.
     portfolio_mix_targets: PortfolioMixTargets | None = None
 
+    # Baseline value per team per week (exec_intent_spec.md #7). Value per
+    # week that an idle team produces through baseline (non-portfolio) work:
+    # maintenance, customer support, incremental process improvement, etc.
+    # The simulator's 1 tick = 1 week convention makes this a 1:1 relabel of
+    # ModelConfig.baseline_value_per_tick (which is already per-idle-team per
+    # tick — see runner.py). None = preserve the environment family's model
+    # default (currently 0.0 by default; 0.1 in calibrated presets).
+    # Must be >= 0 when set.
+    baseline_value_per_team_week: float | None = None
+
     def resolve_workforce(self) -> WorkforceConfig:
         """Resolve the workforce specification into a concrete WorkforceConfig.
 
@@ -391,6 +422,17 @@ class GovernanceArchitectureSpec:
             errors.append(
                 f"max_single_initiative_labor_share must be in (0, 1], "
                 f"got {self.max_single_initiative_labor_share}."
+            )
+        # Baseline value per team per week must be non-negative.
+        # Per exec_intent_spec.md #7: small positive allowed; 0 means no
+        # idle-team baseline accrual (the engine default).
+        if (
+            self.baseline_value_per_team_week is not None
+            and self.baseline_value_per_team_week < 0.0
+        ):
+            errors.append(
+                f"baseline_value_per_team_week must be >= 0, "
+                f"got {self.baseline_value_per_team_week}."
             )
 
         # --- Portfolio mix targets validation ---
@@ -573,6 +615,12 @@ class RunDesignSpec:
     # Optional; None → use make_baseline_reporting_config()
     reporting: ReportingConfig | None = None
 
+    # Report-layer label for monetary outputs (per exec_intent_spec.md #8).
+    # Free-text — the simulator is unit-agnostic. Propagated through
+    # ExperimentSpec → manifest → report_gen so every value-dimension metric
+    # renders with this label. Default "units" matches the spec.
+    value_unit: str = "units"
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RunDesignSpec:
         """Construct a RunDesignSpec from a plain dictionary (e.g. parsed YAML).
@@ -614,6 +662,11 @@ class RunDesignSpec:
         name = str(data.get("name", "")).strip()
         title = str(data.get("title", "")).strip()
         description = str(data.get("description", "")).strip()
+
+        # Report-layer unit label (exec_intent_spec.md #8). Free-text,
+        # propagated to the report; the simulator is unit-agnostic. Default
+        # "units" mirrors the spec's default for runs that don't specify one.
+        value_unit = str(data.get("value_unit", "units")).strip() or "units"
 
         # ── Environment ───────────────────────────────────────────────────
         env_data: dict = data.get("environment", {})
@@ -674,10 +727,26 @@ class RunDesignSpec:
         frontier_degradation_rate_overrides: tuple[tuple[str, float], ...] | None = None
         right_tail_refresh_degradation: float | None = None
 
+        # Per-bucket portfolio-mix count overrides (exec_intent_spec.md #5).
+        # Each override replaces the family default for that bucket verbatim;
+        # total pool size is derived. `quick_win_count`, `flywheel_count`,
+        # `enabler_count` live under the same opportunity_supply: YAML block
+        # as `right_tail_prize_count` so all four counts are specified in one
+        # place.
+        flywheel_count: int | None = None
+        enabler_count: int | None = None
+        quick_win_count: int | None = None
+
         supply_raw = env_data.get("opportunity_supply")
         if supply_raw is not None and isinstance(supply_raw, dict):
             if supply_raw.get("right_tail_prize_count") is not None:
                 right_tail_prize_count = int(supply_raw["right_tail_prize_count"])
+            if supply_raw.get("flywheel_count") is not None:
+                flywheel_count = int(supply_raw["flywheel_count"])
+            if supply_raw.get("enabler_count") is not None:
+                enabler_count = int(supply_raw["enabler_count"])
+            if supply_raw.get("quick_win_count") is not None:
+                quick_win_count = int(supply_raw["quick_win_count"])
 
             fd_raw = supply_raw.get("frontier_degradation_rate")
             if fd_raw is not None and isinstance(fd_raw, dict):
@@ -696,6 +765,9 @@ class RunDesignSpec:
             model_override=model_override,
             staffing_response_overrides=staffing_response_overrides,
             right_tail_prize_count=right_tail_prize_count,
+            flywheel_count=flywheel_count,
+            enabler_count=enabler_count,
+            quick_win_count=quick_win_count,
             frontier_degradation_rate_overrides=frontier_degradation_rate_overrides,
             right_tail_refresh_degradation=right_tail_refresh_degradation,
         )
@@ -757,6 +829,10 @@ class RunDesignSpec:
                 arch_data.get("max_single_initiative_labor_share")
             ),
             portfolio_mix_targets=parsed_mix_targets,
+            # exec_intent_spec.md #7: baseline value per idle team per week.
+            # YAML key is the exec-facing name; it maps 1:1 to the engine's
+            # ModelConfig.baseline_value_per_tick at resolve time.
+            baseline_value_per_team_week=_opt_float(arch_data.get("baseline_value_per_team_week")),
         )
 
         # ── Policy ────────────────────────────────────────────────────────
@@ -789,6 +865,7 @@ class RunDesignSpec:
             policy=policy,
             world_seeds=world_seeds,
             reporting=reporting_cfg,
+            value_unit=value_unit,
         )
 
 
@@ -872,8 +949,17 @@ class ResolvedRunDesign:
                 f"{tag}=[{lo}, {hi}]" for tag, (lo, hi) in env_spec.staffing_response_overrides
             ]
             lines.append(f"  Staffing response: {', '.join(sr_parts)}")
+        # Per-bucket portfolio-mix count overrides (exec_intent_spec.md #5).
+        # Each surfaces only if the exec explicitly set it, so default pool
+        # compositions stay hidden in the summary.
         if env_spec.right_tail_prize_count is not None:
             lines.append(f"  Right-tail prize count: {env_spec.right_tail_prize_count}")
+        if env_spec.flywheel_count is not None:
+            lines.append(f"  Flywheel count: {env_spec.flywheel_count}")
+        if env_spec.enabler_count is not None:
+            lines.append(f"  Enabler count: {env_spec.enabler_count}")
+        if env_spec.quick_win_count is not None:
+            lines.append(f"  Quick-win count: {env_spec.quick_win_count}")
         if env_spec.frontier_degradation_rate_overrides is not None:
             fd_parts = [
                 f"{tag}={rate}" for tag, rate in env_spec.frontier_degradation_rate_overrides
@@ -914,6 +1000,14 @@ class ResolvedRunDesign:
             mix_parts = [f"{name}={share:.0%}" for name, share in pmt.bucket_targets]
             lines.append(f"  Mix targets: {', '.join(mix_parts)}")
             lines.append(f"  Mix tolerance: {pmt.tolerance:.0%}")
+        # Surface the exec-facing baseline value rate if set. The resolved
+        # model field is equivalent (see _apply_baseline_value_override);
+        # we display the authoring-surface label for clarity.
+        if arch.baseline_value_per_team_week is not None:
+            lines.append(
+                f"  Baseline value: {arch.baseline_value_per_team_week} "
+                f"{spec.value_unit}/team-week"
+            )
         lines.append("")
 
         # ── Operating Policy ─────────────────────────────────────────────
@@ -944,6 +1038,9 @@ class ResolvedRunDesign:
         n = len(spec.world_seeds)
         lines.append(f"  World seeds: {list(spec.world_seeds)}")
         lines.append(f"  → {n} simulation run{'s' if n != 1 else ''}")
+        # Report-layer value-unit label (exec_intent_spec.md #8). Free-text;
+        # the simulator is unit-agnostic.
+        lines.append(f"  Value unit: {spec.value_unit}")
 
         return "\n".join(lines)
 
@@ -1008,8 +1105,23 @@ def validate_run_design(spec: RunDesignSpec) -> None:
             if lo > hi:
                 errors.append(f"staffing_response[{tag!r}]: min ({lo}) must be <= max ({hi}).")
 
-    if env.right_tail_prize_count is not None and env.right_tail_prize_count < 1:
-        errors.append(f"right_tail_prize_count must be >= 1, got {env.right_tail_prize_count}.")
+    # Per-bucket portfolio-mix counts (exec_intent_spec.md #5). Each must be
+    # non-negative when set. Aggregate total is also checked when any count is
+    # set, enforcing the spec's 50–400 envelope on the initial pool size.
+    if env.right_tail_prize_count is not None and env.right_tail_prize_count < 0:
+        errors.append(f"right_tail_prize_count must be >= 0, got {env.right_tail_prize_count}.")
+    if env.flywheel_count is not None and env.flywheel_count < 0:
+        errors.append(f"flywheel_count must be >= 0, got {env.flywheel_count}.")
+    if env.enabler_count is not None and env.enabler_count < 0:
+        errors.append(f"enabler_count must be >= 0, got {env.enabler_count}.")
+    if env.quick_win_count is not None and env.quick_win_count < 0:
+        errors.append(f"quick_win_count must be >= 0, got {env.quick_win_count}.")
+
+    # Total-pool-size envelope check: when any count override is set, the
+    # resolved pool (applying only the specified overrides; family defaults
+    # fill in the rest) must fall in [50, 400] per exec_intent_spec.md #5.
+    # Defer this check to after environment resolution when all four values
+    # can be known — done in the main validation pass below.
 
     if env.frontier_degradation_rate_overrides is not None:
         for tag, rate in env.frontier_degradation_rate_overrides:
@@ -1045,18 +1157,43 @@ def validate_run_design(spec: RunDesignSpec) -> None:
     except (ValueError, KeyError) as exc:
         errors.append(f"Environment resolution failed: {exc}")
 
+    # Initial-pool size envelope (exec_intent_spec.md #5). If any count
+    # override is set, check the resolved total against the spec envelope
+    # [50, 400]. Done after environment resolution so family defaults are
+    # counted for unspecified buckets.
+    has_any_count_override = (
+        env.right_tail_prize_count is not None
+        or env.flywheel_count is not None
+        or env.enabler_count is not None
+        or env.quick_win_count is not None
+    )
+    if env_base is not None and has_any_count_override:
+        total_pool = sum(s.count for s in env_base.initiative_generator.type_specs)
+        if not (50 <= total_pool <= 400):
+            errors.append(
+                f"portfolio mix total pool size {total_pool} is outside the "
+                f"allowed range [50, 400] (per exec_intent_spec.md #5). "
+                f"Check quick_win_count, flywheel_count, enabler_count, "
+                f"and right_tail_prize_count."
+            )
+
     # ── Policy + full config validation ───────────────────────────────────
     # Only attempt if environment and workforce both resolved cleanly — we
     # need both to build a valid SimulationConfiguration for validation.
     if env_base is not None and workforce is not None and spec.world_seeds:
+        # Apply architecture-side baseline_value_per_team_week before policy
+        # resolution so the validated configuration reflects the final model.
+        env_base_with_value = _apply_baseline_value_override(env_base, spec.architecture)
         try:
-            gov = _resolve_governance_config(spec.architecture, spec.policy, env_base.model)
+            gov = _resolve_governance_config(
+                spec.architecture, spec.policy, env_base_with_value.model
+            )
         except ValueError as exc:
             errors.append(f"Policy resolution failed: {exc}")
             gov = None
 
         if gov is not None:
-            env_with_workforce = _replace_teams(env_base, workforce)
+            env_with_workforce = _replace_teams(env_base_with_value, workforce)
             reporting = (
                 spec.reporting if spec.reporting is not None else make_baseline_reporting_config()
             )
@@ -1106,6 +1243,13 @@ def resolve_run_design(spec: RunDesignSpec) -> ResolvedRunDesign:
     validate_run_design(spec)
 
     env_base = spec.environment.resolve_environment_base()
+    # Apply architecture-side baseline_value_per_team_week to env.model
+    # before building downstream configs. The engine's accounting
+    # (runner.py) computes cumulative baseline value as
+    # `idle_team_count * ModelConfig.baseline_value_per_tick`, and the
+    # 1 tick = 1 week convention makes this a 1:1 relabel of the exec's
+    # "per team per week" figure.
+    env_base = _apply_baseline_value_override(env_base, spec.architecture)
     workforce = spec.architecture.resolve_workforce()
     gov = _resolve_governance_config(spec.architecture, spec.policy, env_base.model)
     reporting = spec.reporting if spec.reporting is not None else make_baseline_reporting_config()
@@ -1241,6 +1385,9 @@ def _apply_environment_overrides(
     generator: InitiativeGeneratorConfig,
     staffing_response_overrides: tuple[tuple[str, tuple[float, float]], ...] | None,
     right_tail_prize_count: int | None,
+    flywheel_count: int | None,
+    enabler_count: int | None,
+    quick_win_count: int | None,
     frontier_degradation_rate_overrides: tuple[tuple[str, float], ...] | None,
     right_tail_refresh_degradation: float | None,
 ) -> InitiativeGeneratorConfig:
@@ -1255,12 +1402,21 @@ def _apply_environment_overrides(
     overrides to each spec, then rebuilding the InitiativeGeneratorConfig with
     the modified specs.
 
+    Portfolio-mix count overrides (per exec_intent_spec.md #5) are independent:
+    setting `right_tail_prize_count`, `flywheel_count`, `enabler_count`, or
+    `quick_win_count` replaces the corresponding bucket's count verbatim. Total
+    pool size is a derived quantity, not a constraint — no cross-bucket
+    rebalance happens. Callers that care about pool size control it by
+    specifying all four counts explicitly.
+
     Args:
         generator: Base InitiativeGeneratorConfig from the family preset.
         staffing_response_overrides: Per-family staffing-response scale ranges.
             Each entry is (generation_tag, (min_scale, max_scale)).
-        right_tail_prize_count: Override for right-tail count. When set,
-            adjusts quick-win count to maintain the total pool size.
+        right_tail_prize_count: Override for the right-tail bucket's count.
+        flywheel_count: Override for the flywheel bucket's count.
+        enabler_count: Override for the enabler bucket's count.
+        quick_win_count: Override for the quick-win bucket's count.
         frontier_degradation_rate_overrides: Per-family frontier degradation
             rate overrides. Each entry is (generation_tag, degradation_rate).
         right_tail_refresh_degradation: Per-attempt quality degradation for
@@ -1270,8 +1426,7 @@ def _apply_environment_overrides(
         New InitiativeGeneratorConfig with overrides applied.
 
     Raises:
-        ValueError: If an override references an unknown generation_tag, or if
-            right_tail_prize_count would produce a negative quick-win count.
+        ValueError: If an override references an unknown generation_tag.
     """
     # Build lookup dicts for per-family overrides.
     staffing_map: dict[str, tuple[float, float]] = (
@@ -1297,15 +1452,18 @@ def _apply_environment_overrides(
                 f"Valid tags: {sorted(valid_tags)}."
             )
 
-    # Compute the right-tail count delta if overridden. Quick-win count
-    # adjusts to maintain the total pool size (flywheel + enabler counts
-    # are fixed across families; quick-win absorbs the difference).
-    right_tail_count_delta = 0
+    # Build a per-bucket count-override lookup. Each entry replaces the
+    # family-default count for that bucket; buckets not listed keep the
+    # preset default. No cross-bucket rebalance — pool size is derived.
+    count_overrides: dict[str, int] = {}
     if right_tail_prize_count is not None:
-        for spec in generator.type_specs:
-            if spec.generation_tag == "right_tail":
-                right_tail_count_delta = right_tail_prize_count - spec.count
-                break
+        count_overrides["right_tail"] = right_tail_prize_count
+    if flywheel_count is not None:
+        count_overrides["flywheel"] = flywheel_count
+    if enabler_count is not None:
+        count_overrides["enabler"] = enabler_count
+    if quick_win_count is not None:
+        count_overrides["quick_win"] = quick_win_count
 
     # Apply overrides to each type spec.
     modified_specs: list[InitiativeTypeSpec] = []
@@ -1317,20 +1475,9 @@ def _apply_environment_overrides(
         if tag in staffing_map:
             replacements["staffing_response_scale_range"] = staffing_map[tag]
 
-        # Right-tail count override.
-        if tag == "right_tail" and right_tail_prize_count is not None:
-            replacements["count"] = right_tail_prize_count
-
-        # Quick-win count adjustment to maintain total pool size.
-        if tag == "quick_win" and right_tail_count_delta != 0:
-            new_quick_win_count = spec.count - right_tail_count_delta
-            if new_quick_win_count < 0:
-                raise ValueError(
-                    f"right_tail_prize_count override would produce a negative "
-                    f"quick-win count ({new_quick_win_count}). The total pool "
-                    f"size cannot accommodate this many right-tail initiatives."
-                )
-            replacements["count"] = new_quick_win_count
+        # Per-bucket count override. Value is used verbatim.
+        if tag in count_overrides:
+            replacements["count"] = count_overrides[tag]
 
         # Frontier degradation rate override for this family.
         if tag in frontier_map and spec.frontier is not None:
@@ -1407,6 +1554,37 @@ def _replace_teams(env: EnvironmentSpec, workforce: WorkforceConfig) -> Environm
         time=env.time,
         teams=workforce,
         model=env.model,
+        initiative_generator=env.initiative_generator,
+    )
+
+
+def _apply_baseline_value_override(
+    env: EnvironmentSpec,
+    architecture: GovernanceArchitectureSpec,
+) -> EnvironmentSpec:
+    """Apply architecture.baseline_value_per_team_week to the env model.
+
+    Per exec_intent_spec.md #7, execs specify baseline-work value in
+    business units (per-team per-week). The simulator's accounting already
+    computes per-idle-team per-tick via ModelConfig.baseline_value_per_tick
+    (see runner.py: `idle_team_count * config.model.baseline_value_per_tick`),
+    and by convention 1 tick = 1 week. So the authoring-surface number maps
+    1:1 into the engine field — no arithmetic conversion.
+
+    Returns env unchanged when the architecture does not set the override.
+    Otherwise returns a new EnvironmentSpec whose .model field has
+    baseline_value_per_tick replaced.
+    """
+    if architecture.baseline_value_per_team_week is None:
+        return env
+    new_model = dataclasses.replace(
+        env.model,
+        baseline_value_per_tick=architecture.baseline_value_per_team_week,
+    )
+    return EnvironmentSpec(
+        time=env.time,
+        teams=env.teams,
+        model=new_model,
         initiative_generator=env.initiative_generator,
     )
 
@@ -1630,6 +1808,9 @@ def build_experiment_spec_from_design(
     )
 
     # --- Build the top-level ExperimentSpec ---
+    # value_unit flows from the authoring layer (YAML / RunDesignSpec)
+    # through the experiment spec into the manifest; report_gen.py applies
+    # it as a display label. The engine and RunResult are unit-agnostic.
     experiment_spec = ExperimentSpec(
         experiment_name=design_spec.name,
         title=design_spec.title,
@@ -1638,6 +1819,7 @@ def build_experiment_spec_from_design(
         condition_records=(condition_record,),
         script_name="run_design.py",
         study_phase="evaluation",
+        value_unit=design_spec.value_unit,
     )
 
     return experiment_spec

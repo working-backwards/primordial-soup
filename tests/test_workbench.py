@@ -948,10 +948,12 @@ class TestEnvironmentOverrides:
         with pytest.raises(ValueError, match="staffing_response"):
             validate_run_design(spec)
 
-    # ── Right-tail prize count ───────────────────────────────────────
+    # ── Portfolio mix count overrides (exec_intent_spec.md #5) ───────
+    # Each bucket's count is independently overridable; unset buckets keep
+    # the family default; total pool size is a derived quantity.
 
     def test_right_tail_prize_count_override(self):
-        """Overriding right-tail count should adjust right-tail and quick-win."""
+        """Overriding right-tail count should only change the right-tail bucket."""
         spec = _minimal_spec(
             environment=EnvironmentConditionsSpec(
                 family="balanced_incumbent",
@@ -962,48 +964,82 @@ class TestEnvironmentOverrides:
         gen = resolved.environment_spec.initiative_generator
         rt = [s for s in gen.type_specs if s.generation_tag == "right_tail"][0]
         qw = [s for s in gen.type_specs if s.generation_tag == "quick_win"][0]
-        # balanced_incumbent: flywheel=70, enabler=30, right_tail=20, quick_win=80.
-        # With right_tail=50, delta=+30, quick_win should be 80 - 30 = 50.
+        # balanced_incumbent defaults: flywheel=70, enabler=30, right_tail=20, quick_win=80.
+        # With right_tail=50 and no other override, quick_win stays at its default 80.
+        # Total pool grows to 230 (within the [50, 400] envelope).
         assert rt.count == 50
-        assert qw.count == 50
+        assert qw.count == 80
         total = sum(s.count for s in gen.type_specs)
-        assert total == 200
+        assert total == 230
 
-    def test_right_tail_prize_count_decrease(self):
-        """Decreasing right-tail count should increase quick-win count."""
+    def test_all_bucket_counts_override(self):
+        """All four bucket counts can be set independently."""
         spec = _minimal_spec(
             environment=EnvironmentConditionsSpec(
                 family="balanced_incumbent",
-                right_tail_prize_count=10,
+                right_tail_prize_count=15,
+                flywheel_count=60,
+                enabler_count=25,
+                quick_win_count=90,
             ),
         )
         resolved = resolve_run_design(spec)
         gen = resolved.environment_spec.initiative_generator
-        rt = [s for s in gen.type_specs if s.generation_tag == "right_tail"][0]
-        qw = [s for s in gen.type_specs if s.generation_tag == "quick_win"][0]
-        # balanced_incumbent: flywheel=70, enabler=30, right_tail=20, quick_win=80.
-        # With right_tail=10, delta=-10, quick_win should be 80 + 10 = 90.
-        assert rt.count == 10
-        assert qw.count == 90
-        total = sum(s.count for s in gen.type_specs)
-        assert total == 200
+        counts = {s.generation_tag: s.count for s in gen.type_specs}
+        assert counts["right_tail"] == 15
+        assert counts["flywheel"] == 60
+        assert counts["enabler"] == 25
+        assert counts["quick_win"] == 90
+        # Total pool is the straight sum — no hidden rebalance.
+        assert sum(counts.values()) == 190
 
-    def test_right_tail_prize_count_zero_rejected(self):
-        """right_tail_prize_count < 1 should fail validation."""
+    def test_bucket_count_negative_rejected(self):
+        """A negative bucket count must fail validation."""
+        spec = _minimal_spec(
+            environment=EnvironmentConditionsSpec(flywheel_count=-1),
+        )
+        with pytest.raises(ValueError, match="flywheel_count must be >= 0"):
+            validate_run_design(spec)
+
+    def test_pool_size_below_envelope_rejected(self):
+        """A resolved pool below 50 should fail the spec envelope check."""
+        # Set all four counts small to force the resolved pool under 50.
+        spec = _minimal_spec(
+            environment=EnvironmentConditionsSpec(
+                flywheel_count=5,
+                enabler_count=5,
+                quick_win_count=5,
+                right_tail_prize_count=5,
+            ),
+        )
+        with pytest.raises(ValueError, match=r"\[50, 400\]"):
+            validate_run_design(spec)
+
+    def test_pool_size_above_envelope_rejected(self):
+        """A resolved pool above 400 should fail the spec envelope check."""
+        spec = _minimal_spec(
+            environment=EnvironmentConditionsSpec(
+                flywheel_count=200,
+                enabler_count=200,
+                quick_win_count=200,
+                right_tail_prize_count=100,
+            ),
+        )
+        with pytest.raises(ValueError, match=r"\[50, 400\]"):
+            validate_run_design(spec)
+
+    def test_right_tail_prize_count_zero_allowed(self):
+        """right_tail_prize_count=0 should pass — no right-tail opportunities."""
+        # No right-tail bucket means no major-win discovery, which is a
+        # legitimate (if constrained) experimental condition. Other buckets
+        # stay at family defaults so the pool is still ~180.
         spec = _minimal_spec(
             environment=EnvironmentConditionsSpec(right_tail_prize_count=0),
         )
-        with pytest.raises(ValueError, match="right_tail_prize_count"):
-            validate_run_design(spec)
-
-    def test_right_tail_prize_count_too_large_rejected(self):
-        """A right_tail count that would make quick_win negative should fail."""
-        # Total pool = 200, flywheel=70, enabler=30, so max right_tail = 100.
-        spec = _minimal_spec(
-            environment=EnvironmentConditionsSpec(right_tail_prize_count=140),
-        )
-        with pytest.raises(ValueError, match="negative"):
-            validate_run_design(spec)
+        resolved = resolve_run_design(spec)
+        gen = resolved.environment_spec.initiative_generator
+        rt = [s for s in gen.type_specs if s.generation_tag == "right_tail"][0]
+        assert rt.count == 0
 
     # ── Frontier degradation rate overrides ───────────────────────────
 
@@ -1108,8 +1144,10 @@ class TestEnvironmentOverrides:
         assert fw.frontier is not None
         assert fw.frontier.frontier_degradation_rate == 0.03
 
+        # No auto-rebalance — total pool is (flywheel 70 + enabler 30 +
+        # quick_win 80 + right_tail 50) = 230, within the [50, 400] envelope.
         total = sum(s.count for s in gen.type_specs)
-        assert total == 200
+        assert total == 230
 
     def test_summary_shows_overrides(self):
         """summary() should mention active overrides."""
@@ -1218,3 +1256,263 @@ class TestEnvironmentOverridesFromDict:
         assert spec.environment.right_tail_prize_count == 30
         assert spec.environment.frontier_degradation_rate_overrides is None
         assert spec.environment.right_tail_refresh_degradation is None
+
+
+# ---------------------------------------------------------------------------
+# TestExecIntentFields — Phase 1 exec input surface (2026-04-18)
+# ---------------------------------------------------------------------------
+#
+# Coverage for the three new exec-facing authoring-surface concerns from
+# exec_intent_spec.md:
+#   - value_unit (#8)  — top-level report-layer label
+#   - architecture.baseline_value_per_team_week (#7) — translates 1:1
+#       into ModelConfig.baseline_value_per_tick
+#   - environment.opportunity_supply.{flywheel,enabler,quick_win}_count (#5)
+#       — per-bucket portfolio mix counts, independent of each other
+
+
+class TestValueUnitField:
+    """value_unit top-level field (exec_intent_spec.md #8)."""
+
+    def test_default_is_units(self):
+        """RunDesignSpec without an explicit value_unit should default to 'units'."""
+        spec = _minimal_spec()
+        assert spec.value_unit == "units"
+
+    def test_dataclass_accepts_custom_label(self):
+        """Free-text labels (e.g. '$M', 'pts') are permitted verbatim."""
+        spec = _minimal_spec(value_unit="$M")
+        assert spec.value_unit == "$M"
+
+    def test_from_dict_parses_value_unit(self):
+        """value_unit top-level YAML key should round-trip into the spec."""
+        d = {
+            "name": "vu_test",
+            "title": "Value unit test",
+            "description": "",
+            "value_unit": "€M",
+            "environment": {"family": "balanced_incumbent"},
+            "architecture": {
+                "total_labor_endowment": 8,
+                "team_count": 8,
+                "ramp_period": 4,
+                "ramp_shape": "linear",
+            },
+            "policy": {"preset": "balanced"},
+            "world_seeds": [42],
+        }
+        spec = RunDesignSpec.from_dict(d)
+        assert spec.value_unit == "€M"
+
+    def test_from_dict_empty_value_unit_falls_back_to_units(self):
+        """An empty-string value_unit should fall back to the 'units' default."""
+        d = {
+            "name": "vu_test",
+            "title": "Value unit test",
+            "description": "",
+            "value_unit": "",
+            "environment": {"family": "balanced_incumbent"},
+            "architecture": {
+                "total_labor_endowment": 8,
+                "team_count": 8,
+                "ramp_period": 4,
+                "ramp_shape": "linear",
+            },
+            "policy": {"preset": "balanced"},
+            "world_seeds": [42],
+        }
+        spec = RunDesignSpec.from_dict(d)
+        assert spec.value_unit == "units"
+
+    def test_summary_shows_value_unit(self):
+        """summary() should include the value_unit under the Execution block."""
+        spec = _minimal_spec(value_unit="$M")
+        resolved = resolve_run_design(spec)
+        text = resolved.summary()
+        assert "Value unit" in text
+        assert "$M" in text
+
+    def test_value_unit_threads_into_experiment_spec(self):
+        """build_experiment_spec_from_design should propagate value_unit."""
+        # Import locally to avoid circular import at module top.
+        from primordial_soup.policy import BalancedPolicy
+        from primordial_soup.runner import run_single_regime
+        from primordial_soup.workbench import build_experiment_spec_from_design
+
+        spec = _minimal_spec(value_unit="$M")
+        resolved = resolve_run_design(spec)
+        # One seed run is enough to build a valid ExperimentSpec.
+        sim_config = resolved.simulation_configs[0]
+        run_result, world_state = run_single_regime(sim_config, BalancedPolicy())
+        experiment_spec = build_experiment_spec_from_design(
+            resolved,
+            ((run_result, world_state),),
+        )
+        assert experiment_spec.value_unit == "$M"
+
+
+class TestBaselineValuePerTeamWeek:
+    """architecture.baseline_value_per_team_week (exec_intent_spec.md #7)."""
+
+    def test_default_is_none(self):
+        """Unset field should leave the model's baseline_value_per_tick untouched."""
+        spec = _minimal_spec()
+        assert spec.architecture.baseline_value_per_team_week is None
+        resolved = resolve_run_design(spec)
+        # Family default for model.baseline_value_per_tick is 0.0.
+        assert resolved.environment_spec.model.baseline_value_per_tick == 0.0
+
+    def test_override_relabels_into_model(self):
+        """Setting baseline_value_per_team_week should set baseline_value_per_tick 1:1."""
+        # 1 tick = 1 week and ModelConfig.baseline_value_per_tick is already
+        # per-idle-team per-tick, so the authoring-surface number maps
+        # directly into the engine field with no arithmetic.
+        spec = _minimal_spec(
+            architecture=_baseline_architecture(baseline_value_per_team_week=0.25),
+        )
+        resolved = resolve_run_design(spec)
+        assert resolved.environment_spec.model.baseline_value_per_tick == 0.25
+        # Every SimulationConfiguration inherits the override.
+        for sim in resolved.simulation_configs:
+            assert sim.model.baseline_value_per_tick == 0.25
+
+    def test_zero_is_allowed(self):
+        """Zero is a legitimate choice (no baseline accrual)."""
+        spec = _minimal_spec(
+            architecture=_baseline_architecture(baseline_value_per_team_week=0.0),
+        )
+        resolved = resolve_run_design(spec)
+        assert resolved.environment_spec.model.baseline_value_per_tick == 0.0
+
+    def test_negative_rejected(self):
+        """A negative baseline value must fail validation."""
+        spec = _minimal_spec(
+            architecture=_baseline_architecture(baseline_value_per_team_week=-0.1),
+        )
+        with pytest.raises(ValueError, match="baseline_value_per_team_week"):
+            validate_run_design(spec)
+
+    def test_from_dict_parses_baseline_value(self):
+        """YAML architecture.baseline_value_per_team_week should parse."""
+        d = {
+            "name": "bv_test",
+            "title": "Baseline value test",
+            "description": "",
+            "environment": {"family": "balanced_incumbent"},
+            "architecture": {
+                "total_labor_endowment": 8,
+                "team_count": 8,
+                "ramp_period": 4,
+                "ramp_shape": "linear",
+                "baseline_value_per_team_week": 0.1,
+            },
+            "policy": {"preset": "balanced"},
+            "world_seeds": [42],
+        }
+        spec = RunDesignSpec.from_dict(d)
+        assert spec.architecture.baseline_value_per_team_week == 0.1
+        resolved = resolve_run_design(spec)
+        assert resolved.environment_spec.model.baseline_value_per_tick == 0.1
+
+    def test_summary_shows_baseline_value_with_unit(self):
+        """summary() should display the baseline rate with the value_unit label."""
+        spec = _minimal_spec(
+            value_unit="$M",
+            architecture=_baseline_architecture(baseline_value_per_team_week=0.1),
+        )
+        resolved = resolve_run_design(spec)
+        text = resolved.summary()
+        assert "Baseline value" in text
+        assert "0.1" in text
+        assert "$M" in text
+
+
+class TestPortfolioMixCountsFromDict:
+    """Per-bucket portfolio mix count parsing from YAML (exec_intent_spec.md #5)."""
+
+    def _minimal_dict(self, **overrides) -> dict:
+        base = {
+            "name": "mix_test",
+            "title": "Mix test",
+            "description": "",
+            "environment": {"family": "balanced_incumbent"},
+            "architecture": {
+                "total_labor_endowment": 8,
+                "team_count": 8,
+                "ramp_period": 4,
+                "ramp_shape": "linear",
+            },
+            "policy": {"preset": "balanced"},
+            "world_seeds": [42],
+        }
+        base.update(overrides)
+        return base
+
+    def test_all_four_counts_from_dict(self):
+        """All four counts should round-trip through the YAML dict parser."""
+        d = self._minimal_dict()
+        d["environment"]["opportunity_supply"] = {
+            "right_tail_prize_count": 20,
+            "flywheel_count": 70,
+            "enabler_count": 30,
+            "quick_win_count": 80,
+        }
+        spec = RunDesignSpec.from_dict(d)
+        assert spec.environment.right_tail_prize_count == 20
+        assert spec.environment.flywheel_count == 70
+        assert spec.environment.enabler_count == 30
+        assert spec.environment.quick_win_count == 80
+
+    def test_only_quick_win_count_override(self):
+        """Unset buckets should remain None after parsing."""
+        d = self._minimal_dict()
+        d["environment"]["opportunity_supply"] = {"quick_win_count": 50}
+        spec = RunDesignSpec.from_dict(d)
+        assert spec.environment.quick_win_count == 50
+        assert spec.environment.flywheel_count is None
+        assert spec.environment.enabler_count is None
+        assert spec.environment.right_tail_prize_count is None
+
+    def test_counts_resolve_to_initiative_type_specs(self):
+        """Parsed counts should land on the right InitiativeTypeSpec entries."""
+        d = self._minimal_dict()
+        d["environment"]["opportunity_supply"] = {
+            "flywheel_count": 60,
+            "enabler_count": 25,
+            "quick_win_count": 90,
+            "right_tail_prize_count": 15,
+        }
+        spec = RunDesignSpec.from_dict(d)
+        resolved = resolve_run_design(spec)
+        counts = {
+            s.generation_tag: s.count
+            for s in resolved.environment_spec.initiative_generator.type_specs
+        }
+        assert counts == {
+            "flywheel": 60,
+            "enabler": 25,
+            "quick_win": 90,
+            "right_tail": 15,
+        }
+
+
+class TestPresetYAMLRoundTrip:
+    """Smoke test: every preset YAML parses, validates, and carries value_unit."""
+
+    def test_balanced_incumbent_balanced_preset_has_value_unit(self, tmp_path):
+        """The canonical balanced preset should load with value_unit='units'."""
+        from pathlib import Path
+
+        import yaml
+
+        preset_path = (
+            Path(__file__).parent.parent
+            / "templates"
+            / "presets"
+            / "balanced_incumbent_balanced.yaml"
+        )
+        data = yaml.safe_load(preset_path.read_text(encoding="utf-8"))
+        spec = RunDesignSpec.from_dict(data)
+        assert spec.value_unit == "units"
+        # Full resolve must succeed — presets are the canonical entry points.
+        resolve_run_design(spec)

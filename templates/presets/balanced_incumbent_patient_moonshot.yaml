@@ -10,6 +10,10 @@ name: balanced_incumbent_patient_moonshot
 title: "Balanced Incumbent — Patient Moonshot"
 description: ""
 
+# Report-layer value unit label (exec_intent_spec.md #8). Free-text; the
+# simulator is unit-agnostic. "units" is the generic default.
+value_unit: "units"
+
 environment:
   # Mid-case major-win environment, multi-year right-tail durations. The canonical baseline.
   family: balanced_incumbent

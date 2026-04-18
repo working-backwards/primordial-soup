@@ -10,6 +10,10 @@ name: discovery_heavy_balanced
 title: "Discovery Heavy — Balanced"
 description: ""
 
+# Report-layer value unit label (exec_intent_spec.md #8). Free-text; the
+# simulator is unit-agnostic. "units" is the generic default.
+value_unit: "units"
+
 environment:
   # Favorable domain. More right-tail initiatives, longer exploratory durations.
   family: discovery_heavy

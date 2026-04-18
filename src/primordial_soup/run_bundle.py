@@ -198,6 +198,12 @@ class ExperimentSpec:
     # Optional baseline condition for pairwise deltas. When None,
     # falls back to auto-detecting the "Balanced" regime.
     baseline_condition_id: str | None = None
+    # Report-layer unit label for monetary / value outputs
+    # (per exec_intent_spec.md #8). Free-text, propagated from
+    # RunDesignSpec.value_unit into the manifest so report_gen.py
+    # can render value metrics with this label. The engine and RunResult
+    # remain unit-agnostic; no arithmetic depends on this field.
+    value_unit: str = "units"
 
 
 # ---------------------------------------------------------------------------
@@ -330,6 +336,10 @@ def _build_manifest(
         "replay_supported": False,  # Phase 1: no initial-state snapshots
         "authoritative_files": _build_authoritative_files(),
         "telemetry": telemetry,
+        # Report-layer value-unit label (per exec_intent_spec.md #8).
+        # The engine is unit-agnostic; this label is applied at render
+        # time by report_gen.py to every value-dimension metric.
+        "value_unit": experiment_spec.value_unit,
     }
 
 

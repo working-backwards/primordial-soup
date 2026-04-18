@@ -59,6 +59,15 @@ title: "My simulation run"
 #   Useful for your own records. Has no effect on simulation mechanics.
 description: ""
 
+# value_unit (optional, default: "units")
+#   Free-text label for the unit that all value outputs are denominated in
+#   (completion payoffs, residual streams, baseline-work value, per-week
+#   residual rate). The simulator is unit-agnostic: this label only governs
+#   how value numbers are displayed in the report. Leave "units" for a
+#   generic run; set to "$M", "€M", "pts", etc. for a business-facing run.
+#   Per exec_intent_spec.md #8.
+value_unit: "units"
+
 
 # =============================================================================
 # LAYER 1: ENVIRONMENTAL CONDITIONS
@@ -157,10 +166,21 @@ environment:
   # right_tail_prize_count
   #   Number of distinct right-tail opportunities in the initial pool.
   #   More right-tail prizes = more re-attempt opportunities when right-tail
-  #   initiatives are stopped. Adjusts the quick-win count to maintain the
-  #   family's total pool size (200). Must be >= 1.
+  #   initiatives are stopped. Must be >= 0. When set, the value is used
+  #   verbatim — other buckets keep their family-default counts unless
+  #   you also override them (see flywheel_count / enabler_count /
+  #   quick_win_count below). Total pool size is a derived quantity.
   #   Default: depends on family (balanced_incumbent=20, short_cycle=16,
   #   discovery_heavy=56).
+  #
+  # flywheel_count / enabler_count / quick_win_count
+  #   Exec-facing portfolio mix (per exec_intent_spec.md #5). Each sets the
+  #   initial-pool count for that bucket; unset fields keep the family
+  #   default. Counts are independent (no auto-rebalance). Each must be
+  #   >= 0; the total resolved pool size must fall in [50, 400].
+  #   The canonical balanced_incumbent mix is
+  #   quick_win_count: 80, flywheel_count: 70, enabler_count: 30,
+  #   right_tail_prize_count: 20.
   #
   # frontier_degradation_rate
   #   Per-family frontier degradation rates. Lower values = deeper frontier
@@ -180,6 +200,9 @@ environment:
   # Uncomment and edit to override:
   # opportunity_supply:
   #   right_tail_prize_count: 50
+  #   flywheel_count: 70
+  #   enabler_count: 30
+  #   quick_win_count: 80
   #   frontier_degradation_rate:
   #     flywheel: 0.01
   #     quick_win: 0.02
@@ -353,6 +376,25 @@ architecture:
   #   Example: 0.5 means no single initiative can absorb more than half
   #   the active workforce.
   max_single_initiative_labor_share: ~
+
+  # ---------------------------------------------------------------------------
+  # Baseline value per team per week (per exec_intent_spec.md #7)
+  # ---------------------------------------------------------------------------
+  # baseline_value_per_team_week (optional, default: null = family preset)
+  #   Per-team value accrual per week when a team is NOT assigned to a
+  #   portfolio initiative. Models baseline productive activity:
+  #   maintenance, operational improvements, customer support, incremental
+  #   process work. Denominated in the run's value_unit.
+  #
+  #   One tick = one week, so this maps 1:1 into the engine field
+  #   ModelConfig.baseline_value_per_tick. The runner multiplies it by the
+  #   idle-team count each tick (see runner.py). Must be >= 0.
+  #
+  #   Leave unset (null) to preserve the environment family's default
+  #   (0.0 for the canonical presets; 0.1 in some calibration studies).
+  #   Set to a small positive value (e.g. 0.1) to recognize baseline work
+  #   as a value source in the report.
+  baseline_value_per_team_week: ~
 
 
 # =============================================================================
