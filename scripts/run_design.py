@@ -62,7 +62,10 @@ def _load_yaml(path: Path) -> dict:
     except ImportError:
         logger.error("PyYAML is not installed. Install it with:  pip install pyyaml")
         sys.exit(1)
-    with path.open() as f:
+    # Explicit UTF-8 read. Without this, Python defaults to the platform
+    # encoding (cp1252 on Windows), which mojibake-mangles em-dashes and
+    # other non-ASCII characters in preset titles.
+    with path.open(encoding="utf-8") as f:
         data = yaml.safe_load(f)
     if not isinstance(data, dict):
         logger.error("YAML file did not produce a mapping at the top level: %s", path)

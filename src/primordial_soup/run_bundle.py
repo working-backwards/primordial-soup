@@ -649,11 +649,19 @@ def create_run_bundle(
     from primordial_soup.report_gen import generate_report
 
     report_start = time.time()
-    # Build a preliminary manifest dict for the report (telemetry not final yet).
+    # seed_runs_completed is known from the ExperimentSpec alone — compute
+    # it up front so the report appendix can render it. Final telemetry
+    # (timings, timestamps) lands in manifest.json after the report is
+    # generated; those aren't needed by the renderer itself.
+    total_seed_runs = sum(len(rec.seed_run_records) for rec in experiment_spec.condition_records)
     preliminary_manifest = _build_manifest(
         experiment_spec,
         run_bundle_id,
-        {"status": "in_progress"},
+        {
+            "status": "in_progress",
+            "seed_run_count_total": total_seed_runs,
+            "seed_runs_completed": total_seed_runs,
+        },
     )
     generate_report(
         preliminary_manifest,
@@ -669,7 +677,6 @@ def create_run_bundle(
 
     # --- Telemetry ---
     total_seconds = time.time() - bundle_start
-    total_seed_runs = sum(len(rec.seed_run_records) for rec in experiment_spec.condition_records)
     telemetry = {
         "status": "completed",
         "started_at": time.strftime(
