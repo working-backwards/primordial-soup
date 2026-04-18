@@ -155,6 +155,23 @@ def _build_seed_run_rows(
                     "idle_pct": result.idle_capacity_profile.idle_team_tick_fraction,
                     "free_teams_mean": free_teams_mean,
                     "peak_capacity": result.max_portfolio_capability_t,
+                    # --- Value-by-channel decomposition (single_run_report_spec #1–#4) ---
+                    # Lump (completion payoffs), residual streams, and
+                    # baseline-work value accounted per run. The report
+                    # derives share ratios (%-of-total-value) at render.
+                    "cumulative_lump_value": result.value_by_channel.completion_lump_value,
+                    "cumulative_residual_value": result.value_by_channel.residual_value,
+                    "cumulative_baseline_value": result.cumulative_baseline_value,
+                    # --- Organizational momentum (single_run_report_spec #6–#8) ---
+                    "terminal_aggregate_residual_rate": result.terminal_aggregate_residual_rate,
+                    "peak_capability_tick": timing.peak_capability_tick,
+                    "pool_exhaustion_tick": (result.idle_capacity_profile.pool_exhaustion_tick),
+                    # --- Labor / overhead (single_run_report_spec #15) ---
+                    "ramp_labor_fraction": result.ramp_labor_fraction,
+                    # --- Governance quality (single_run_report_spec #16) ---
+                    "mean_absolute_belief_error": (
+                        result.belief_accuracy.mean_absolute_belief_error
+                    ),
                     # --- Timing markers ---
                     "first_completion_tick_any": first_completion_any,
                     "first_right_tail_completion_tick": (
@@ -233,6 +250,48 @@ def _build_experimental_condition_rows(
         free = np.array([r["free_teams_mean"] for r in seed_rows])
         peak = np.array([r["peak_capacity"] for r in seed_rows])
 
+        # Phase 2 extensions: arrays for the single-run headline metrics
+        # (value-by-channel decomposition, ramp overhead, belief accuracy,
+        # terminal residual rate, pool exhaustion, peak-capability tick).
+        lump_values = np.array([r["cumulative_lump_value"] for r in seed_rows])
+        residual_values = np.array([r["cumulative_residual_value"] for r in seed_rows])
+        baseline_values = np.array([r["cumulative_baseline_value"] for r in seed_rows])
+        ramp_fractions = np.array([r["ramp_labor_fraction"] for r in seed_rows])
+        belief_errors = np.array([r["mean_absolute_belief_error"] for r in seed_rows])
+        terminal_residual_rates = np.array(
+            [r["terminal_aggregate_residual_rate"] for r in seed_rows]
+        )
+
+        total_value_sum = float(np.sum(values))
+        lump_total = float(np.sum(lump_values))
+        residual_total = float(np.sum(residual_values))
+        baseline_total = float(np.sum(baseline_values))
+
+        # Derived value-channel share ratios (single_run_report_spec #2–#4).
+        # Expressed as fractions in [0, 1]. The report renders as percentages.
+        # Guard against zero-value runs: when total_value_sum is zero, the
+        # shares are undefined — surface None so the report shows n/a.
+        if total_value_sum > 0.0:
+            value_from_completions_share = lump_total / total_value_sum
+            value_from_residual_share = residual_total / total_value_sum
+            value_from_baseline_share = baseline_total / total_value_sum
+        else:
+            value_from_completions_share = None
+            value_from_residual_share = None
+            value_from_baseline_share = None
+
+        # Pool-exhaustion tick is nullable per-seed (None when the pool never
+        # exhausted). Take the mean across seeds where it happened; surface
+        # `None` when no seed reached exhaustion.
+        pool_exhaustion_ticks = [
+            r["pool_exhaustion_tick"] for r in seed_rows if r["pool_exhaustion_tick"] is not None
+        ]
+        pool_exhaustion_tick_mean = (
+            float(np.mean(pool_exhaustion_ticks)) if pool_exhaustion_ticks else None
+        )
+
+        peak_capability_ticks = np.array([r["peak_capability_tick"] for r in seed_rows])
+
         rows.append(
             {
                 "run_bundle_id": experiment_spec.experiment_name,
@@ -255,18 +314,46 @@ def _build_experimental_condition_rows(
                 "total_value_std": float(np.std(values, ddof=1)) if len(values) > 1 else 0.0,
                 "total_value_p25": float(np.percentile(values, 25)),
                 "total_value_p75": float(np.percentile(values, 75)),
+                "total_value_min": float(np.min(values)),
+                "total_value_max": float(np.max(values)),
                 "surfaced_major_wins_mean": float(np.mean(wins)),
                 "surfaced_major_wins_median": float(np.median(wins)),
                 "surfaced_major_wins_std": float(np.std(wins, ddof=1)) if len(wins) > 1 else 0.0,
+                "surfaced_major_wins_min": float(np.min(wins)),
+                "surfaced_major_wins_max": float(np.max(wins)),
                 "terminal_capability_mean": float(np.mean(caps)),
                 "terminal_capability_median": float(np.median(caps)),
                 "terminal_capability_std": float(np.std(caps, ddof=1)) if len(caps) > 1 else 0.0,
+                "terminal_capability_min": float(np.min(caps)),
+                "terminal_capability_max": float(np.max(caps)),
                 "right_tail_completions_mean": float(np.mean(rt_comp)),
                 "right_tail_stops_mean": float(np.mean(rt_stops)),
                 "right_tail_false_stop_rate_mean": fsr_mean,
                 "idle_pct_mean": float(np.mean(idle)),
+                "idle_pct_min": float(np.min(idle)),
+                "idle_pct_max": float(np.max(idle)),
                 "free_teams_mean": float(np.mean(free)),
                 "peak_capacity_mean": float(np.mean(peak)),
+                "peak_capacity_min": float(np.min(peak)),
+                "peak_capacity_max": float(np.max(peak)),
+                # --- Value-by-channel (single_run_report_spec #1–#4) ---
+                # Means across seeds. Total cumulative-value contribution
+                # for lump / residual / baseline channels. The share
+                # ratios just below are ratios of seed-summed totals.
+                "cumulative_lump_value_mean": float(np.mean(lump_values)),
+                "cumulative_residual_value_mean": float(np.mean(residual_values)),
+                "cumulative_baseline_value_mean": float(np.mean(baseline_values)),
+                "value_from_completions_share": value_from_completions_share,
+                "value_from_residual_share": value_from_residual_share,
+                "value_from_baseline_share": value_from_baseline_share,
+                # --- Organizational momentum (single_run_report_spec #7, #8, #10) ---
+                "terminal_aggregate_residual_rate_mean": float(np.mean(terminal_residual_rates)),
+                "peak_capability_tick_mean": float(np.mean(peak_capability_ticks)),
+                "pool_exhaustion_tick_mean": pool_exhaustion_tick_mean,
+                # --- Labor overhead (single_run_report_spec #15) ---
+                "ramp_labor_fraction_mean": float(np.mean(ramp_fractions)),
+                # --- Governance quality (single_run_report_spec #16) ---
+                "mean_absolute_belief_error_mean": float(np.mean(belief_errors)),
             }
         )
 
@@ -358,6 +445,10 @@ def _build_family_outcome_rows(
             # Major wins by family: from major_win_profile.major_win_count_by_label.
             wins_by_family = result.major_win_profile.major_win_count_by_label
 
+            # Time to first completion by family (single_run_report_spec #14).
+            # `None` for families with no completion in this seed run.
+            first_completion_by_family = result.family_timing.first_completion_tick_by_family
+
             # Right-tail eligible/stopped-eligible counts.
             rtfsp = result.right_tail_false_stop_profile
 
@@ -398,6 +489,10 @@ def _build_family_outcome_rows(
                     "surfaced_major_wins": wins_by_family.get(family, 0),
                     "eligible_count": eligible,
                     "stopped_eligible_count": stopped_eligible,
+                    # First-completion tick for this family in this seed run.
+                    # None when this family had no completion. Consumed by
+                    # report_gen.py to render single_run_report_spec #14.
+                    "first_completion_tick": first_completion_by_family.get(family),
                     "aggregation_level": "seed_run",
                 }
                 rows.append(row)
@@ -439,6 +534,19 @@ def _build_family_outcome_rows(
                     "eligible_count": sum(r["eligible_count"] for r in family_rows) / n,
                     "stopped_eligible_count": sum(r["stopped_eligible_count"] for r in family_rows)
                     / n,
+                    # Mean first-completion tick across seeds, restricted to
+                    # the seeds where this family actually completed. None
+                    # when no seed had a completion for this family.
+                    "first_completion_tick": (
+                        sum(
+                            r["first_completion_tick"]
+                            for r in family_rows
+                            if r["first_completion_tick"] is not None
+                        )
+                        / len([r for r in family_rows if r["first_completion_tick"] is not None])
+                        if any(r["first_completion_tick"] is not None for r in family_rows)
+                        else None
+                    ),
                     "aggregation_level": "experimental_condition",
                 }
             )

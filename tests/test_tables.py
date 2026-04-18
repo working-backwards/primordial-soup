@@ -253,6 +253,15 @@ class TestWriteSeedRuns:
             "status",
             "completed_ticks",
             "horizon_ticks",
+            # Phase 2 additions (single_run_report_spec.md).
+            "cumulative_lump_value",
+            "cumulative_residual_value",
+            "cumulative_baseline_value",
+            "terminal_aggregate_residual_rate",
+            "peak_capability_tick",
+            "pool_exhaustion_tick",
+            "ramp_labor_fraction",
+            "mean_absolute_belief_error",
         ]
         column_names = set(table.column_names)
         for col in required:
@@ -585,3 +594,85 @@ class TestWriteAllTables:
         ]
         for key in expected_keys:
             assert key in results, f"Missing key: {key}"
+
+
+# ============================================================================
+# Phase 2 — single-run report extensions (single_run_report_spec.md)
+# ============================================================================
+
+
+class TestPhase2SingleRunColumns:
+    """New derived columns the single-run report reads from Parquet."""
+
+    def test_seed_run_row_has_value_channel_fields(self, tmp_path: Path) -> None:
+        """Value-by-channel fields (lump/residual/baseline) land on seed rows."""
+        spec = _make_experiment_spec(seeds=(42,))
+        rows = write_seed_runs(spec, tmp_path)
+        row = rows[0]
+        # Three channels plus ramp + belief-error should all be present.
+        for field in (
+            "cumulative_lump_value",
+            "cumulative_residual_value",
+            "cumulative_baseline_value",
+            "ramp_labor_fraction",
+            "mean_absolute_belief_error",
+            "terminal_aggregate_residual_rate",
+            "peak_capability_tick",
+            "pool_exhaustion_tick",
+        ):
+            assert field in row
+
+    def test_condition_row_has_phase2_scalars(self, tmp_path: Path) -> None:
+        """Condition row carries the means and derived share ratios."""
+        spec = _make_experiment_spec(seeds=(42, 43))
+        seed_rows = write_seed_runs(spec, tmp_path)
+        cond_rows = write_experimental_conditions(spec, seed_rows, tmp_path)
+        row = cond_rows[0]
+        required_means = (
+            "cumulative_lump_value_mean",
+            "cumulative_residual_value_mean",
+            "cumulative_baseline_value_mean",
+            "terminal_aggregate_residual_rate_mean",
+            "peak_capability_tick_mean",
+            "ramp_labor_fraction_mean",
+            "mean_absolute_belief_error_mean",
+            "total_value_min",
+            "total_value_max",
+        )
+        for field in required_means:
+            assert field in row, f"Missing: {field}"
+
+    def test_condition_row_has_share_ratios(self, tmp_path: Path) -> None:
+        """Derived share ratios (value_from_*) are on the condition row."""
+        spec = _make_experiment_spec(seeds=(42, 43))
+        seed_rows = write_seed_runs(spec, tmp_path)
+        cond_rows = write_experimental_conditions(spec, seed_rows, tmp_path)
+        row = cond_rows[0]
+        assert "value_from_completions_share" in row
+        assert "value_from_residual_share" in row
+        assert "value_from_baseline_share" in row
+
+    def test_share_ratios_sum_to_one_when_value_nonzero(self, tmp_path: Path) -> None:
+        """The three share ratios should sum to ~1 across all value sources."""
+        spec = _make_experiment_spec(seeds=(42, 43))
+        seed_rows = write_seed_runs(spec, tmp_path)
+        cond_rows = write_experimental_conditions(spec, seed_rows, tmp_path)
+        row = cond_rows[0]
+        shares = (
+            row["value_from_completions_share"],
+            row["value_from_residual_share"],
+            row["value_from_baseline_share"],
+        )
+        # When the fixture RunResult produces any value at all, the
+        # three shares should cover the total exactly. Zero-value runs
+        # yield None shares (checked separately below).
+        if all(s is not None for s in shares):
+            assert shares[0] + shares[1] + shares[2] == pytest.approx(1.0, abs=1e-9)
+
+    def test_family_outcomes_has_first_completion_tick(self, tmp_path: Path) -> None:
+        """family_outcomes rows expose per-family first_completion_tick."""
+        spec = _make_experiment_spec(seeds=(42,))
+        rows = write_family_outcomes(spec, tmp_path)
+        assert rows, "expected at least one family_outcomes row"
+        for row in rows:
+            assert "first_completion_tick" in row

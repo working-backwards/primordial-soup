@@ -34,6 +34,12 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+# BASELINE_SPEC_VERSION identifies the calibration/modeling revision the
+# run was produced under. It's stamped onto every bundle manifest so the
+# report layer (report_gen.py + report_ranges.py) can look up the correct
+# set of author-curated reasonable-range anchors for the headline metrics.
+from primordial_soup.runner import BASELINE_SPEC_VERSION
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -340,6 +346,21 @@ def _build_manifest(
         # The engine is unit-agnostic; this label is applied at render
         # time by report_gen.py to every value-dimension metric.
         "value_unit": experiment_spec.value_unit,
+        # Calibration/modeling revision the run was produced under. Used by
+        # report_gen.py to look up author-curated reasonable-range anchors
+        # in report_ranges.py. Bumped in runner.py whenever a model change
+        # would invalidate cross-version comparisons.
+        "baseline_spec_version": BASELINE_SPEC_VERSION,
+        # Horizon in ticks — 1 tick = 1 week by convention, so the
+        # single-run report prints this as "Over N weeks" in the narrative.
+        # All conditions in a bundle share the same horizon (the engine
+        # does not support mixed horizons per bundle), so we take it off
+        # the first condition's simulation config.
+        "tick_horizon": (
+            experiment_spec.condition_records[0].simulation_config.time.tick_horizon
+            if experiment_spec.condition_records
+            else None
+        ),
     }
 
 
