@@ -78,6 +78,11 @@ site/
 # Claude Code session memory (machine-local working state)
 memory/
 
+# Claude Code machine-local settings (personal overrides; not shared).
+# The shared .claude/settings.json stays tracked; the per-machine
+# settings.local.json (tool permission allow-lists, etc.) must not be.
+.claude/settings.local.json
+
 # Complementarity generated artifacts
 prompt_*.txt
 .env
