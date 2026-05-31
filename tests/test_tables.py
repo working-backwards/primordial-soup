@@ -340,6 +340,138 @@ class TestWriteFamilyOutcomes:
         assert len(cond_rows) > 0
 
 
+def _make_lump_init_state(
+    initiative_id: str,
+    lifecycle: LifecycleState,
+    lump_value: float,
+) -> InitiativeState:
+    """Build an InitiativeState carrying a known realized lump value."""
+    return InitiativeState(
+        initiative_id=initiative_id,
+        lifecycle_state=lifecycle,
+        assigned_team_id=None,
+        quality_belief_t=0.5,
+        execution_belief_t=None,
+        executive_attention_t=0.0,
+        staffed_tick_count=5,
+        ticks_since_assignment=5,
+        age_ticks=10,
+        cumulative_value_realized=lump_value,
+        cumulative_lump_value_realized=lump_value,
+        cumulative_residual_value_realized=0.0,
+        cumulative_labor_invested=5.0,
+        cumulative_attention_invested=1.5,
+        belief_history=(0.5,),
+        review_count=3,
+        consecutive_reviews_below_tam_ratio=0,
+        residual_activated=False,
+        residual_activation_tick=None,
+        major_win_surfaced=False,
+        major_win_tick=None,
+        completed_tick=None,
+    )
+
+
+def _make_two_family_lump_experiment(tmp_seed: int = 42) -> ExperimentSpec:
+    """Seed run with two families where only the FIRST-listed family realizes lump.
+
+    Initiative order matters for this regression: quick_win (with lump) is listed
+    first and flywheel (no lump) last. The old bug keyed lump by a stale loop
+    variable equal to the last config's family, so it would misattribute all lump
+    value to flywheel. Correct behavior attributes it to quick_win.
+    """
+    config = make_simulation_config(
+        world_seed=tmp_seed,
+        initiatives=(
+            make_initiative(
+                initiative_id="init-qw",
+                generation_tag="quick_win",
+                value_channels=make_value_channels(lump_enabled=True, lump_value=7.0),
+            ),
+            make_initiative(
+                initiative_id="init-fw",
+                generation_tag="flywheel",
+                value_channels=make_value_channels(lump_enabled=True, lump_value=0.0),
+            ),
+        ),
+    )
+    init_configs = config.initiatives
+    assert init_configs is not None
+
+    ws = WorldState(
+        tick=10,
+        initiative_states=(
+            _make_lump_init_state("init-qw", LifecycleState.COMPLETED, 7.0),
+            _make_lump_init_state("init-fw", LifecycleState.STOPPED, 0.0),
+        ),
+        team_states=(TeamState(team_id="team-0", team_size=1, assigned_initiative_id=None),),
+        portfolio_capability=1.0,
+    )
+    final_states = extract_initiative_final_states(ws)
+
+    manifest = RunManifest(
+        policy_id="balanced",
+        world_seed=tmp_seed,
+        is_replay=False,
+        resolved_configuration=config,
+        resolved_initiatives=init_configs,
+        baseline_spec_version="0.1.0",
+    )
+    run_result = assemble_run_result(
+        collector=RunCollector(),
+        config=config,
+        initiative_configs=init_configs,
+        final_world_state=ws,
+        manifest=manifest,
+    )
+    record = SeedRunRecord(
+        world_seed=tmp_seed,
+        run_result=run_result,
+        initiative_final_states=final_states,
+        initiative_configs=init_configs,
+    )
+    condition = ExperimentalConditionRecord(
+        condition_spec=_make_condition_spec(),
+        seed_run_records=(record,),
+        simulation_config=config,
+    )
+    return ExperimentSpec(
+        experiment_name="lump_attribution",
+        title="Lump Attribution",
+        description="Test",
+        world_seeds=(tmp_seed,),
+        condition_records=(condition,),
+        script_name="test",
+    )
+
+
+class TestFamilyLumpAttribution:
+    """Regression tests for per-family lump value attribution (tables.py).
+
+    Guards against the stale-loop-variable bug where every initiative's lump
+    value was keyed by the last config's family instead of its own family.
+    """
+
+    def test_lump_attributed_to_owning_family(self, tmp_path: Path) -> None:
+        spec = _make_two_family_lump_experiment()
+        rows = write_family_outcomes(spec, tmp_path)
+        seed_rows = [r for r in rows if r["aggregation_level"] == "seed_run"]
+        lump_by_family = {r["grouping_key"]: r["realized_value_lump"] for r in seed_rows}
+
+        # The lump belongs to quick_win, NOT the last-listed flywheel family.
+        assert lump_by_family["quick_win"] == pytest.approx(7.0)
+        assert lump_by_family["flywheel"] == pytest.approx(0.0)
+
+    def test_lump_grand_total_preserved(self, tmp_path: Path) -> None:
+        # Sanity: the bug preserved the grand total, so this alone cannot catch
+        # it — but the total must still hold after the fix.
+        spec = _make_two_family_lump_experiment()
+        rows = write_family_outcomes(spec, tmp_path)
+        seed_rows = [r for r in rows if r["aggregation_level"] == "seed_run"]
+        total_lump = sum(r["realized_value_lump"] for r in seed_rows)
+        assert total_lump == pytest.approx(7.0)
+
+
 # ============================================================================
 # yearly_timeseries.parquet
 # ============================================================================

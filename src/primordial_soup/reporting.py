@@ -1190,9 +1190,16 @@ def assemble_run_result(
     )
 
     # --- Ramp labor fraction ---
+    # cumulative_ramp_labor is team-size-weighted (person-ticks: it sums
+    # team_size for each ramping initiative-tick, see runner._accumulate_ramp_labor).
+    # To get a dimensionally-consistent fraction in [0, 1], divide by the total
+    # labor-ticks available — total_labor_endowment * tick_horizon — NOT the
+    # unweighted team-tick count (which would mix person-ticks over team-ticks and
+    # can exceed 1.0). Per review_and_reporting.md "Switching cost and ramp labor".
+    total_labor_ticks = config.teams.total_labor_endowment * config.time.tick_horizon
     ramp_labor_fraction = 0.0
-    if total_team_ticks > 0:
-        ramp_labor_fraction = collector.cumulative_ramp_labor / total_team_ticks
+    if total_labor_ticks > 0:
+        ramp_labor_fraction = collector.cumulative_ramp_labor / total_labor_ticks
 
     # --- Value by initiative family ---
     value_by_family = compute_value_by_family(

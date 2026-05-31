@@ -103,7 +103,7 @@ ordinary or unusual. See §Range maintenance below.
 | 12 | Initiatives completed | Count of initiatives that reached completion, with a QW/FW/EN/RT breakdown. | count | 40–90 total | `exploration_cost_profile.completed_initiative_count_by_label` | LABEL |
 | 13 | Right-tail false-stop rate | Of right-tail initiatives that *would* have surfaced a major win, the fraction governance stopped before completion. `n/a` if no eligibles existed. | % or `n/a` | 0–40 % | `right_tail_false_stop_profile.right_tail_false_stop_rate` | LABEL |
 | 14 | Time to first completion (by family) | The earliest week a quick-win / flywheel / enabler / right-tail initiative completed. "None" if none did. | week per family | QW: ~10; FW: ~40; EN: ~20; RT: ~150 | `family_timing.first_completion_tick_by_family` | LABEL |
-| 15 | Ramp overhead | Share of team-weeks spent ramping up after a reassignment (not yet fully productive). | % | 3–8 % | `RunResult.ramp_labor_fraction` | GAP (surface; label) |
+| 15 | Ramp overhead | Share of total labor capacity (labor-weeks) consumed ramping up after a reassignment (not yet fully productive); team-size-weighted. | % | 3–8 % | `RunResult.ramp_labor_fraction` | GAP (surface; label) |
 | 16 | Quality estimation error | Mean absolute gap between governance's quality belief and the latent true quality, averaged over all initiative-weeks. Lower is better. | 0–1 scale | 0.05–0.15 | `belief_accuracy.mean_absolute_belief_error` | EXISTS |
 
 Fifteen metrics visible by default. Everything else in `RunResult`

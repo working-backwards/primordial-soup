@@ -114,7 +114,14 @@ downstream analysis proceeds.
   things and any composite must define its weighting explicitly.
 - `terminal_aggregate_residual_rate`: sum of `residual_rate` across all `residual_activated` initiatives at the final tick. Units: value/tick. Represents the run-ending "flywheel momentum." Serialized in the run summary output. Do not aggregate these two fields into a single composite — any downstream analysis requiring a composite must define its own weighting explicitly, with awareness of the dimensional mismatch.
 - `value_by_family`: cumulative value (lump + residual) decomposed by `generation_tag`. Dict mapping family name to total value. Enables family-level value attribution without requiring per-tick logs.
-- `ramp_labor_fraction`: fraction of total team-ticks spent in ramp (switching cost). Scalar in [0, 1]. Complements `cumulative_ramp_labor` (raw count) with a normalized measure.
+- `ramp_labor_fraction`: switching cost expressed as a fraction of total
+  productive capacity (labor-ticks), computed as
+  `cumulative_ramp_labor / (total_labor_endowment × tick_horizon)`. Because
+  `cumulative_ramp_labor` is team-size-weighted (person-ticks) the denominator
+  must be the total labor-ticks available — `total_labor_endowment × tick_horizon`
+  — NOT the unweighted team-tick count (`team_count × tick_horizon`). Since the
+  teams that are ramping are a subset of the assigned teams, whose sizes sum to
+  at most `total_labor_endowment`, the fraction is bounded in [0, 1].
 - `family_timing` (`FamilyTimingProfile`): per-family timing metrics for governance pacing analysis. Contains:
   - `first_completion_tick_by_family`: dict mapping family name to tick of first completion (None if no completions).
   - `mean_completion_tick_by_family`: dict mapping family name to average completion tick (None if no completions).
@@ -177,11 +184,14 @@ downstream analysis proceeds.
   persist across ticks unless re-emitted by policy, attention histories must be
   interpreted tick-by-tick rather than as a sticky state.
 
-- `cumulative_ramp_labor`: total team-ticks consumed during ramp periods (sum of
-  `team_size × 1` for each initiative-tick where `is_ramping == true`). Represents
-  the labor cost of the productivity-reduction period caused by team reassignment.
-  Divide by total team-ticks to obtain the ramp-labor fraction as a normalized
-  metric for cross-regime comparison.
+- `cumulative_ramp_labor`: total labor-ticks (person-ticks) consumed during ramp
+  periods (sum of `team_size × 1` for each initiative-tick where
+  `is_ramping == true`). This is team-size-weighted: a larger team ramping costs
+  more productive capacity than a smaller one. Represents the labor cost of the
+  productivity-reduction period caused by team reassignment. Divide by total
+  labor-ticks (`total_labor_endowment × tick_horizon`) to obtain
+  `ramp_labor_fraction` as a normalized, dimensionally-consistent metric for
+  cross-regime comparison.
 - `reassignment_profile`:
   - `reassignment_event_count`: total number of team reassignments in the run
   - `reassignment_event_log` (when `record_event_log == true`):
@@ -323,9 +333,9 @@ Both measures are computed from the detailed per-week records and use the true u
 
 ### Switching cost and ramp labor
 
-- **Cumulative ramp labor.** The total team-weeks consumed during ramp-up periods — the productivity cost incurred every time a new team is assigned to an initiative and operates at reduced learning efficiency during the transition. This is the aggregate switching cost. Governance regimes that frequently stop and reassign teams will show higher ramp labor than regimes that make fewer but more committed assignments.
+- **Cumulative ramp labor.** The total labor-weeks (person-weeks, i.e. team-size-weighted team-weeks) consumed during ramp-up periods — the productivity cost incurred every time a new team is assigned to an initiative and operates at reduced learning efficiency during the transition. A larger team ramping consumes more capacity than a smaller one. This is the aggregate switching cost. Governance regimes that frequently stop and reassign teams will show higher ramp labor than regimes that make fewer but more committed assignments.
 
-- **Ramp labor fraction.** The ramp labor expressed as a fraction of total available team-weeks over the run, ranging from zero to one. This normalizes the switching cost so it can be compared across runs with different team sizes and horizons. A ramp labor fraction of 0.15 means that 15% of the organization's total productive capacity was consumed by transition overhead rather than by steady-state work.
+- **Ramp labor fraction.** The ramp labor expressed as a fraction of total available labor-weeks over the run (`total_labor_endowment × tick_horizon`), ranging from zero to one. Because both numerator and denominator are labor-weighted (person-weeks), the fraction is dimensionally consistent and bounded in [0, 1]. This normalizes the switching cost so it can be compared across runs with different team sizes and horizons. A ramp labor fraction of 0.15 means that 15% of the organization's total labor capacity was spent while teams were in ramp (operating at reduced learning efficiency). Note this counts all labor during ramp windows, not only the productivity shortfall — the lost-productivity portion would be `team_size × (1 − ramp_multiplier)`, which is strictly smaller.
 
 ### Reassignment patterns
 

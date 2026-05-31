@@ -22,7 +22,7 @@ from conftest import (
     make_simulation_config,
     make_value_channels,
 )
-from primordial_soup.config import ReportingConfig
+from primordial_soup.config import RampShape, ReportingConfig, TimeConfig, WorkforceConfig
 from primordial_soup.events import CompletionEvent, MajorWinEvent, StopEvent
 from primordial_soup.reporting import (
     PerInitiativeTickRecord,
@@ -797,9 +797,10 @@ class TestAssembleRunResult:
             manifest=manifest,
         )
 
-        # Ramp labor fraction: 2.0 / (1 team * 313 tick horizon)
-        total_team_ticks = config.teams.team_count * config.time.tick_horizon
-        assert result.ramp_labor_fraction == pytest.approx(2.0 / total_team_ticks)
+        # Ramp labor fraction: cumulative_ramp_labor (labor-weighted) divided by
+        # total labor-ticks = total_labor_endowment * tick_horizon.
+        total_labor_ticks = config.teams.total_labor_endowment * config.time.tick_horizon
+        assert result.ramp_labor_fraction == pytest.approx(2.0 / total_labor_ticks)
         # Value by family: flywheel gets all value.
         assert "flywheel" in result.value_by_family
         assert result.value_by_family["flywheel"] == pytest.approx(10.0)
@@ -808,6 +809,103 @@ class TestAssembleRunResult:
         assert result.family_timing.peak_capability_tick == 0
         # Frontier summary: no frontier state → None.
         assert result.frontier_summary is None
+
+
+class TestRampLaborFraction:
+    """Ramp labor fraction must be dimensionally consistent and bounded.
+
+    cumulative_ramp_labor is team-size-weighted (person-ticks), so the fraction
+    must divide by total labor-ticks (total_labor_endowment * tick_horizon), not
+    by the unweighted team-tick count. The old denominator mixed person-ticks
+    over team-ticks and could exceed 1.0 (the observed 106.2% bug).
+    """
+
+    @staticmethod
+    def _assemble_with_ramp_labor(
+        cumulative_ramp_labor: float,
+    ) -> RunResult:
+        # Heterogeneous team sizes so total_labor_endowment (35) differs sharply
+        # from team_count (3): this is exactly the case the unit bug got wrong.
+        config = make_simulation_config(
+            time=TimeConfig(tick_horizon=100),
+            teams=WorkforceConfig(
+                team_count=3,
+                team_size=(5, 10, 20),
+                ramp_period=4,
+                ramp_multiplier_shape=RampShape.LINEAR,
+            ),
+            initiatives=(make_initiative(initiative_id="init-0", generation_tag="flywheel"),),
+        )
+        init_configs = config.initiatives
+        assert init_configs is not None
+
+        final_ws = WorldState(
+            tick=1,
+            initiative_states=(
+                InitiativeState(
+                    initiative_id="init-0",
+                    lifecycle_state=LifecycleState.ACTIVE,
+                    assigned_team_id=None,
+                    quality_belief_t=0.5,
+                    execution_belief_t=None,
+                    executive_attention_t=0.0,
+                    staffed_tick_count=0,
+                    ticks_since_assignment=0,
+                    age_ticks=1,
+                    cumulative_value_realized=0.0,
+                    cumulative_lump_value_realized=0.0,
+                    cumulative_residual_value_realized=0.0,
+                    cumulative_labor_invested=0.0,
+                    cumulative_attention_invested=0.0,
+                    belief_history=(),
+                    review_count=0,
+                    consecutive_reviews_below_tam_ratio=0,
+                    residual_activated=False,
+                    residual_activation_tick=None,
+                    major_win_surfaced=False,
+                    major_win_tick=None,
+                    completed_tick=None,
+                ),
+            ),
+            team_states=(TeamState(team_id="team-0", team_size=5, assigned_initiative_id=None),),
+            portfolio_capability=1.0,
+        )
+        manifest = RunManifest(
+            policy_id="balanced",
+            world_seed=42,
+            is_replay=False,
+            resolved_configuration=config,
+            resolved_initiatives=init_configs,
+            baseline_spec_version="0.1.0",
+        )
+        collector = RunCollector()
+        collector.cumulative_ramp_labor = cumulative_ramp_labor
+        return assemble_run_result(
+            collector=collector,
+            config=config,
+            initiative_configs=init_configs,
+            final_world_state=final_ws,
+            manifest=manifest,
+        )
+
+    def test_denominator_is_total_labor_ticks(self) -> None:
+        # total_labor_endowment = 5 + 10 + 20 = 35; horizon = 100 → 3500.
+        result = self._assemble_with_ramp_labor(700.0)
+        assert result.ramp_labor_fraction == pytest.approx(700.0 / 3500.0)
+
+    def test_fraction_bounded_at_one(self) -> None:
+        # Worst case: ramp labor equal to all available labor-ticks → exactly 1.0,
+        # never above. Under the old (team-tick) denominator this would be 11.67.
+        result = self._assemble_with_ramp_labor(3500.0)
+        assert result.ramp_labor_fraction == pytest.approx(1.0)
+        assert result.ramp_labor_fraction <= 1.0
+
+    def test_large_team_weighting_stays_bounded(self) -> None:
+        # A value that the OLD denominator (team_count*horizon = 300) would have
+        # turned into 2.0 now resolves to a valid in-range fraction.
+        result = self._assemble_with_ramp_labor(600.0)
+        assert result.ramp_labor_fraction == pytest.approx(600.0 / 3500.0)
+        assert 0.0 <= result.ramp_labor_fraction <= 1.0
 
 
 # ============================================================================

@@ -38,9 +38,10 @@ from primordial_soup.config import (
     WorkforceConfig,
 )
 from primordial_soup.policy import BalancedPolicy
-from primordial_soup.reporting import RunResult
+from primordial_soup.reporting import RunCollector, RunResult
 from primordial_soup.runner import (
     BASELINE_SPEC_VERSION,
+    _accumulate_ramp_labor,
     _build_governance_observation,
     _detect_reassignments,
     _initialize_world_state,
@@ -684,3 +685,63 @@ class TestRunnerInvariants:
         result, _ = run_single_regime(config, policy)
 
         assert 0.0 <= result.idle_capacity_profile.idle_team_tick_fraction <= 1.0
+
+    def test_ramp_labor_fraction_in_zero_one(self) -> None:
+        """Ramp labor fraction is in [0, 1] (dimensionally consistent denominator)."""
+        config = _make_simple_run_config(tick_horizon=10)
+        policy = BalancedPolicy()
+        result, _ = run_single_regime(config, policy)
+
+        assert 0.0 <= result.ramp_labor_fraction <= 1.0
+
+    def test_ramp_labor_accumulates_team_size_weighted(self) -> None:
+        """A ramping team contributes its team_size (person-ticks), not 1.
+
+        Pins the labor-weighted numerator so ramp_labor_fraction stays a share
+        of productive capacity (see review_and_reporting.md, "Switching cost and
+        ramp labor"). The matching denominator is total_labor_endowment * horizon.
+        """
+        workforce = WorkforceConfig(
+            team_count=1,
+            team_size=20,
+            ramp_period=4,
+            ramp_multiplier_shape=RampShape.LINEAR,
+        )
+        # ticks_since_assignment=1 → pre-increment tsa = 0 < ramp_period-1 = 3 → ramping.
+        ramping_state = InitiativeState(
+            initiative_id="init-0",
+            lifecycle_state=LifecycleState.ACTIVE,
+            assigned_team_id="team-0",
+            quality_belief_t=0.5,
+            execution_belief_t=None,
+            executive_attention_t=0.0,
+            staffed_tick_count=1,
+            ticks_since_assignment=1,
+            age_ticks=1,
+            cumulative_value_realized=0.0,
+            cumulative_lump_value_realized=0.0,
+            cumulative_residual_value_realized=0.0,
+            cumulative_labor_invested=0.0,
+            cumulative_attention_invested=0.0,
+            belief_history=(),
+            review_count=0,
+            consecutive_reviews_below_tam_ratio=0,
+            residual_activated=False,
+            residual_activation_tick=None,
+            major_win_surfaced=False,
+            major_win_tick=None,
+            completed_tick=None,
+        )
+        ws = WorldState(
+            tick=1,
+            initiative_states=(ramping_state,),
+            team_states=(
+                TeamState(team_id="team-0", team_size=20, assigned_initiative_id="init-0"),
+            ),
+            portfolio_capability=1.0,
+        )
+        collector = RunCollector()
+        _accumulate_ramp_labor(ws, workforce, {"team-0": 20}, collector)
+
+        # One ramping initiative-tick on a size-20 team contributes 20, not 1.
+        assert collector.cumulative_ramp_labor == pytest.approx(20.0)

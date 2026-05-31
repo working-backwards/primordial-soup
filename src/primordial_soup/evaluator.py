@@ -186,7 +186,8 @@ class SeedResult:
         terminal_capability: Portfolio capability scalar at final tick.
         free_value_per_tick: Terminal aggregate residual rate.
         idle_team_tick_fraction: Fraction of available team-ticks idle.
-        ramp_labor_fraction: Fraction of team-ticks spent in ramp.
+        ramp_labor_fraction: Fraction of total labor capacity (labor-ticks)
+            consumed by ramp; team-size-weighted, bounded in [0, 1].
         summary: Full summary dict from summarize_run_result().
     """
 

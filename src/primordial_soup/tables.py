@@ -404,9 +404,6 @@ def _build_family_outcome_rows(
             final_states = seed_rec.initiative_final_states
             cmap = _config_map(configs)
 
-            # Build per-initiative lookups.
-            {s.initiative_id: s for s in final_states}
-
             # Count initiatives by family.
             family_counts: dict[str, int] = {}
             for cfg in configs:
@@ -431,12 +428,15 @@ def _build_family_outcome_rows(
             value_by_family = result.value_by_family
 
             # Lump value by family: sum cumulative_lump_value_realized per init.
+            # Key by each initiative's own family tag (s_tag) — not the stale
+            # `tag` loop variable from the family-count loop above, which would
+            # pile every initiative's lump value onto a single family.
             lump_by_family: dict[str, float] = {}
             for s in final_states:
                 s_cfg = cmap.get(s.initiative_id)
                 s_tag = s_cfg.generation_tag or "unknown" if s_cfg else "unknown"
-                lump_by_family[tag] = (
-                    lump_by_family.get(tag, 0.0) + s.cumulative_lump_value_realized
+                lump_by_family[s_tag] = (
+                    lump_by_family.get(s_tag, 0.0) + s.cumulative_lump_value_realized
                 )
 
             # Residual value by family: from value_by_channel.residual_value_by_label.
