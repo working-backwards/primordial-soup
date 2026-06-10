@@ -458,3 +458,23 @@ previous step, decision notes.)
   this one. A concentrated-vs-spread allocation sweep using the
   existing compute_weighted_attention primitive remains available as
   a cheap confirmation experiment if wanted.
+- **2026-06-10 — Candidate mechanism refined by owner: attention as
+  STANDARD-SETTING (ambition), not ability.** Owner's correction,
+  grounded in the S3 case: the executive contributed no architecture
+  (no "innate ability" in the modeling sense) — he changed the
+  objective function (insistent the system get better/cheaper/faster/
+  more reliable AS IT SCALED, against the team's original position),
+  and the team figured out how. Decomposition: exec attention =
+  (a) target selection (concentrate on the few potentially
+  transformational bets — expressible today via weighted allocation)
+  + (b) ambition-raising (attention received during an initiative's
+  DARK PERIOD raises the latent quality that emerges at revelation —
+  the team builds a more ambitious thing; failures remain fully
+  possible). Mechanism (b) unifies with design decision 27 and keeps
+  exec ability out of scope, but it makes governance causal on
+  latent quality — a structural-principle-adjacent change (quality
+  currently fixed at creation; "same world, different choices" would
+  become "different choices, different worlds"). Requires the full
+  canonical_core.md evaluation before any implementation. Recorded
+  as the leading candidate for a future study version; NOT Beetle
+  scope per the owner's standing decision.
