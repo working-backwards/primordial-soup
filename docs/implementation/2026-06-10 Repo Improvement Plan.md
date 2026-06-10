@@ -325,3 +325,21 @@ previous step, decision notes.)
   revised to count both error forms; (2) the [0,1] clamp piles 10 of
   26 eligible right-tails at belief exactly 1.0 — direct evidence for
   the clamped-vs-unclamped experiment (1.2 pre-ladder decision).
+- **2026-06-10 — Phase 1.6 landed (M1 exploited: lever sweep).**
+  `scripts/model1_lever_sweep.py`: 7 conditions x 30 seeds, each
+  differing from the M1 Balanced base in exactly one parameter.
+  THE M1 ANSWER: (1) Intake floor None -> 0.20 -> 0.35 -> 0.50 moves
+  mean value 2092 -> 2096 -> 2120 -> 2179 (+4.2%) while right-tail
+  stop churn halves (14.4 -> 5.8) and idle labor rises 0.9% -> 14.1%.
+  Refusing to staff junk beats staffing it EVEN with idle labor
+  earning nothing (baseline_value_per_tick = 0) — discipline pays for
+  its own idleness. (2) Confidence-decline 0.08 -> 0.30 -> 0.40 moves
+  value 2041 -> 2120 -> 2190 (+7.3%) with major wins FLAT
+  (0.53/0.53/0.57). Faster stopping costs nothing in discovery at
+  this rung — the structural corollary of the calibration finding
+  that level-threshold stops cannot kill mean-reverting gems.
+  Hypothesis for the ladder: patience acquires its payoff only when a
+  mechanism makes stopping destructive (M2 frontier degradation) or
+  holding informative (M3 attention). If M2/M3 do not flip this
+  ordering, "patient moonshot" governance has no value mechanism in
+  the model and the study's framing must say so.
