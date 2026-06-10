@@ -59,6 +59,32 @@ study's inputs are grounded in organizational reality.
 
 ---
 
+## Default pool composition (load-bearing calibration defaults)
+
+For a stylized model there is no dataset to fit; the documented
+defaults and their rationale ARE the calibration record (expert
+review, 2026-06-10). The per-family initiative counts below are
+load-bearing: they set the ratio of opportunity supply to labor and
+the scarcity of major-win-eligible right-tails. The authoritative
+values live in `presets.py` (and `environment_families.md` for the
+full-model families); this table is the prominently stated summary
+that every reader and report should reference.
+
+| Configuration | quick_win | flywheel | enabler | right_tail | Total | Teams x size | Horizon |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| balanced_incumbent (full model) | 80 | 70 | 30 | 20 | 200 | 24 mixed (210 labor) | 313 wk |
+| short_cycle_throughput (full model) | per `environment_families.md` | | | | | 24 mixed | 313 wk |
+| discovery_heavy (full model) | per `environment_families.md` | | | | | 24 mixed | 313 wk |
+| Model 0 (ladder rung) | 40 | 40 | 25 | 25 | 130 | 10 x 5 | 100 wk |
+| Model 1 (ladder rung) | 40 | 40 | 25 | 25 | 130 | 10 x 5 | 160 wk |
+
+Full-model families additionally replenish via the dynamic frontier
+(~170 extra initiatives per seed beyond the initial 200 in
+balanced_incumbent as of the 2026-03 calibration); ladder rungs M0/M1
+have no frontier, so their pools are exactly the counts above.
+
+---
+
 ## 1. Right-Tail Parameters: Evidence, Diagnosis, and Fix
 
 

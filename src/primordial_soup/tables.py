@@ -102,6 +102,45 @@ def _write_parquet(path: Path, rows: list[dict[str, Any]]) -> None:
 # ===========================================================================
 
 
+def _split_right_tail_stops_by_attempt(
+    seed_rec: Any,
+) -> tuple[int | None, int | None]:
+    """Split right-tail stops into first-attempt vs refresh-churn.
+
+    A refresh stop is a stop of an initiative whose
+    ResolvedInitiativeConfig.prize_attempt_count > 0 — i.e. a
+    re-attempt the frontier materialized after a previous attempt at
+    the same prize was stopped. Conflating these with first-attempt
+    stops makes stop counts uninterpretable (per
+    intake_discipline_findings_and_plan.md Step 5 and the 2026-06-10
+    improvement plan Phase 1.5).
+
+    Returns:
+        (first_attempt_stops, refresh_stops) for right-tail
+        initiatives, or (None, None) when the run recorded no stop
+        event log (event logging disabled).
+    """
+    result = seed_rec.run_result
+    if result.stop_event_log is None:
+        return (None, None)
+
+    # initiative_id -> config lookup, for generation_tag and
+    # prize_attempt_count of each stopped initiative.
+    config_by_id = {cfg.initiative_id: cfg for cfg in seed_rec.initiative_configs}
+
+    first_attempt = 0
+    refresh = 0
+    for event in result.stop_event_log:
+        cfg = config_by_id.get(event.initiative_id)
+        if cfg is None or cfg.generation_tag != "right_tail":
+            continue
+        if cfg.prize_attempt_count > 0:
+            refresh += 1
+        else:
+            first_attempt += 1
+    return (first_attempt, refresh)
+
+
 def _build_seed_run_rows(
     experiment_spec: ExperimentSpec,
 ) -> list[dict[str, Any]]:
@@ -122,6 +161,7 @@ def _build_seed_run_rows(
             result = seed_rec.run_result
             rtfsp = result.right_tail_false_stop_profile
             timing = result.family_timing
+            rt_first_stops, rt_refresh_stops = _split_right_tail_stops_by_attempt(seed_rec)
 
             # first_completion_tick_any: earliest completion across all families.
             first_ticks = [
@@ -149,6 +189,12 @@ def _build_seed_run_rows(
                     "terminal_capability": result.terminal_capability_t,
                     "right_tail_completions": rtfsp.right_tail_completions,
                     "right_tail_stops": rtfsp.right_tail_stops,
+                    # Stop-churn split (improvement plan Phase 1.5):
+                    # first attempts vs frontier re-attempts on
+                    # previously stopped prizes. None when the run had
+                    # no stop event log.
+                    "right_tail_first_attempt_stops": rt_first_stops,
+                    "right_tail_refresh_stops": rt_refresh_stops,
                     "right_tail_eligible_count": rtfsp.right_tail_eligible_count,
                     "right_tail_stopped_eligible_count": rtfsp.right_tail_stopped_eligible_count,
                     "right_tail_false_stop_rate": rtfsp.right_tail_false_stop_rate,
@@ -239,6 +285,20 @@ def _build_experimental_condition_rows(
         caps = np.array([r["terminal_capability"] for r in seed_rows])
         rt_comp = np.array([r["right_tail_completions"] for r in seed_rows], dtype=float)
         rt_stops = np.array([r["right_tail_stops"] for r in seed_rows], dtype=float)
+        # Stop-churn split: nullable per seed (None when event logging
+        # was disabled); aggregate over seeds that have it.
+        rt_first_values = [
+            r["right_tail_first_attempt_stops"]
+            for r in seed_rows
+            if r["right_tail_first_attempt_stops"] is not None
+        ]
+        rt_refresh_values = [
+            r["right_tail_refresh_stops"]
+            for r in seed_rows
+            if r["right_tail_refresh_stops"] is not None
+        ]
+        rt_first_mean = float(np.mean(rt_first_values)) if rt_first_values else None
+        rt_refresh_mean = float(np.mean(rt_refresh_values)) if rt_refresh_values else None
         # For false-stop rate, filter out None values.
         fsr_values = [
             r["right_tail_false_stop_rate"]
@@ -328,6 +388,8 @@ def _build_experimental_condition_rows(
                 "terminal_capability_max": float(np.max(caps)),
                 "right_tail_completions_mean": float(np.mean(rt_comp)),
                 "right_tail_stops_mean": float(np.mean(rt_stops)),
+                "right_tail_first_attempt_stops_mean": rt_first_mean,
+                "right_tail_refresh_stops_mean": rt_refresh_mean,
                 "right_tail_false_stop_rate_mean": fsr_mean,
                 "idle_pct_mean": float(np.mean(idle)),
                 "idle_pct_min": float(np.min(idle)),

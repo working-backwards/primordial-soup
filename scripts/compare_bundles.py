@@ -41,6 +41,8 @@ HEADLINE_METRICS: tuple[str, ...] = (
     "terminal_capability",
     "right_tail_completions",
     "right_tail_stops",
+    "right_tail_first_attempt_stops",
+    "right_tail_refresh_stops",
     "right_tail_eligible_count",
     "right_tail_stopped_eligible_count",
     "right_tail_false_stop_rate",

@@ -235,14 +235,16 @@ RANGES_BY_BASELINE_SPEC_VERSION: dict[str, dict[str, dict[str, Any]]] = {
             },
             "source": "family_outcomes.first_completion_tick",
         },
-        # #15 — Share of team-weeks in ramp-up after reassignment.
+        # #15 — Share of labor capacity in ramp-up after reassignment.
         "ramp_overhead": {
             "label": "Ramp overhead",
             "definition": (
-                "Share of team-weeks spent ramping up after a reassignment "
-                "(not yet fully productive)."
+                "Share of total labor capacity (person-weeks, team-size "
+                "weighted) spent in post-reassignment ramp-up, when teams "
+                "are not yet fully productive. Numerator and denominator "
+                "are both person-weeks, so the value cannot exceed 100%."
             ),
-            "unit": "% of team-weeks",
+            "unit": "% of labor capacity",
             "range": (0.03, 0.08),
             "source": "ramp_labor_fraction_mean",
         },

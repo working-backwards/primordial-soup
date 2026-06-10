@@ -894,6 +894,18 @@ def _build_narrative_paragraphs(
     )
     if family_clauses:
         p2 += " " + "; ".join(family_clauses) + "."
+    # Stop-churn split (improvement plan Phase 1.5): distinguish
+    # genuine first-attempt stop decisions from frontier re-attempt
+    # churn on previously stopped prizes, which would otherwise make
+    # right-tail stop counts read as governance indecision.
+    rt_first = condition_row.get("right_tail_first_attempt_stops_mean")
+    rt_refresh = condition_row.get("right_tail_refresh_stops_mean")
+    if rt_first is not None and rt_refresh is not None and (rt_first + rt_refresh) > 0:
+        p2 += (
+            f" Of the right-tail stops, {rt_first:.1f} per run were first "
+            f"attempts and {rt_refresh:.1f} were repeat attempts on "
+            f"previously stopped opportunities."
+        )
     if fsr is not None:
         p2 += (
             f" Of the right-tails that could have surfaced a major win, "
@@ -912,7 +924,13 @@ def _build_narrative_paragraphs(
     else:
         p3_bits.append("The initiative pool was never exhausted.")
     if ramp is not None:
-        p3_bits.append(f"{ramp * 100:.1f}% of team-weeks went into ramp-up after reassignments.")
+        # ramp_labor_fraction is person-weeks of ramp over total
+        # person-weeks of labor capacity (team-size weighted), so it
+        # is bounded by 100%. Label accordingly — "team-weeks" was the
+        # old, incorrect unit (improvement plan Phase 1.5).
+        p3_bits.append(
+            f"{ramp * 100:.1f}% of labor capacity went into ramp-up after reassignments."
+        )
     p3 = " ".join(p3_bits)
 
     # --- Paragraph 4: Capability and discovery ---
