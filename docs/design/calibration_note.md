@@ -1299,3 +1299,32 @@ and revelation lag fraction (0.50) automatically.
 - Prize-preserving refresh with per-attempt degradation (the v2-of-a-
   stopped-moonshot semantics) requires observable ceilings and is
   deferred to the backport, where ceilings exist.
+
+## 10. Full-Model Backport from the Model Ladder (2026-06-10)
+
+The mechanisms proved on ladder rungs M1-M4 were carried into the
+three environment families (improvement plan Phase 2.3). Values and
+their ladder provenance:
+
+| Parameter | Old | New | Provenance |
+| --- | --- | --- | --- |
+| Right-tail `screening_signal_st_dev` (all families) | 0.30 | 0.55 | §8: at 0.30, eligible gems entered at mean belief 0.82 and zero were ever stopped — the intake decision was trivial. |
+| Right-tail `frontier_degradation_rate` | 0.0 | 0.02 | §9: resolved right-tails degrade the replacement supply (option cost of stopping). Lower than M3's 0.05 because the full model has more right-tail resolutions per run. |
+| Right-tail `right_tail_refresh_quality_degradation` | 0.0 | 0.10 | Intake findings Step 4: repeated failed attempts at the same prize are informative; re-attempts draw from a degraded distribution. |
+| `revelation_lag_fraction` (fw / en / rt / qw) | — | 0.35 / 0.35 / 0.50 / 0.0 | Design decision 27 (dark build periods), Model 2 values. |
+| Portfolio mix targets via YAML | silently stripped (None) | inherit policy preset's calibrated targets | Workbench resolution bug: the architecture layer unconditionally overwrote the preset's targets with None in all nine preset YAMLs. This single switch was the entire factory-vs-YAML divergence (5431 vs 3067 mean value) flagged by the smoke check on 2026-06-10. The two construction paths now produce identical configurations. |
+
+Canonical-preset effect (smoke baseline, seeds 42-44, vs the
+post-intake-floor baseline): mean value 6500 -> 6008 (mix targets
+pull labor toward under-target buckets; dark periods and harder
+screening add real uncertainty); idle team-ticks 45% -> 44%
+(slightly lower — mix targets activate more diverse work); major
+wins ~0.7/seed (discovery remains genuinely scarce, consistent with
+the ladder); stops up slightly (dark-period stagnation).
+
+**Known open calibration item:** idle labor remains ~44% of
+team-ticks and earns nothing (`baseline_value_per_tick = 0.0`).
+Setting a positive baseline value (intake findings Step 3 proposed
+~0.1/team-week) is an owner calibration decision still pending; until
+it is made, regimes that refuse work are maximally punished for
+idleness and still win, so the discipline findings are conservative.

@@ -530,3 +530,22 @@ previous step, decision notes.)
   run_design.py stays the execution path. Built after the backport
   because the YAML surface changes there. Interim: reorganize the
   template under explicit layer banners with what-is-hidden notes.
+- **2026-06-10 — Phase 2.3 landed (full-model backport).** Owner
+  deferred the two pending design ideas (screening-bias dial,
+  posture-shift dial) and approved the backport. Carried into all
+  three environment families: revelation lags (fw/en 0.35, rt 0.50,
+  qw 0.0), right-tail screening 0.30 → 0.55, right-tail frontier
+  degradation 0 → 0.02, prize re-attempt degradation 0 → 0.10.
+  Values + rationale in calibration_note.md §10. ROOT CAUSE of the
+  factory-vs-YAML divergence found and fixed: workbench's
+  _resolve_governance unconditionally overwrote the policy preset's
+  calibrated portfolio mix targets with the architecture value (None
+  in all nine preset YAMLs) — the mix lever was silently OFF in
+  every YAML run. Omitted now means inherit; explicit overrides.
+  The two construction paths now produce byte-identical configs
+  (verified). Smoke baseline rewritten: mean value 6500 → 6008, idle
+  45% → 44%, wins ~0.7/seed (discovery scarce, consistent with the
+  ladder). OPEN CALIBRATION ITEM for the owner: idle labor is ~44%
+  and earns nothing (baseline_value_per_tick = 0); intake findings
+  Step 3 proposed ~0.1/team-week — pending owner decision; until
+  then discipline findings are conservative.

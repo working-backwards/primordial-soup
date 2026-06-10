@@ -1,50 +1,50 @@
 {
   "42": {
     "completion_lump_value": 218.12015860178346,
-    "cumulative_value_total": 6870.060005222713,
-    "idle_team_tick_fraction": 0.4968051118210863,
+    "cumulative_value_total": 6286.0247189081,
+    "idle_team_tick_fraction": 0.4508785942492013,
     "major_win_count": 2.0,
-    "ramp_labor_fraction": 0.06496272630457935,
-    "residual_share": 0.9682506181261932,
-    "residual_value": 6651.9398466209295,
+    "ramp_labor_fraction": 0.06686444545869466,
+    "residual_share": 0.965300779370834,
+    "residual_value": 6067.904560306317,
     "right_tail_false_stop_rate": 0.0,
-    "stop_count": 12.0,
-    "terminal_capability": 2.21306131942527
+    "stop_count": 15.0,
+    "terminal_capability": 2.153899620760976
   },
   "43": {
-    "completion_lump_value": 212.9964598471447,
-    "cumulative_value_total": 6438.677665918118,
-    "idle_team_tick_fraction": 0.45620340788072417,
+    "completion_lump_value": 212.99645984714468,
+    "cumulative_value_total": 6009.474526859716,
+    "idle_team_tick_fraction": 0.4049520766773163,
     "major_win_count": 0.0,
-    "ramp_labor_fraction": 0.06983112733911456,
-    "residual_share": 0.9669192230301263,
-    "residual_value": 6225.6812060709735,
+    "ramp_labor_fraction": 0.07135250266240682,
+    "residual_share": 0.9645565583321564,
+    "residual_value": 5796.478067012572,
     "right_tail_false_stop_rate": -1.0,
-    "stop_count": 9.0,
-    "terminal_capability": 2.51914424644994
+    "stop_count": 14.0,
+    "terminal_capability": 2.7649938051691914
   },
   "44": {
-    "completion_lump_value": 214.09957264566586,
-    "cumulative_value_total": 6191.526495885636,
-    "idle_team_tick_fraction": 0.5509850905218318,
+    "completion_lump_value": 214.09957264566592,
+    "cumulative_value_total": 5728.660231666384,
+    "idle_team_tick_fraction": 0.4543397231096912,
     "major_win_count": 0.0,
-    "ramp_labor_fraction": 0.06458238247375628,
-    "residual_share": 0.9654205513312527,
-    "residual_value": 5977.42692323997,
+    "ramp_labor_fraction": 0.06633196409554237,
+    "residual_share": 0.9626265891172625,
+    "residual_value": 5514.560659020718,
     "right_tail_false_stop_rate": -1.0,
-    "stop_count": 11.0,
-    "terminal_capability": 2.1142117236243507
+    "stop_count": 9.0,
+    "terminal_capability": 2.3406400920712818
   },
   "mean": {
     "completion_lump_value": 215.072063698198,
-    "cumulative_value_total": 6500.088055675489,
-    "idle_team_tick_fraction": 0.5013312034078807,
+    "cumulative_value_total": 6008.053159144733,
+    "idle_team_tick_fraction": 0.4367234646787363,
     "major_win_count": 0.6666666666666666,
-    "ramp_labor_fraction": 0.0664587453724834,
-    "residual_share": 0.9668634641625241,
-    "residual_value": 6285.015991977291,
+    "ramp_labor_fraction": 0.06818297073888129,
+    "residual_share": 0.9641613089400843,
+    "residual_value": 5792.981095446536,
     "right_tail_false_stop_rate": -0.6666666666666666,
-    "stop_count": 10.666666666666666,
-    "terminal_capability": 2.282139096499854
+    "stop_count": 12.666666666666666,
+    "terminal_capability": 2.419844506000483
   }
 }

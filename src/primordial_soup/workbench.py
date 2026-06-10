@@ -1523,12 +1523,26 @@ def _resolve_governance_config(
           backward compatibility).
     """
     base = policy.resolve(model)
+    # Portfolio mix targets: INHERIT the policy preset's calibrated
+    # targets when the architecture spec does not set them. Before
+    # 2026-06-10 this line unconditionally overwrote the preset's
+    # targets with the architecture value — None in all nine preset
+    # YAMLs — silently turning the portfolio-mix lever off in every
+    # YAML-driven run while the Python factory path kept it on. That
+    # was the entire source of the factory-vs-YAML divergence found
+    # by the Phase 0.1 smoke check. Explicit YAML targets still
+    # override the preset.
+    resolved_mix_targets = (
+        architecture.portfolio_mix_targets
+        if architecture.portfolio_mix_targets is not None
+        else base.portfolio_mix_targets
+    )
     return dataclasses.replace(
         base,
         low_quality_belief_threshold=architecture.low_quality_belief_threshold,
         max_low_quality_belief_labor_share=architecture.max_low_quality_belief_labor_share,
         max_single_initiative_labor_share=architecture.max_single_initiative_labor_share,
-        portfolio_mix_targets=architecture.portfolio_mix_targets,
+        portfolio_mix_targets=resolved_mix_targets,
     )
 
 

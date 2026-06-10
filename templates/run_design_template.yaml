@@ -375,6 +375,29 @@ architecture:
   #   the active workforce.
   max_single_initiative_labor_share: ~
 
+  # portfolio_mix_targets (optional, default: omitted = INHERIT the policy
+  # preset's calibrated targets)
+  #   Desired labor-share distribution across the four initiative buckets,
+  #   used by the policy as a SOFT preference (it biases which work is
+  #   picked next; it never blocks an assignment).
+  #
+  #   IMPORTANT semantics (changed 2026-06-10): leaving this out keeps the
+  #   policy preset's calibrated mix targets (e.g. the balanced preset's
+  #   flywheel 40% / quick_win 35% / enabler 15% / right_tail 10%). Before
+  #   this change, omitting the field silently DISABLED mix targets in
+  #   every YAML run while Python-built configs kept them — the source of
+  #   a long-standing divergence between the two paths. Set this field
+  #   explicitly only to OVERRIDE the preset's targets.
+  #
+  #   Example:
+  #   portfolio_mix_targets:
+  #     bucket_targets:
+  #       flywheel: 0.40
+  #       right_tail: 0.10
+  #       enabler: 0.15
+  #       quick_win: 0.35
+  #     tolerance: 0.10
+
   # ---------------------------------------------------------------------------
   # Baseline value per team per week (per exec_intent_spec.md #7)
   # ---------------------------------------------------------------------------

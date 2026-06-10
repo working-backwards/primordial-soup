@@ -342,6 +342,10 @@ def make_initiative_generator_config(
         # and vice versa. sigma_screen=0.15 means initial beliefs are
         # correlated with true quality but with meaningful uncertainty.
         screening_signal_st_dev=0.15,
+        # Revelation lag (design decision 27, backport from Model 2):
+        # the compounding mechanism cannot be observed until a working
+        # build exists — dark for ~a third of the schedule.
+        revelation_lag_fraction=0.35,
         # Dynamic frontier: slow declining quality as the flywheel
         # landscape is consumed. Per dynamic_opportunity_frontier.md §1:
         # degradation_rate=0.01 means alpha drops ~1% per resolved initiative.
@@ -378,6 +382,10 @@ def make_initiative_generator_config(
         # but the quality of the enabling work is uncertain until
         # underway. sigma_screen=0.20 — slightly noisier than flywheels.
         screening_signal_st_dev=0.20,
+        # Revelation lag (design decision 27, backport from Model 2):
+        # capability value is invisible until the enabling work takes
+        # shape — dark for ~a third of the schedule.
+        revelation_lag_fraction=0.35,
         # Dynamic frontier: very conservative declining quality.
         # Enablers are a broad but finite landscape of capability-building
         # opportunities. Per dynamic_opportunity_frontier.md §3:
@@ -426,6 +434,9 @@ def make_initiative_generator_config(
         # assess before committing a team. sigma_screen=0.10 means
         # intake screening is quite informative.
         screening_signal_st_dev=0.10,
+        # Revelation lag: none. Quick wins are testable almost
+        # immediately — there is no meaningful dark period.
+        revelation_lag_fraction=0.0,
         # Dynamic frontier: faster declining quality than flywheel since
         # quick wins are a shallower opportunity landscape.
         # Per dynamic_opportunity_frontier.md §1: degradation_rate=0.02.
@@ -521,16 +532,31 @@ def _make_right_tail_spec(family: EnvironmentFamilyName) -> InitiativeTypeSpec:
             # to assess at intake. sigma_screen=0.30 means initial beliefs
             # are weakly correlated with true quality — governance gets a
             # rough signal but cannot reliably rank right-tail candidates.
-            screening_signal_st_dev=0.30,
+            # Backport from Model 1 calibration (calibration_note.md §8):
+            # 0.30 made major-win-eligible right-tails obvious at intake
+            # (eligible entered at mean belief 0.82 vs 0.28 for the rest;
+            # zero were ever stopped). At 0.55 gems materially overlap
+            # the field and governance faces a real intake decision.
+            screening_signal_st_dev=0.55,
+            # Revelation lag (design decision 27): right-tail builds are
+            # dark for half their schedule — no informative quality
+            # signal until the thing exists. Backport from Model 2.
+            revelation_lag_fraction=0.50,
             # Prize-preserving refresh: stopped right-tail initiatives
             # make their ceiling available for re-attempt with fresh quality.
             # No general declining frontier (rate=0); no per-attempt
             # degradation by default (study hypothesis parameter).
             frontier=FrontierSpec(
-                frontier_degradation_rate=0.0,
+                # Backport from Model 3 (calibration_note.md §9):
+                # resolved right-tails degrade the replacement supply —
+                # killing or completing a moonshot carries option cost.
+                frontier_degradation_rate=0.02,
                 frontier_quality_floor=0.1,
                 replenishment_threshold=3,
-                right_tail_refresh_quality_degradation=0.0,
+                # Backport (intake findings Step 4): each re-attempt at
+                # the same prize draws from a degraded distribution —
+                # repeated failure at one opportunity is informative.
+                right_tail_refresh_quality_degradation=0.10,
             ),
         )
 
@@ -562,12 +588,27 @@ def _make_right_tail_spec(family: EnvironmentFamilyName) -> InitiativeTypeSpec:
             q_major_win_threshold=0.80,
             observable_ceiling_distribution=_ceiling_dist,
             # Screening signal: high noise, same as balanced_incumbent.
-            screening_signal_st_dev=0.30,
+            # Backport from Model 1 calibration (calibration_note.md §8):
+            # 0.30 made major-win-eligible right-tails obvious at intake
+            # (eligible entered at mean belief 0.82 vs 0.28 for the rest;
+            # zero were ever stopped). At 0.55 gems materially overlap
+            # the field and governance faces a real intake decision.
+            screening_signal_st_dev=0.55,
+            # Revelation lag (design decision 27): right-tail builds are
+            # dark for half their schedule — no informative quality
+            # signal until the thing exists. Backport from Model 2.
+            revelation_lag_fraction=0.50,
             frontier=FrontierSpec(
-                frontier_degradation_rate=0.0,
+                # Backport from Model 3 (calibration_note.md §9):
+                # resolved right-tails degrade the replacement supply —
+                # killing or completing a moonshot carries option cost.
+                frontier_degradation_rate=0.02,
                 frontier_quality_floor=0.1,
                 replenishment_threshold=3,
-                right_tail_refresh_quality_degradation=0.0,
+                # Backport (intake findings Step 4): each re-attempt at
+                # the same prize draws from a degraded distribution —
+                # repeated failure at one opportunity is informative.
+                right_tail_refresh_quality_degradation=0.10,
             ),
         )
 
@@ -600,12 +641,27 @@ def _make_right_tail_spec(family: EnvironmentFamilyName) -> InitiativeTypeSpec:
             q_major_win_threshold=0.80,
             observable_ceiling_distribution=_ceiling_dist,
             # Screening signal: high noise, same as balanced_incumbent.
-            screening_signal_st_dev=0.30,
+            # Backport from Model 1 calibration (calibration_note.md §8):
+            # 0.30 made major-win-eligible right-tails obvious at intake
+            # (eligible entered at mean belief 0.82 vs 0.28 for the rest;
+            # zero were ever stopped). At 0.55 gems materially overlap
+            # the field and governance faces a real intake decision.
+            screening_signal_st_dev=0.55,
+            # Revelation lag (design decision 27): right-tail builds are
+            # dark for half their schedule — no informative quality
+            # signal until the thing exists. Backport from Model 2.
+            revelation_lag_fraction=0.50,
             frontier=FrontierSpec(
-                frontier_degradation_rate=0.0,
+                # Backport from Model 3 (calibration_note.md §9):
+                # resolved right-tails degrade the replacement supply —
+                # killing or completing a moonshot carries option cost.
+                frontier_degradation_rate=0.02,
                 frontier_quality_floor=0.1,
                 replenishment_threshold=3,
-                right_tail_refresh_quality_degradation=0.0,
+                # Backport (intake findings Step 4): each re-attempt at
+                # the same prize draws from a degraded distribution —
+                # repeated failure at one opportunity is informative.
+                right_tail_refresh_quality_degradation=0.10,
             ),
         )
 
