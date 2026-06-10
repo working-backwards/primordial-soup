@@ -137,6 +137,40 @@ These fields are set once when the initiative is created and never changed by th
   estimate of completion time. Set at generation and visible to governance through
   `GovernanceObservation`. May differ substantially from `true_duration_ticks`.
   Must be $> 0$ when set.
+- `revelation_lag_staffed_ticks` (integer, default 0) — the number of **staffed**
+  ticks the initiative must accumulate before its strategic quality signals
+  become informative. While $\text{staffed\_tick\_count} < \text{revelation\_lag\_staffed\_ticks}$,
+  the engine draws the quality signal as usual (preserving CRN stream
+  alignment) but **discards it**: the quality belief does not update.
+  Execution signals are unaffected — schedule progress and burn are
+  observable during a build even when product truth is not.
+
+  **Rationale (design decision 27): information arrives in lumps, purchased
+  by sustained investment.** Real initiatives — especially exploratory
+  builds — often require months of work before anything testable exists.
+  During that dark period the belief is flat while cost accrues every tick,
+  and the willingness to keep funding through silence is a governance
+  posture in its own right. Without this attribute, signals flow
+  continuously and for free from the first staffed tick, which makes a
+  high-quality initiative's belief drift monotonically upward and renders
+  mid-flight termination of eventual winners structurally impossible
+  (verified empirically, 2026-06-10; see calibration_note.md §8).
+
+  The lag counts **staffed** ticks, not calendar ticks: revelation is
+  purchased by investment, and an unstaffed initiative makes no progress
+  toward it. The lag is latent (not surfaced on `InitiativeObservation`):
+  governance experiences it as a flat belief trajectory, and its patience
+  for that silence is expressed through the stagnation rule's window —
+  which is precisely the dial that distinguishes regimes willing to fund
+  through dark periods from regimes that read silence as failure.
+
+  Generator contract: the lag is derived, not drawn —
+  $\text{revelation\_lag\_staffed\_ticks} = \lfloor \text{revelation\_lag\_fraction} \cdot \text{true\_duration\_ticks} \rfloor$
+  where `revelation_lag_fraction` $\in [0, 1]$ is a per-type-spec parameter
+  (default 0.0 = signals informative from the first tick, the pre-2026-06
+  behavior). Deriving from `true_duration_ticks` adds no new RNG draws, so
+  pools with and without revelation lags are otherwise identical under the
+  same world seed. Initiatives without `true_duration_ticks` have lag 0.
 - `initial_c_exec_0` $\in (0, 1]$ (optional float, default 1.0) — the starting value of
   the execution belief ($\text{execution\_belief}_t$; $c_{\text{exec},t}$ in equations). Represents the
   planning prior, not certainty. 1.0 means governance begins with the belief that
@@ -258,6 +292,10 @@ The choice of 0.5 as the default is deliberate. It represents maximum prior unce
 The true completion time must be specified together with a planned completion time. You cannot have a hidden truth about execution without an observable plan to compare it against.
 
 **Planned completion time.** The organization's observable estimate of how long the initiative will take. This is set at creation and visible to governance from the start. It may differ substantially from the true completion time — some initiatives are planned optimistically, others conservatively. The planned time serves as the reference point against which execution progress is measured and reported.
+
+**Revelation lag — the dark period before anything can be tested.** Some work must be built before it can be evaluated: for the first stretch of an initiative's life there is simply nothing testable, no matter how closely leadership watches. Each initiative carries a revelation lag — a number of staffed weeks during which strategic quality signals carry no information. During the dark period the organization's belief about the initiative sits flat at whatever intake screening said, while the team's cost accrues every week. Schedule and burn signals still flow — you can see whether the build is on plan even when you cannot yet test the product.
+
+This is where one of the most consequential governance postures lives. A leadership team that funds through six months of silence is taking a specific, deliberate kind of risk; a leadership team that reads silence as failure and reallocates the team is taking a different one. Neither is foolish — but they discover different things and pay different costs, and the difference between them is invisible in a model where every week of work automatically produces a readable signal. The lag scales with the initiative's true build time (a fixed fraction of it, by initiative type): quick wins reveal almost immediately, while exploratory builds may be dark for a large share of their schedule. Governance is not told the lag directly — leadership experiences it the way real boards do, as a belief that refuses to move — and its tolerance for that silence is expressed through how long it lets a flat-belief initiative keep its team.
 
 **Starting belief about execution.** Each initiative may specify how confident the organization is at the outset about the initiative's schedule. The default is 1.0, meaning governance initially believes the initiative will run exactly on plan. Lower values represent initiatives where leadership begins with reduced confidence in the original schedule — for example, novel hardware programs or initiatives in domains where planning accuracy is historically poor, versus familiar software-only work where schedules are typically more reliable. This per-initiative configurability allows the scenario to reflect the reality that different kinds of work arrive with different levels of schedule credibility.
 

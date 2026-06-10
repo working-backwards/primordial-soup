@@ -1647,6 +1647,70 @@ cheap-rung experiment repeated.
 
 ---
 
+## 27. Why quality signals are gated by a revelation lag (information arrives in lumps)
+
+### Decision
+
+Each initiative carries `revelation_lag_staffed_ticks` (default 0):
+strategic quality signals are drawn but discarded until the
+initiative has accumulated that many staffed ticks. The lag is
+derived as a per-type fraction of `true_duration_ticks` (no new RNG
+draws), is latent to governance, and does not gate execution
+signals. See initiative_model.md §Immutable attributes and
+core_simulator.md step 5 for full semantics.
+
+### Why this choice was made
+
+The owner's framing, adopted verbatim as the design principle:
+**information arrives in lumps, purchased by sustained investment —
+not continuously and for free.** Before this change, every staffed
+tick emitted an informative quality signal from the first week of
+work. Under that assumption, a high-quality initiative's belief
+drifts monotonically upward (the EMA mean-reverts toward latent
+quality), so terminating an eventual winner mid-flight is
+structurally near-impossible — verified across 2,340 right-tail
+observations on 2026-06-10 (calibration_note.md §8). That made
+patience strictly worthless in the Model 1 sweep: there was never a
+period where governance had to pay for silence.
+
+Real initiatives — especially exploratory builds — often require
+months of work before anything testable exists ("it takes six months
+to build the thing before you can test it" — owner, from direct
+operating experience). During that dark period belief is flat while
+cost accrues, and the willingness to fund through silence versus
+reading silence as failure is a first-class governance posture this
+study must be able to represent. The revelation lag creates it with
+one parameter per type: during the dark period a gem and a dud are
+observationally identical, so impatient stopping becomes a genuine
+uninformed gamble, and the previously-decorative stagnation rule
+becomes the live patience dial.
+
+Design choices within the mechanism: (a) signals are drawn and
+discarded rather than skipped, preserving CRN substream alignment;
+(b) the lag counts staffed ticks, so revelation is purchased by
+investment and pausing stalls it; (c) the lag derives from true
+duration rather than a new draw, keeping pools byte-identical across
+ladder rungs under the same seed; (d) execution signals are ungated
+because schedule and burn are observable during a build; (e) the lag
+is latent — governance experiences it as a flat belief, the way real
+boards do.
+
+**Deferred alternative — post-launch iteration (v1/v2).** The owner's
+related concern (Amazon's "when to shut down a business" review:
+diagnosing which hypothesis failed after launch, iterating, or
+minimizing investment) is deliberately NOT modeled as in-initiative
+phases. The study's existing representation stands: a successor
+concept (v2) is a separate initiative in the pool with its own latent
+quality and a typically lower intake belief, competing for selection
+— and for right-tails, the frontier's prize-refresh mechanism already
+generates exactly such re-attempts. What this representation gives
+up is the diagnostic structure of the post-launch review (knowing
+WHICH assumption failed) and the minimize-investment/keep-alive
+option. Revisit after the model ladder reaches the full model;
+candidate scope for a future study version.
+
+---
+
 ## Final note
 
 

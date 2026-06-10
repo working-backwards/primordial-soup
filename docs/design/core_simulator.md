@@ -140,6 +140,20 @@ Canonical sequence at tick $t$:
 
    $$c_{t+1} = \operatorname{clamp}\!\bigl( c_t + \eta \cdot \text{staffing\_multiplier}_t \cdot \text{ramp\_multiplier}_t \cdot L(d) \cdot (y_t - c_t),\; 0,\; 1 \bigr)$$
 
+   **Revelation gate (applies before the update):** when the
+   initiative's pre-increment `staffed_tick_count` is below its
+   `revelation_lag_staffed_ticks` (initiative_model.md §Immutable
+   attributes; design decision 27), the quality signal $y_t$ is drawn
+   exactly as in step 3 — preserving per-initiative CRN stream
+   alignment — but discarded: $c_{t+1} = c_t$. The belief is appended
+   to `belief_history` unchanged, so the stagnation rule observes the
+   flat trajectory; whether governance tolerates that silence is a
+   policy posture, not an engine decision. The execution belief update
+   below is NOT gated — schedule and burn evidence is observable
+   during a build even when product truth is not. With the default
+   lag of 0 the gate never binds and this step reduces to the
+   pre-2026-06 behavior.
+
    - The base learning rate ($\eta$) is a ModelConfig parameter.
    - $\text{staffing\_multiplier}_t$ captures the effect of staffing intensity on
      learning. When the assigned team is larger than the initiative's minimum
