@@ -476,5 +476,30 @@ previous step, decision notes.)
   currently fixed at creation; "same world, different choices" would
   become "different choices, different worlds"). Requires the full
   canonical_core.md evaluation before any implementation. Recorded
-  as the leading candidate for a future study version; NOT Beetle
-  scope per the owner's standing decision.
+  as a candidate for a future study version; NOT Beetle scope per
+  the owner's standing decision.
+- **2026-06-10 — New leading attention candidate (owner): attention
+  as DECISION-WITH-LESS-BELIEF (posture shift).** Owner's framing:
+  attention is hours, posture-neutral; an attended initiative gets
+  DECIDED by the executive's personal rule while unattended ones
+  drift on the default rules — and it cuts both ways (a risk-averse
+  CEO's hours accelerate kills; a risk-tolerant CEO's hours fund
+  through the dark period). Model translation: ONE governance
+  parameter `exec_posture_shift` (delta); per-initiative effective
+  stop threshold = default + attention_i * delta (sign = the exec's
+  posture; same logic stretches/compresses stagnation windows;
+  delta = 0 recovers today's model). Entirely policy-side — no
+  structural principles touched, unlike ambition-uplift. Enables the
+  posture x environment "amplifier" experiment (engaged strict exec:
+  right in an insurance-like world, catastrophic in an
+  asymmetric-payoff world; engagement amplifies the posture/world
+  match or mismatch) and reconciles the sponsor-helps vs
+  advocacy-delays-kills literatures as opposite signs of delta.
+  Candidate ranking: (1) posture shift — light, safe, two-sided;
+  (2) ambition uplift — deeper, structurally serious; (3) epistemic
+  clarity — implemented, measured inert. Owner has not yet decided
+  IF/WHEN to build; plausible first rung after the Phase 2.3
+  backport. Diagnostic insight recorded: all attention channels were
+  inert until now because the model had no attended-vs-unattended
+  governance distinction — every initiative faced identical rules
+  every tick.
