@@ -1,0 +1,50 @@
+{
+  "42": {
+    "completion_lump_value": 223.3565099765905,
+    "cumulative_value_total": 3093.233309704164,
+    "idle_team_tick_fraction": 0.003194888178913738,
+    "major_win_count": 8.0,
+    "ramp_labor_fraction": 0.11471169937623611,
+    "residual_share": 0.927791896823343,
+    "residual_value": 2869.8767997275736,
+    "right_tail_false_stop_rate": 0.0,
+    "stop_count": 289.0,
+    "terminal_capability": 1.5690969052957784
+  },
+  "43": {
+    "completion_lump_value": 233.65593187893595,
+    "cumulative_value_total": 2175.07091740108,
+    "idle_team_tick_fraction": 0.0033280085197018106,
+    "major_win_count": 4.0,
+    "ramp_labor_fraction": 0.1128099802221208,
+    "residual_share": 0.8925754879946057,
+    "residual_value": 1941.4149855221438,
+    "right_tail_false_stop_rate": 0.0,
+    "stop_count": 259.0,
+    "terminal_capability": 1.5063544208139983
+  },
+  "44": {
+    "completion_lump_value": 251.124942104795,
+    "cumulative_value_total": 3931.909285468115,
+    "idle_team_tick_fraction": 0.003727369542066028,
+    "major_win_count": 5.0,
+    "ramp_labor_fraction": 0.1366195040316446,
+    "residual_share": 0.9361315524157884,
+    "residual_value": 3680.7843433633197,
+    "right_tail_false_stop_rate": 0.0,
+    "stop_count": 343.0,
+    "terminal_capability": 1.5099300542600953
+  },
+  "mean": {
+    "completion_lump_value": 236.04579465344048,
+    "cumulative_value_total": 3066.737837524453,
+    "idle_team_tick_fraction": 0.0034167554135605253,
+    "major_win_count": 5.666666666666667,
+    "ramp_labor_fraction": 0.12138039454333384,
+    "residual_share": 0.9188329790779123,
+    "residual_value": 2830.6920428710123,
+    "right_tail_false_stop_rate": 0.0,
+    "stop_count": 297.0,
+    "terminal_capability": 1.5284604601232907
+  }
+}

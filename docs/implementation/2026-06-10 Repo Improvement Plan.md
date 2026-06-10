@@ -263,3 +263,15 @@ each view needs. Where a change touches a structural principle,
 
 (Record each landed step here: date, commit, headline deltas vs
 previous step, decision notes.)
+
+- **2026-06-10 — Phase 0.1 landed.** `scripts/smoke_check.py` +
+  pinned `scripts/smoke_baseline.json` (seeds 42/43/44 via the
+  canonical YAML preset; mean value 3066.74, major wins 5.7/seed,
+  residual share 0.919, ramp 0.121). Finding recorded during
+  implementation: `presets.make_balanced_config()` and the
+  `balanced_incumbent_balanced.yaml` template resolve to materially
+  different configurations (factory path: mean value 5431, 2.3 major
+  wins/seed, ramp 0.176). The smoke check guards the YAML path because
+  that is what real runs use. The divergence between the two
+  "canonical balanced" entry points should be reconciled or documented
+  when the full-model presets are revisited in Phase 2.3.
