@@ -503,3 +503,30 @@ previous step, decision notes.)
   inert until now because the model had no attended-vs-unattended
   governance distinction — every initiative faced identical rules
   every tick.
+- **2026-06-10 — New design candidate (owner): DOWNSIDE as an
+  environmental property.** Owner's example: making AWS servers 5%
+  more efficient vs making airplanes 5% more fuel-efficient — get the
+  latter wrong and planes crash; more one-way-door decisions demand
+  conservatism. Gap identified: the current model has NO downside —
+  every payoff is >= 0, the worst outcome is wasted labor, so risk
+  aversion is pure taste (no world makes conservatism NECESSARY,
+  which also partly explains why discipline keeps winning on the
+  ladder). Candidate: a fifth value channel (consequence-of-failure:
+  completing/operating a low-quality initiative in a downside-enabled
+  type incurs negative value, per-type loss scale; type-independent
+  like all channels). Completes the payoff-asymmetry axis: families
+  would differ in downside fatness (insurance-like) as duals of
+  upside fatness (tech-like). Locks into the posture-shift amplifier
+  experiment via the one-way/two-way-door doctrine (evidence
+  threshold should scale with irreversibility + downside): posture
+  becomes a rational response to the world, not a personality trait.
+  Post-backport candidate alongside the Kahneman bias parameter.
+- **2026-06-10 — Config UI decision refined: layer-tabbed static
+  HTML page, built AFTER the 2.3 backport.** Tabs = Environment |
+  Architecture | Policy | Run, with a locked panel on the
+  Environment tab explaining latent variables (distributions are set
+  by the experimenter; values are resolved by the world seed and
+  never visible to governance). Zero dependencies; emits YAML;
+  run_design.py stays the execution path. Built after the backport
+  because the YAML surface changes there. Interim: reorganize the
+  template under explicit layer banners with what-is-hidden notes.
