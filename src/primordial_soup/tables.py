@@ -185,6 +185,10 @@ def _build_seed_run_rows(
                     "world_seed": seed_rec.world_seed,
                     # --- Outcome metrics ---
                     "total_value": result.cumulative_value_total,
+                    # Present-value ledger (improvement plan Phase 3.1):
+                    # same value events discounted at accrual time.
+                    "total_value_discounted": result.cumulative_value_total_discounted,
+                    "annual_discount_rate": result.annual_discount_rate,
                     "surfaced_major_wins": result.major_win_profile.major_win_count,
                     "terminal_capability": result.terminal_capability_t,
                     "right_tail_completions": rtfsp.right_tail_completions,
@@ -281,6 +285,10 @@ def _build_experimental_condition_rows(
 
         # Extract arrays for aggregation.
         values = np.array([r["total_value"] for r in seed_rows])
+        values_discounted = np.array([r["total_value_discounted"] for r in seed_rows])
+        # All seeds in a condition share one reporting config, so the
+        # rate is constant within the group.
+        annual_discount_rate = float(seed_rows[0]["annual_discount_rate"])
         wins = np.array([r["surfaced_major_wins"] for r in seed_rows], dtype=float)
         caps = np.array([r["terminal_capability"] for r in seed_rows])
         rt_comp = np.array([r["right_tail_completions"] for r in seed_rows], dtype=float)
@@ -370,6 +378,8 @@ def _build_experimental_condition_rows(
                 "seed_runs_completed": len(seed_rows),
                 # --- Summary metrics ---
                 "total_value_mean": float(np.mean(values)),
+                "total_value_discounted_mean": float(np.mean(values_discounted)),
+                "annual_discount_rate": annual_discount_rate,
                 "total_value_median": float(np.median(values)),
                 "total_value_std": float(np.std(values, ddof=1)) if len(values) > 1 else 0.0,
                 "total_value_p25": float(np.percentile(values, 25)),

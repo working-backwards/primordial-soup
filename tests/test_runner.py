@@ -15,6 +15,8 @@ Tests verify:
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from conftest import (
@@ -440,6 +442,41 @@ class TestRunSingleRegime:
         assert isinstance(result, RunResult)
         assert result.manifest.baseline_spec_version == BASELINE_SPEC_VERSION
         assert result.manifest.world_seed == 42
+
+    def test_discounted_ledger_tracks_undiscounted(self) -> None:
+        """The present-value ledger discounts each value event at its
+        accrual tick: discounted total is positive, strictly below the
+        undiscounted total, and bounded below by full-horizon discounting.
+
+        Per improvement plan Phase 3.1 and ReportingConfig.annual_discount_rate.
+        """
+        config = _make_simple_run_config(tick_horizon=10)
+        rate = config.reporting.annual_discount_rate
+        assert rate > 0  # default 0.10
+
+        result, _ = run_single_regime(config, BalancedPolicy())
+
+        undiscounted = result.cumulative_value_total
+        discounted = result.cumulative_value_total_discounted
+        assert undiscounted > 0
+        # Every event is discounted at a tick in (0, horizon], so the
+        # PV total sits strictly between the worst-case full-horizon
+        # discount and the undiscounted total.
+        assert discounted < undiscounted
+        assert discounted >= undiscounted * (1 + rate) ** (-(10 / 52.0))
+        assert result.annual_discount_rate == pytest.approx(rate)
+
+    def test_zero_discount_rate_ledgers_equal(self) -> None:
+        """With annual_discount_rate=0 the two ledgers are identical."""
+        config = _make_simple_run_config(tick_horizon=10)
+        config = dataclasses.replace(
+            config,
+            reporting=dataclasses.replace(config.reporting, annual_discount_rate=0.0),
+        )
+        result, _ = run_single_regime(config, BalancedPolicy())
+        assert result.cumulative_value_total_discounted == pytest.approx(
+            result.cumulative_value_total
+        )
 
     def test_deterministic_replay(self) -> None:
         """Two runs with the same seed produce identical results."""

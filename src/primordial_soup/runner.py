@@ -507,6 +507,15 @@ def _run_tick_loop(
             idle_team_count * config.model.baseline_value_per_tick
         )
 
+        # Per-tick discount factor for the present-value ledger
+        # (improvement plan Phase 3.1): value realized at tick t is
+        # worth (1 + r)^(-t/52) today, one tick = one week. Computed
+        # once per tick and applied to every value channel below.
+        discount_factor = (1.0 + config.reporting.annual_discount_rate) ** (-(current_tick / 52.0))
+        collector.cumulative_baseline_value_discounted += (
+            idle_team_count * config.model.baseline_value_per_tick * discount_factor
+        )
+
         # ==============================================================
         # Step 3: Step world (production, belief update, completion)
         # ==============================================================
@@ -554,6 +563,13 @@ def _run_tick_loop(
         # --- Accumulate value ---
         collector.cumulative_lump_value += tick_result.lump_value_realized_this_tick
         collector.cumulative_residual_value += tick_result.residual_value_realized_this_tick
+        # Present-value ledger: same events, discounted at accrual time.
+        collector.cumulative_lump_value_discounted += (
+            tick_result.lump_value_realized_this_tick * discount_factor
+        )
+        collector.cumulative_residual_value_discounted += (
+            tick_result.residual_value_realized_this_tick * discount_factor
+        )
 
         # --- Collect per-tick records (conditional on reporting config) ---
         if config.reporting.record_per_tick_logs:

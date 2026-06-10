@@ -152,6 +152,8 @@ def _make_run_result(
 
     return RunResult(
         cumulative_value_total=0.0,
+        cumulative_value_total_discounted=0.0,
+        annual_discount_rate=0.0,
         value_by_channel=ValueByChannel(
             completion_lump_value=0.0,
             residual_value=0.0,

@@ -358,6 +358,17 @@ class ReportingConfig:
     record_event_log: bool = True
     label_groupings: tuple[str, ...] | None = None
 
+    # Annual discount rate for the DISCOUNTED value ledger (improvement
+    # plan Phase 3.1). Reporting-side only: the engine's value
+    # accounting stays undiscounted; the runner accrues a parallel
+    # present-value total where value realized at tick t is weighted by
+    # (1 + rate)^(-t / 52) (one tick = one week). Reports show both
+    # ledgers side by side so long-horizon claims survive a CFO's
+    # scrutiny (a unit of value in year 6 is not worth a unit today).
+    # 0.0 disables discounting (the discounted ledger equals the
+    # undiscounted one). Must be >= 0.
+    annual_discount_rate: float = 0.10
+
 
 # ---------------------------------------------------------------------------
 # Resolved initiative configuration

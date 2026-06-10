@@ -867,6 +867,18 @@ def _build_narrative_paragraphs(
         p1 = p1_parts[0]
     else:
         p1 = "Value accounting was unavailable for this run."
+    # Present-value ledger (improvement plan Phase 3.1): a standalone
+    # sentence beside the undiscounted total, so late-arriving residual
+    # value is readable in today's terms.
+    total_discounted = condition_row.get("total_value_discounted_mean")
+    discount_rate = condition_row.get("annual_discount_rate")
+    if total_discounted is not None and discount_rate is not None and discount_rate > 0:
+        pv_share = (total_discounted / total_value) if total_value else None
+        share_clause = f" ({pv_share * 100:.0f}% of the undiscounted total)" if pv_share else ""
+        p1 += (
+            f" Discounted at {discount_rate * 100:.0f}% per year, the same value "
+            f"stream is worth {total_discounted:,.0f} {value_unit} today{share_clause}."
+        )
     if major_wins is not None:
         p1 += f" {major_wins:.1f} major wins were surfaced but are not priced into the total."
 

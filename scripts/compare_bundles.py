@@ -35,6 +35,7 @@ import pyarrow.parquet as pq
 # working as the schema evolves across model-ladder rungs.
 HEADLINE_METRICS: tuple[str, ...] = (
     "total_value",
+    "total_value_discounted",
     "cumulative_lump_value",
     "cumulative_residual_value",
     "surfaced_major_wins",

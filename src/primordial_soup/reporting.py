@@ -431,6 +431,15 @@ class RunResult:
     cumulative_value_total: float
     value_by_channel: ValueByChannel
 
+    # Present-value (discounted) total: the same lump + residual value
+    # events, each weighted at accrual time by
+    # (1 + annual_discount_rate)^(-tick/52). Reported alongside the
+    # undiscounted total so long-horizon value claims are readable in
+    # CFO terms. Per improvement plan Phase 3.1.
+    cumulative_value_total_discounted: float
+    # The rate used, echoed for report labeling.
+    annual_discount_rate: float
+
     # --- Major-win profile ---
     major_win_profile: MajorWinProfile
 
@@ -515,6 +524,15 @@ class RunCollector:
     # Cumulative value accumulators (channel-separated).
     cumulative_lump_value: float = 0.0
     cumulative_residual_value: float = 0.0
+
+    # Discounted (present-value) parallel ledger. Same value events,
+    # weighted at accrual time by (1 + annual_discount_rate)^(-tick/52).
+    # Per improvement plan Phase 3.1: reporting-side only — the engine
+    # never sees these. When annual_discount_rate is 0.0 these equal
+    # the undiscounted accumulators exactly.
+    cumulative_lump_value_discounted: float = 0.0
+    cumulative_residual_value_discounted: float = 0.0
+    cumulative_baseline_value_discounted: float = 0.0
 
     # Event logs.
     completion_events: list[CompletionEvent] = field(default_factory=list)
@@ -1116,6 +1134,12 @@ def assemble_run_result(
     # --- Cumulative value ---
     cumulative_value_total = collector.cumulative_lump_value + collector.cumulative_residual_value
 
+    # Present-value ledger total (Phase 3.1): same events, discounted
+    # at accrual time in the runner's tick loop.
+    cumulative_value_total_discounted = (
+        collector.cumulative_lump_value_discounted + collector.cumulative_residual_value_discounted
+    )
+
     # --- Value by channel ---
     value_by_channel = compute_value_by_channel(
         cumulative_lump_value=collector.cumulative_lump_value,
@@ -1236,6 +1260,8 @@ def assemble_run_result(
 
     return RunResult(
         cumulative_value_total=cumulative_value_total,
+        cumulative_value_total_discounted=cumulative_value_total_discounted,
+        annual_discount_rate=config.reporting.annual_discount_rate,
         value_by_channel=value_by_channel,
         major_win_profile=major_win_profile,
         belief_accuracy=belief_accuracy,

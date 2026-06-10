@@ -88,6 +88,7 @@ def compute_seed_metrics(result: RunResult) -> dict[str, float]:
 
     return {
         "cumulative_value_total": total,
+        "cumulative_value_total_discounted": result.cumulative_value_total_discounted,
         "completion_lump_value": lump,
         "residual_value": residual,
         "residual_share": residual_share,
