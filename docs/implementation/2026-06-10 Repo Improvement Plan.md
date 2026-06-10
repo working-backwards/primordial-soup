@@ -442,3 +442,19 @@ previous step, decision notes.)
   testability sooner). Alternatives: attention as execution
   accelerator, or the two-sided sponsor effect (helps execution,
   delays stopping). Owner decision required before designing it.
+- **2026-06-10 — Attention question RESOLVED by owner: epistemic-only
+  attention stands for the Beetle.** Owner's reasoning: exec
+  attention depends on hours, concentration, target selection, and
+  innate ability (the last explicitly out of scope), and the Bezos
+  pattern — concentrated time on a few potentially transformational
+  bets, many of which failed or never launched — does not by itself
+  imply attention must move headline outcomes in this model. The M4
+  null result is therefore recorded as an honest finding, not a
+  defect: *in this model, watching more closely does not rescue
+  governance — choosing (intake) and waiting (patience through dark
+  periods) do the work.* A non-epistemic attention channel
+  (revelation acceleration, execution effects, sponsor attachment)
+  remains a documented candidate for a future study version, not
+  this one. A concentrated-vs-spread allocation sweep using the
+  existing compute_weighted_attention primitive remains available as
+  a cheap confirmation experiment if wanted.
