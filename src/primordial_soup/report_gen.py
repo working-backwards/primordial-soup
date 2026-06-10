@@ -210,6 +210,7 @@ def _build_headline_table(
     headers = [
         "Condition",
         "Value (mean)",
+        "Δ vs Baseline (95% CI)",
         "Major Wins (mean)",
         "Terminal Cap (mean)",
         "RT False-Stop Rate",
@@ -218,10 +219,17 @@ def _build_headline_table(
     rows: list[list[str]] = []
     for r in condition_rows:
         label = r.get("governance_regime_label", r.get("experimental_condition_id", ""))
+        # Paired-CRN delta vs the baseline condition (Phase 3.4):
+        # mean +/- 95% CI half-width from per-seed differences on
+        # shared world seeds. "baseline" for the baseline row itself.
+        delta_mean = r.get("delta_total_value_vs_baseline_mean")
+        delta_ci = r.get("delta_total_value_vs_baseline_ci95")
+        delta_cell = "baseline" if delta_mean is None else f"{delta_mean:+.1f} ± {delta_ci:.1f}"
         rows.append(
             [
                 str(label),
                 _fmt(r.get("total_value_mean")),
+                delta_cell,
                 _fmt(r.get("surfaced_major_wins_mean")),
                 _fmt(r.get("terminal_capability_mean"), 3),
                 _fmt(r.get("right_tail_false_stop_rate_mean"), 3),

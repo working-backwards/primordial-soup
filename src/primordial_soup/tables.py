@@ -257,6 +257,69 @@ def write_seed_runs(
 # ===========================================================================
 
 
+# Two-sided 97.5% Student-t critical values by degrees of freedom, for
+# paired-delta confidence intervals (Phase 3.4). Stdlib-only (no scipy);
+# beyond df=30 the normal approximation 1.96 is within 2% and we use a
+# slightly conservative 2.0.
+_T_CRITICAL_975: dict[int, float] = {
+    1: 12.706,
+    2: 4.303,
+    3: 3.182,
+    4: 2.776,
+    5: 2.571,
+    6: 2.447,
+    7: 2.365,
+    8: 2.306,
+    9: 2.262,
+    10: 2.228,
+    11: 2.201,
+    12: 2.179,
+    13: 2.160,
+    14: 2.145,
+    15: 2.131,
+    16: 2.120,
+    17: 2.110,
+    18: 2.101,
+    19: 2.093,
+    20: 2.086,
+    21: 2.080,
+    22: 2.074,
+    23: 2.069,
+    24: 2.064,
+    25: 2.060,
+    26: 2.056,
+    27: 2.052,
+    28: 2.048,
+    29: 2.045,
+    30: 2.042,
+}
+
+
+def t_critical_975(degrees_of_freedom: int) -> float:
+    """Two-sided 95% Student-t critical value (slightly conservative > df 30)."""
+    if degrees_of_freedom < 1:
+        raise ValueError(f"degrees_of_freedom must be >= 1, got {degrees_of_freedom}")
+    return _T_CRITICAL_975.get(degrees_of_freedom, 2.0)
+
+
+def paired_delta_stats(differences: list[float]) -> tuple[float, float]:
+    """Mean and 95% CI half-width of paired per-seed differences.
+
+    The differences are (condition value - baseline value) on the SAME
+    world seed; common random numbers make each one a paired
+    observation. Returns (mean, half_width) where the 95% confidence
+    interval is mean +/- half_width. Half-width is 0.0 when fewer than
+    two pairs exist (no variance estimate possible).
+    """
+    n = len(differences)
+    mean = sum(differences) / n if n else 0.0
+    if n < 2:
+        return (mean, 0.0)
+    variance = sum((d - mean) ** 2 for d in differences) / (n - 1)
+    half_width = t_critical_975(n - 1) * (variance**0.5) / (n**0.5)
+    return (mean, half_width)
+
+
 def _build_experimental_condition_rows(
     experiment_spec: ExperimentSpec,
     seed_run_rows: list[dict[str, Any]],
@@ -272,6 +335,17 @@ def _build_experimental_condition_rows(
     for row in seed_run_rows:
         cid = row["experimental_condition_id"]
         by_condition.setdefault(cid, []).append(row)
+
+    # Baseline rows indexed by world_seed, for paired-CRN deltas
+    # (improvement plan Phase 3.4). Every condition runs the same
+    # world seeds with common random numbers, so the per-seed
+    # difference (condition - baseline) is a paired observation whose
+    # confidence interval is far tighter than an unpaired comparison
+    # — this is the analysis the CRN substream design exists to enable.
+    baseline_cid = experiment_spec.baseline_condition_id
+    baseline_rows_by_seed: dict[Any, dict[str, Any]] = {
+        row["world_seed"]: row for row in by_condition.get(baseline_cid, [])
+    }
 
     rows: list[dict[str, Any]] = []
 
@@ -360,6 +434,37 @@ def _build_experimental_condition_rows(
 
         peak_capability_ticks = np.array([r["peak_capability_tick"] for r in seed_rows])
 
+        # --- Paired-CRN deltas vs the baseline condition (Phase 3.4) ---
+        # Per-seed differences against the baseline condition on shared
+        # world seeds; mean +/- 95% CI half-width. None for the baseline
+        # condition itself and when no seeds pair.
+        paired_columns: dict[str, float | int | None] = {
+            "delta_total_value_vs_baseline_mean": None,
+            "delta_total_value_vs_baseline_ci95": None,
+            "delta_total_value_discounted_vs_baseline_mean": None,
+            "delta_total_value_discounted_vs_baseline_ci95": None,
+            "delta_surfaced_major_wins_vs_baseline_mean": None,
+            "delta_surfaced_major_wins_vs_baseline_ci95": None,
+            "paired_seed_count": None,
+        }
+        if cid != baseline_cid and baseline_rows_by_seed:
+            paired = [
+                (row, baseline_rows_by_seed[row["world_seed"]])
+                for row in seed_rows
+                if row["world_seed"] in baseline_rows_by_seed
+            ]
+            if paired:
+                for metric, prefix in (
+                    ("total_value", "delta_total_value_vs_baseline"),
+                    ("total_value_discounted", "delta_total_value_discounted_vs_baseline"),
+                    ("surfaced_major_wins", "delta_surfaced_major_wins_vs_baseline"),
+                ):
+                    diffs = [float(c[metric]) - float(b[metric]) for c, b in paired]
+                    mean, half_width = paired_delta_stats(diffs)
+                    paired_columns[f"{prefix}_mean"] = mean
+                    paired_columns[f"{prefix}_ci95"] = half_width
+                paired_columns["paired_seed_count"] = len(paired)
+
         rows.append(
             {
                 "run_bundle_id": experiment_spec.experiment_name,
@@ -426,6 +531,8 @@ def _build_experimental_condition_rows(
                 "ramp_labor_fraction_mean": float(np.mean(ramp_fractions)),
                 # --- Governance quality (single_run_report_spec #16) ---
                 "mean_absolute_belief_error_mean": float(np.mean(belief_errors)),
+                # --- Paired-CRN deltas vs baseline (Phase 3.4) ---
+                **paired_columns,
             }
         )
 

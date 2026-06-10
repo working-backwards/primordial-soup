@@ -144,14 +144,33 @@ class TestBuildHeadlineTable:
             },
         ]
         headers, rows = _build_headline_table(conditions)
-        assert len(headers) == 6
+        # 7 columns since Phase 3.4 added the paired-delta CI column.
+        assert len(headers) == 7
         assert len(rows) == 1
         assert rows[0][0] == "Balanced"
         assert rows[0][1] == "100.50"
+        # No paired-delta columns in the row dict -> baseline label.
+        assert rows[0][2] == "baseline"
+
+    def test_paired_delta_column_rendered(self) -> None:
+        conditions = [
+            {
+                "governance_regime_label": "Aggressive",
+                "total_value_mean": 120.0,
+                "delta_total_value_vs_baseline_mean": 19.5,
+                "delta_total_value_vs_baseline_ci95": 4.25,
+                "surfaced_major_wins_mean": 2.0,
+                "terminal_capability_mean": 1.2,
+                "right_tail_false_stop_rate_mean": 0.1,
+                "idle_pct_mean": 0.05,
+            },
+        ]
+        _headers, rows = _build_headline_table(conditions)
+        assert rows[0][2] == "+19.5 ± 4.2"
 
     def test_empty_conditions(self) -> None:
         headers, rows = _build_headline_table([])
-        assert len(headers) == 6
+        assert len(headers) == 7
         assert len(rows) == 0
 
 

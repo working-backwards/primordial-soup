@@ -808,3 +808,45 @@ class TestPhase2SingleRunColumns:
         assert rows, "expected at least one family_outcomes row"
         for row in rows:
             assert "first_completion_tick" in row
+
+
+# ===========================================================================
+# Paired-CRN delta statistics (improvement plan Phase 3.4)
+# ===========================================================================
+
+
+class TestPairedDeltaStats:
+    """Tests for the paired-delta helpers behind the CI columns."""
+
+    def test_mean_and_half_width_known_values(self):
+        from primordial_soup.tables import paired_delta_stats
+
+        # Differences 1..5: mean 3.0, sample sd sqrt(2.5), n=5, t=2.776.
+        mean, half = paired_delta_stats([1.0, 2.0, 3.0, 4.0, 5.0])
+        assert mean == pytest.approx(3.0)
+        expected_half = 2.776 * (2.5**0.5) / (5**0.5)
+        assert half == pytest.approx(expected_half, rel=1e-6)
+
+    def test_single_pair_has_zero_half_width(self):
+        from primordial_soup.tables import paired_delta_stats
+
+        mean, half = paired_delta_stats([4.2])
+        assert mean == pytest.approx(4.2)
+        assert half == 0.0
+
+    def test_identical_differences_zero_width(self):
+        from primordial_soup.tables import paired_delta_stats
+
+        mean, half = paired_delta_stats([2.0, 2.0, 2.0])
+        assert mean == pytest.approx(2.0)
+        assert half == pytest.approx(0.0)
+
+    def test_t_critical_lookup_and_fallback(self):
+        from primordial_soup.tables import t_critical_975
+
+        assert t_critical_975(1) == pytest.approx(12.706)
+        assert t_critical_975(29) == pytest.approx(2.045)
+        # Beyond the table: slightly conservative 2.0.
+        assert t_critical_975(100) == pytest.approx(2.0)
+        with pytest.raises(ValueError, match="degrees_of_freedom"):
+            t_critical_975(0)
