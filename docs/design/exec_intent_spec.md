@@ -103,10 +103,11 @@ must *not* expose, with the reason:
   "governance sees" and breaks cross-regime comparability.
 - `base_signal_st_dev_default`, `execution_signal_st_dev`,
   `dependency_noise_exponent` — signal-noise physics.
-- `attention_noise_threshold`, `low_attention_penalty_slope`,
-  `attention_curve_exponent`, `min_attention_noise_modifier`,
-  `max_attention_noise_modifier` — attention-curve shape. Exec chooses
-  the *budget*; the *curve* is calibrated.
+- `attention_noise_scale`, `attention_noise_decay` — the
+  two-parameter attention-curve shape g(a) = scale * exp(-decay * a)
+  (per core_simulator.md; adopted on expert review, replacing the
+  previous five-parameter curve). Exec chooses the *budget*; the
+  *curve* is calibrated.
 - `max_portfolio_capability`, `capability_decay` — enabler-effect
   physics.
 - `reference_ceiling` — TAM-patience scaling constant.

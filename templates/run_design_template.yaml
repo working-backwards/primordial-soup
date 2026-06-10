@@ -252,14 +252,12 @@ environment:
   #   # effective_T_tam = ceil(T_tam * observable_ceiling / reference_ceiling)
   #   reference_ceiling: 50.0
   #
-  #   # Attention curve g(a) parameters:
-  #   # g(a) maps executive attention to a learning-rate gain multiplier.
-  #   # Below attention_noise_threshold, g = min_attention_noise_modifier.
-  #   attention_noise_threshold: 0.15   # a_min: floor boundary
-  #   low_attention_penalty_slope: 2.0  # k_low: penalty exponent below a_min
-  #   attention_curve_exponent: 0.5     # k: gain exponent above a_min
-  #   min_attention_noise_modifier: 0.3 # g_min: floor of g(a)
-  #   max_attention_noise_modifier: ~   # g_max: null = uncapped
+  #   # Attention curve g(a) = scale * exp(-decay * a):
+  #   # g(a) multiplies signal noise; more attention -> lower g ->
+  #   # clearer signals, with diminishing returns. Neutral (attention
+  #   # has no effect) is scale=1.0, decay=0.0.
+  #   attention_noise_scale: 1.3        # c1: noise multiplier at zero attention
+  #   attention_noise_decay: 1.5        # c2: clarity rate; g(1)=c1*exp(-c2)
   #
   #   # Base learning rate for quality belief updates (eta).
   #   learning_rate: 0.1

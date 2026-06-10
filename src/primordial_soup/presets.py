@@ -227,17 +227,14 @@ def make_baseline_model_config() -> ModelConfig:
         # Right-tail ceilings drawn LogNormal(4.0, 0.5) → median ~55.
         # Use 50 as a round central value.
         reference_ceiling=50.0,
-        # --- Attention curve g(a) ---
-        # a_min: attention floor below which g(a) = g_min
-        attention_noise_threshold=0.15,
-        # k_low: penalty exponent below a_min
-        low_attention_penalty_slope=2.0,
-        # k: gain exponent above a_min
-        attention_curve_exponent=0.5,
-        # g_min: floor of g(a)
-        min_attention_noise_modifier=0.3,
-        # g_max: uncapped
-        max_attention_noise_modifier=None,
+        # --- Attention curve g(a) = c1 * exp(-c2 * a) ---
+        # Two-parameter form per expert review (core_simulator.md).
+        # Calibrated to span roughly the old piecewise curve's range:
+        # g(0) = 1.3 (zero attention inflates noise 30%),
+        # g(1) = 1.3 * exp(-1.5) ~= 0.29 (full attention cuts noise
+        # to under a third of baseline).
+        attention_noise_scale=1.3,
+        attention_noise_decay=1.5,
         # --- Learning rates ---
         learning_rate=0.1,  # eta
         dependency_learning_scale=None,  # canonical formula L(d) = 1 - d
@@ -1151,12 +1148,10 @@ def make_model0_model_config() -> ModelConfig:
         # Reference ceiling: irrelevant with no TAM/bounded-prize
         # initiatives, but must be > 0 for validation.
         reference_ceiling=50.0,
-        # --- Attention curve g(a): flat at 1.0 (attention has no effect) ---
-        attention_noise_threshold=0.15,
-        low_attention_penalty_slope=0.0,
-        attention_curve_exponent=0.5,
-        min_attention_noise_modifier=1.0,
-        max_attention_noise_modifier=1.0,
+        # --- Attention curve g(a): neutral (attention has no effect) ---
+        # scale=1.0, decay=0.0 gives g(a) == 1.0 everywhere.
+        attention_noise_scale=1.0,
+        attention_noise_decay=0.0,
         # --- Learning: active ---
         learning_rate=0.1,
         dependency_learning_scale=None,  # canonical formula, but d=0 so L(d)=1
@@ -1917,3 +1912,102 @@ def make_model3_aggressive_config(world_seed: int) -> SimulationConfiguration:
 def make_model3_patient_config(world_seed: int) -> SimulationConfiguration:
     """Complete Model 3 Patient configuration (M2 + RT frontier)."""
     return _make_model3_config(world_seed, make_model1_patient_governance_config())
+
+
+# ===========================================================================
+# Model 4 — Model 3 + executive attention (two-parameter curve)
+# ===========================================================================
+#
+# Model 4 is the fifth rung of the model ladder. It adds exactly one
+# mechanism to Model 3: executive attention as a signal-clarity
+# lever, in the two-parameter form adopted on expert review
+# (core_simulator.md): g(a) = c1 * exp(-c2 * a). The attention
+# budget becomes positive, every active initiative receives an equal
+# share (BalancedPolicy's allocation), and that share reduces signal
+# noise relative to M3's neutral g == 1.
+#
+# What this rung tests: does clearer information change the posture
+# comparison? Attention here is purely epistemic — it buys signal
+# clarity, not execution speed. With budget 5.0 across up to 10
+# active initiatives, the typical equal share is ~0.5, giving
+# g(0.5) = 1.3 * exp(-0.75) ~= 0.61: a meaningfully clearer world
+# than M3's g = 1.0.
+#
+# Attention ALLOCATION differences (concentrated / single-threaded vs
+# spread) are deliberately NOT an archetype dimension at this rung —
+# that would confound the posture comparison. Allocation strategy
+# belongs in a dedicated one-lever sweep after the rung lands.
+
+# M4 attention parameters: the canonical calibrated curve plus a
+# budget sized so the equal share across a fully-staffed portfolio
+# (10 teams) is 0.5 — the middle of the attention range.
+_MODEL4_EXEC_ATTENTION_BUDGET = 5.0
+_MODEL4_ATTENTION_MIN = 0.05
+
+
+def make_model4_model_config() -> ModelConfig:
+    """Build the Model 4 ModelConfig: Model 0 physics + active attention."""
+    return dataclasses.replace(
+        make_model0_model_config(),
+        exec_attention_budget=_MODEL4_EXEC_ATTENTION_BUDGET,
+        # The calibrated two-parameter curve (same values as the full
+        # model): zero attention inflates noise 30%, full attention
+        # cuts it to ~29% of baseline.
+        attention_noise_scale=1.3,
+        attention_noise_decay=1.5,
+    )
+
+
+def _make_model4_governance_config(base: GovernanceConfig) -> GovernanceConfig:
+    """Adapt an M1 posture config for the active-attention world.
+
+    Only the attention plumbing changes: the budget mirror and a small
+    positive attention floor (required by validation when the budget
+    is positive). Stop/intake posture is untouched, so M4-vs-M3 diffs
+    isolate the attention mechanism.
+    """
+    return dataclasses.replace(
+        base,
+        exec_attention_budget=_MODEL4_EXEC_ATTENTION_BUDGET,
+        attention_min=_MODEL4_ATTENTION_MIN,
+    )
+
+
+def _make_model4_config(
+    world_seed: int,
+    governance: GovernanceConfig,
+) -> SimulationConfiguration:
+    """Assemble a complete Model 4 SimulationConfiguration."""
+    return SimulationConfiguration(
+        world_seed=world_seed,
+        time=make_model1_time_config(),
+        teams=make_model0_workforce_config(),
+        model=make_model4_model_config(),
+        governance=governance,
+        reporting=make_baseline_reporting_config(),
+        initiative_generator=make_model3_initiative_generator_config(),
+    )
+
+
+def make_model4_balanced_config(world_seed: int) -> SimulationConfiguration:
+    """Complete Model 4 Balanced configuration (M3 + attention)."""
+    return _make_model4_config(
+        world_seed,
+        _make_model4_governance_config(make_model1_balanced_governance_config()),
+    )
+
+
+def make_model4_aggressive_config(world_seed: int) -> SimulationConfiguration:
+    """Complete Model 4 Aggressive configuration (M3 + attention)."""
+    return _make_model4_config(
+        world_seed,
+        _make_model4_governance_config(make_model1_aggressive_governance_config()),
+    )
+
+
+def make_model4_patient_config(world_seed: int) -> SimulationConfiguration:
+    """Complete Model 4 Patient configuration (M3 + attention)."""
+    return _make_model4_config(
+        world_seed,
+        _make_model4_governance_config(make_model1_patient_governance_config()),
+    )

@@ -525,44 +525,41 @@ capability improvements reduce effective noise uniformly across all staffed
 initiatives. A doubling of portfolio capability halves $\sigma_{\text{eff}}$ for every
 initiative, regardless of its dependency level or attention allocation.
 
-We define $g(a)$ (attention noise modifier) through a raw shape $g_{\text{raw}}(a)$ and a clamp to preserve both a noise floor and a practical ceiling:
+We define $g(a)$ (attention noise modifier) as a two-parameter
+exponential decay:
 
-$$g_{\text{raw}}(a) = \begin{cases} 1 + k_{\text{low}} \cdot (a_{\min} - a) & \text{if } a < a_{\min} \\ \dfrac{1}{1 + k \cdot (a - a_{\min})} & \text{if } a \geq a_{\min} \end{cases}$$
-
-$$g(a) = \operatorname{clamp}\!\bigl( g_{\text{raw}}(a),\; g_{\min},\; g_{\max} \bigr)$$
+$$g(a) = c_1 \cdot e^{-c_2 \cdot a}$$
 
 Parameters:
-- $a_{\min} \in [0,1]$ — minimum attention threshold below which noise increases.
-- $k_{\text{low}} \geq 0$ — controls how rapidly noise increases as $a$ falls below $a_{\min}$.
-- $k > 0$ — curvature for diminishing returns above $a_{\min}$.
-- $g_{\min} > 0$ — **floor** so noise cannot be driven to zero.
-- $g_{\max}$ — ceiling so noise does not explode numerically. If $g_{\max}$ is `None`,
-  the upper clamp is omitted and only the floor $g_{\min}$ is applied.
+- $c_1 > 0$ (`attention_noise_scale`) — the noise multiplier at zero
+  attention. $c_1 > 1$ means a wholly unattended initiative produces
+  noisier signals than its dependency-amplified baseline.
+- $c_2 \geq 0$ (`attention_noise_decay`) — how quickly attention buys
+  signal clarity. $g(1) = c_1 e^{-c_2}$ is the multiplier at full
+  attention; the dynamic range $g(0)/g(1) = e^{c_2}$.
 
 Behavioral properties of $g(a)$:
-- $g_{\text{raw}}(a)$ is continuous on $[0, \infty)$ and monotonically decreasing (strictly
-  decreasing where not clamped). Below $a_{\min}$, $g_{\text{raw}}$ increases linearly as
-  $a$ decreases; above $a_{\min}$, $g_{\text{raw}}$ decreases hyperbolically as $a$
-  increases. The clamp creates constant regions at the floor and ceiling.
-- $g(a) = 1$ at $a = a_{\min}$ (before clamping): attention is neutral at the
-  threshold. The observation noise at $a = a_{\min}$ equals the initiative's
-  dependency-amplified base noise $\sigma_{\text{base}} \times (1 + \alpha_d \times d)$, unscaled by
-  attention.
-- $g(a) > 1$ for $a < a_{\min}$ (before clamping): sub-threshold attention
-  actively increases observation noise beyond the dependency-amplified baseline.
-  The rate of increase is governed by $k_{\text{low}}$.
-- $g(a) < 1$ for $a > a_{\min}$ (before clamping): above-threshold attention
-  reduces observation noise with diminishing returns governed by $k$. The
-  infimum of $g_{\text{raw}}(a)$ as $a \to \infty$ is $0$, but the clamp at $g_{\min}$ prevents
-  noise from being driven arbitrarily close to zero.
-- The $g_{\max}$ ceiling, when set, prevents numerically unbounded noise at very
-  low attention values. When $g_{\max}$ is not set (`None`), $g_{\text{raw}}(a)$ at $a = 0$
-  evaluates to $1 + k_{\text{low}} \times a_{\min}$, which may be large but is finite.
+- Strictly positive, smooth, and monotonically decreasing in $a$
+  whenever $c_2 > 0$: more attention always means clearer signals,
+  with the marginal benefit of additional attention shrinking
+  exponentially — diminishing returns without a kink.
+- The neutral configuration $c_1 = 1, c_2 = 0$ gives $g \equiv 1$:
+  attention has no effect on signal quality. This is how ladder
+  rungs that exclude the attention mechanism express it.
+- No floor or ceiling clamps are needed: $g$ is bounded on $[0, 1]$
+  between $c_1 e^{-c_2}$ and $c_1$, both finite and positive by
+  construction.
 
-Design notes:
-- $g_{\text{raw}}(a_{\min}) = 1$, so $g(a)$ is continuous at $a_{\min}$ before clamping.
-- The clamp ensures $g(a) \geq g_{\min}$ (noise floor). When $g_{\max}$ is set, it also
-  protects against numerically large $g(a)$ at low attention.
+Design history: this form replaces a five-parameter piecewise curve
+(threshold $a_{\min}$, low-attention slope $k_{\text{low}}$,
+curvature $k$, floor $g_{\min}$, ceiling $g_{\max}$) on expert
+recommendation (S. Henderson review; design decision rationale: the
+published surface of a stylized model should carry the fewest
+parameters that express the mechanism — one level and one slope
+suffice for "attention buys clarity with diminishing returns"). The
+canonical full-model calibration maps the old curve's effective range
+($g \approx 1.3$ at zero attention, $\approx 0.3$ at full attention)
+onto $c_1 = 1.3$, $c_2 = 1.5$ (giving $g(1) \approx 0.29$).
 
 The governance implication of the multiplicative structure is that signal clarity
 is endogenous to the decision-maker's allocation choices — executive attention

@@ -35,13 +35,11 @@ from primordial_soup.types import RAMP_EXPONENTIAL_K, RampShape
 
 # Default g(a) parameters matching conftest.py's make_model_config defaults.
 # Used to reduce boilerplate in tests that aren't specifically testing
-# the attention curve shape.
+# the attention curve shape. Two-parameter exponential form per
+# core_simulator.md: g(a) = scale * exp(-decay * a).
 _DEFAULT_G_PARAMS = dict(
-    attention_noise_threshold=0.1,  # a_min
-    low_attention_penalty_slope=2.0,  # k_low
-    attention_curve_exponent=3.0,  # k
-    min_attention_noise_modifier=0.3,  # g_min
-    max_attention_noise_modifier=None,  # g_max (uncapped)
+    attention_noise_scale=1.3,  # c1: noise multiplier at zero attention
+    attention_noise_decay=1.5,  # c2: exponential clarity rate
 )
 
 
@@ -59,154 +57,75 @@ def _make_rng_pair(world_seed: int = 42, initiative_index: int = 0):
 
 
 class TestAttentionNoiseModifier:
-    """Tests for the attention noise modifier g(a) curve."""
+    """Tests for the attention noise modifier g(a) = c1 * exp(-c2 * a).
 
-    def test_at_threshold_raw_value_is_one(self):
-        """g_raw(a_min) = 1.0 in both branches before clamping."""
-        result = attention_noise_modifier(
-            0.1,  # a = a_min
-            attention_noise_threshold=0.1,
-            low_attention_penalty_slope=2.0,
-            attention_curve_exponent=3.0,
-            min_attention_noise_modifier=0.0,  # no floor, to see raw value
-            max_attention_noise_modifier=None,
-        )
-        assert result == pytest.approx(1.0)
+    Two-parameter exponential form per core_simulator.md attention
+    shape (adopted on expert review, replacing the previous
+    five-parameter piecewise curve).
+    """
 
-    def test_above_threshold_noise_decreases(self):
-        """Higher attention above a_min should give lower g(a) (less noise)."""
-        g_low = attention_noise_modifier(0.2, **_DEFAULT_G_PARAMS)
-        g_high = attention_noise_modifier(0.8, **_DEFAULT_G_PARAMS)
-        # More attention → less noise → lower g(a).
-        assert g_high < g_low
-
-    def test_below_threshold_noise_increases(self):
-        """Lower attention below a_min should give higher g(a) (more noise)."""
-        g_at_threshold = attention_noise_modifier(0.1, **_DEFAULT_G_PARAMS)
-        g_below = attention_noise_modifier(0.05, **_DEFAULT_G_PARAMS)
-        # Less attention → more noise → higher g(a).
-        assert g_below > g_at_threshold
-
-    def test_zero_attention_gives_large_noise_modifier(self):
-        """At a=0, g(a) should be significantly above 1.0."""
-        result = attention_noise_modifier(0.0, **_DEFAULT_G_PARAMS)
-        # g_raw(0) = 1 + k_low * a_min = 1 + 2.0 * 0.1 = 1.2
-        assert result == pytest.approx(1.2)
-
-    def test_max_attention_gives_small_noise_modifier(self):
-        """At a=1.0, g(a) should be well below 1.0 (clamped by g_min)."""
-        result = attention_noise_modifier(1.0, **_DEFAULT_G_PARAMS)
-        # g_raw(1.0) = 1 / (1 + 3.0 * (1.0 - 0.1)) = 1/3.7 ≈ 0.27
-        # But g_min = 0.3, so the floor clamp applies.
-        assert result == pytest.approx(0.3)
-        # Verify the raw value is below the floor to confirm clamping.
-        g_raw = 1.0 / (1.0 + 3.0 * 0.9)
-        assert g_raw < 0.3
-
-    def test_max_attention_unclamped_gives_formula_value(self):
-        """At a=1.0 with g_min=0, the raw formula value is returned."""
-        result = attention_noise_modifier(
-            1.0,
-            attention_noise_threshold=0.1,
-            low_attention_penalty_slope=2.0,
-            attention_curve_exponent=3.0,
-            min_attention_noise_modifier=0.0,  # no floor
-            max_attention_noise_modifier=None,
-        )
-        expected = 1.0 / (1.0 + 3.0 * 0.9)
-        assert result == pytest.approx(expected)
-
-    def test_floor_clamp_prevents_below_g_min(self):
-        """g(a) must never go below g_min, even with very high attention."""
-        result = attention_noise_modifier(
-            1.0,
-            attention_noise_threshold=0.1,
-            low_attention_penalty_slope=2.0,
-            attention_curve_exponent=100.0,  # extreme curvature
-            min_attention_noise_modifier=0.5,  # high floor
-            max_attention_noise_modifier=None,
-        )
-        # Without floor, g_raw would be very small. Floor should clamp it.
-        assert result == pytest.approx(0.5)
-
-    def test_ceiling_clamp_when_g_max_is_set(self):
-        """g(a) must not exceed g_max when g_max is not None."""
-        result = attention_noise_modifier(
-            0.0,  # low attention → high g_raw
-            attention_noise_threshold=0.5,
-            low_attention_penalty_slope=10.0,  # steep penalty
-            attention_curve_exponent=3.0,
-            min_attention_noise_modifier=0.3,
-            max_attention_noise_modifier=2.0,  # cap at 2.0
-        )
-        # g_raw(0) = 1 + 10.0 * 0.5 = 6.0, but capped at 2.0
-        assert result == pytest.approx(2.0)
-
-    def test_ceiling_none_allows_large_values(self):
-        """When g_max is None, g(a) is unbounded above (only floor applies)."""
-        result = attention_noise_modifier(
-            0.0,  # low attention → high g_raw
-            attention_noise_threshold=0.5,
-            low_attention_penalty_slope=10.0,  # steep penalty
-            attention_curve_exponent=3.0,
-            min_attention_noise_modifier=0.3,
-            max_attention_noise_modifier=None,  # no ceiling
-        )
-        # g_raw(0) = 1 + 10.0 * 0.5 = 6.0, no cap applied
-        assert result == pytest.approx(6.0)
-
-    def test_continuity_at_threshold(self):
-        """Both branches of g_raw should give the same value at a_min."""
-        # Test with a value slightly below and at a_min.
-        epsilon = 1e-12
-        a_min = 0.3
-
-        g_just_below = attention_noise_modifier(
-            a_min - epsilon,
-            attention_noise_threshold=a_min,
-            low_attention_penalty_slope=5.0,
-            attention_curve_exponent=3.0,
-            min_attention_noise_modifier=0.0,  # no floor, to see raw value
-            max_attention_noise_modifier=None,
-        )
-        g_at = attention_noise_modifier(
-            a_min,
-            attention_noise_threshold=a_min,
-            low_attention_penalty_slope=5.0,
-            attention_curve_exponent=3.0,
-            min_attention_noise_modifier=0.0,
-            max_attention_noise_modifier=None,
-        )
-
-        # Both should be very close to 1.0 (the shared value at a_min).
-        assert g_just_below == pytest.approx(1.0, abs=1e-10)
-        assert g_at == pytest.approx(1.0)
-
-    def test_exact_formula_below_threshold(self):
-        """Verify the exact below-threshold formula: g_raw = 1 + k_low * (a_min - a)."""
-        result = attention_noise_modifier(
-            0.02,
-            attention_noise_threshold=0.1,
-            low_attention_penalty_slope=3.0,
-            attention_curve_exponent=5.0,
-            min_attention_noise_modifier=0.0,
-            max_attention_noise_modifier=None,
-        )
-        # g_raw = 1 + 3.0 * (0.1 - 0.02) = 1 + 3.0 * 0.08 = 1.24
-        assert result == pytest.approx(1.24)
-
-    def test_exact_formula_above_threshold(self):
-        """Verify the exact above-threshold formula: g_raw = 1 / (1 + k * (a - a_min))."""
+    def test_exact_formula(self):
+        """g(a) = c1 * exp(-c2 * a), verified at an interior point."""
         result = attention_noise_modifier(
             0.5,
-            attention_noise_threshold=0.2,
-            low_attention_penalty_slope=2.0,
-            attention_curve_exponent=4.0,
-            min_attention_noise_modifier=0.0,
-            max_attention_noise_modifier=None,
+            attention_noise_scale=1.3,
+            attention_noise_decay=1.5,
         )
-        # g_raw = 1 / (1 + 4.0 * (0.5 - 0.2)) = 1 / (1 + 1.2) = 1 / 2.2
-        assert result == pytest.approx(1.0 / 2.2)
+        assert result == pytest.approx(1.3 * math.exp(-0.75))
+
+    def test_zero_attention_returns_scale(self):
+        """g(0) = c1: the noise multiplier for unattended initiatives."""
+        result = attention_noise_modifier(0.0, **_DEFAULT_G_PARAMS)
+        assert result == pytest.approx(1.3)
+
+    def test_full_attention_returns_scale_times_decay(self):
+        """g(1) = c1 * exp(-c2): full attention buys the maximum clarity."""
+        result = attention_noise_modifier(1.0, **_DEFAULT_G_PARAMS)
+        assert result == pytest.approx(1.3 * math.exp(-1.5))
+
+    def test_monotonically_decreasing_in_attention(self):
+        """More attention always means lower g(a) (clearer signals)."""
+        values = [
+            attention_noise_modifier(a, **_DEFAULT_G_PARAMS)
+            for a in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
+        ]
+        assert all(earlier > later for earlier, later in zip(values, values[1:], strict=False))
+
+    def test_diminishing_returns(self):
+        """Each equal increment of attention buys less noise reduction
+        than the one before (exponential decay has convex shape)."""
+        g0 = attention_noise_modifier(0.0, **_DEFAULT_G_PARAMS)
+        g_half = attention_noise_modifier(0.5, **_DEFAULT_G_PARAMS)
+        g_full = attention_noise_modifier(1.0, **_DEFAULT_G_PARAMS)
+        first_half_gain = g0 - g_half
+        second_half_gain = g_half - g_full
+        assert first_half_gain > second_half_gain
+
+    def test_neutral_configuration_is_identity(self):
+        """scale=1, decay=0 gives g(a) == 1 everywhere — the inert
+        configuration used by ladder rungs without attention."""
+        for a in (0.0, 0.3, 0.7, 1.0):
+            result = attention_noise_modifier(
+                a,
+                attention_noise_scale=1.0,
+                attention_noise_decay=0.0,
+            )
+            assert result == pytest.approx(1.0)
+
+    def test_always_positive(self):
+        """g(a) is strictly positive — noise is never driven to zero."""
+        result = attention_noise_modifier(
+            1.0,
+            attention_noise_scale=0.5,
+            attention_noise_decay=10.0,  # extreme decay
+        )
+        assert result > 0.0
+
+    def test_dynamic_range_is_exp_decay(self):
+        """g(0) / g(1) = exp(c2), independent of the scale."""
+        g0 = attention_noise_modifier(0.0, attention_noise_scale=2.0, attention_noise_decay=1.2)
+        g1 = attention_noise_modifier(1.0, attention_noise_scale=2.0, attention_noise_decay=1.2)
+        assert g0 / g1 == pytest.approx(math.exp(1.2))
 
 
 # ---------------------------------------------------------------------------

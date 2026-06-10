@@ -418,3 +418,27 @@ previous step, decision notes.)
   under scarcity (vs 10% at M2). The study's intended tension —
   throughput value vs discovery — is now visible in data. 1108 tests
   pass; smoke baseline unchanged.
+- **2026-06-10 — Attention curve replaced (5 params → 2) + Phase 2.2
+  landed (M4 = M3 + attention).** Per expert review, g(a) is now
+  `attention_noise_scale * exp(-attention_noise_decay * a)` (c1=1.3,
+  c2=1.5 in the calibrated presets; neutral = 1.0/0.0). Old fields
+  removed everywhere (no dual paths); spec updated in
+  core_simulator.md and exec_intent_spec.md; template updated. Smoke
+  baseline rewritten — full-model drift from the curve swap is tiny
+  (+0.02% to +0.1% value). M4 = M3 + budget 5.0 with equal allocation
+  (share ~0.5 → g ≈ 0.61, a 40% noise cut vs M3's neutral 1.0).
+  **M4-vs-M3 paired result: attention-as-pure-signal-clarity is
+  nearly inert** — belief error improves by only 0.0005, value moves
+  ±0.2%, wins/stops identical. This empirically confirms the
+  2026-06-09 evaluation's critique: decisions are intake-dominated
+  (attention cannot affect screening), dark periods discard signals
+  regardless of attention, and post-revelation beliefs converge to
+  truth under any plausible noise within initiative lifetimes. OPEN
+  DESIGN QUESTION for the owner: for executive involvement to matter
+  — the study's novel mechanism — attention likely needs a
+  non-epistemic channel. The natural candidate unifies with decision
+  27: sustained executive attention ACCELERATES REVELATION (shortens
+  the dark period — the single-threaded leader gets the team to
+  testability sooner). Alternatives: attention as execution
+  accelerator, or the two-sided sponsor effect (helps execution,
+  delays stopping). Owner decision required before designing it.

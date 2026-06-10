@@ -403,11 +403,8 @@ def step_world(
         # Compute attention noise modifier g(a).
         g_a = attention_noise_modifier(
             init_state.executive_attention_t,
-            attention_noise_threshold=model.attention_noise_threshold,
-            low_attention_penalty_slope=model.low_attention_penalty_slope,
-            attention_curve_exponent=model.attention_curve_exponent,
-            min_attention_noise_modifier=model.min_attention_noise_modifier,
-            max_attention_noise_modifier=model.max_attention_noise_modifier,
+            attention_noise_scale=model.attention_noise_scale,
+            attention_noise_decay=model.attention_noise_decay,
         )
 
         # Compute effective signal st_dev σ_eff.

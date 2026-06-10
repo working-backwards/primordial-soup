@@ -689,15 +689,8 @@ class RunDesignSpec:
                 dependency_noise_exponent=float(m["dependency_noise_exponent"]),
                 default_initial_quality_belief=float(m["default_initial_quality_belief"]),
                 reference_ceiling=float(m["reference_ceiling"]),
-                attention_noise_threshold=float(m["attention_noise_threshold"]),
-                low_attention_penalty_slope=float(m["low_attention_penalty_slope"]),
-                attention_curve_exponent=float(m["attention_curve_exponent"]),
-                min_attention_noise_modifier=float(m["min_attention_noise_modifier"]),
-                max_attention_noise_modifier=(
-                    float(m["max_attention_noise_modifier"])
-                    if m.get("max_attention_noise_modifier") is not None
-                    else None
-                ),
+                attention_noise_scale=float(m["attention_noise_scale"]),
+                attention_noise_decay=float(m["attention_noise_decay"]),
                 learning_rate=float(m["learning_rate"]),
                 dependency_learning_scale=(
                     float(m["dependency_learning_scale"])

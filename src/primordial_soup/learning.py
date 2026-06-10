@@ -21,11 +21,8 @@ Compact symbol → descriptive name mapping for this module:
     σ_base      → base_signal_st_dev
     α_d         → dependency_noise_exponent (config field name)
     a           → executive_attention_t
-    a_min       → attention_noise_threshold
-    k_low       → low_attention_penalty_slope
-    k           → attention_curve_exponent
-    g_min       → min_attention_noise_modifier
-    g_max       → max_attention_noise_modifier
+    c_1         → attention_noise_scale (noise multiplier at zero attention)
+    c_2         → attention_noise_decay (exponential clarity rate)
     C_t         → portfolio_capability_t
     L(d)        → learning_efficiency
     d           → dependency_level
@@ -59,11 +56,8 @@ logger = logging.getLogger(__name__)
 def attention_noise_modifier(
     executive_attention_t: float,
     *,
-    attention_noise_threshold: float,
-    low_attention_penalty_slope: float,
-    attention_curve_exponent: float,
-    min_attention_noise_modifier: float,
-    max_attention_noise_modifier: float | None,
+    attention_noise_scale: float,
+    attention_noise_decay: float,
 ) -> float:
     """Compute the attention noise modifier g(a).
 
@@ -71,63 +65,33 @@ def attention_noise_modifier(
     signal st_dev formula: higher g(a) means more noise (worse signal
     clarity), lower g(a) means less noise (better signal clarity).
 
-    Shape (per core_simulator.md §Effective noise and attention shape):
+    Two-parameter exponential form (per core_simulator.md §Effective
+    noise and attention shape; adopted on expert review to replace the
+    previous five-parameter piecewise curve):
 
-        g_raw(a) = 1 + k_low * (a_min - a)         if a < a_min
-        g_raw(a) = 1 / (1 + k * (a - a_min))       if a >= a_min
+        g(a) = c1 * exp(-c2 * a)
 
-        g(a) = clamp(g_raw(a), g_min, g_max)
-
-    The raw shape is continuous at a = a_min where g_raw(a_min) = 1.0
-    in both branches before clamping. Below a_min, noise increases
-    linearly as attention falls. Above a_min, noise decreases with
-    diminishing returns as attention increases.
-
-    When max_attention_noise_modifier (g_max) is None, only the floor
-    clamp (g_min) is applied. Per open implementation issue 5.
+    Properties: strictly positive, smooth, monotonically decreasing in
+    attention when c2 > 0 (more attention always buys clearer signals,
+    with exponentially diminishing returns). The neutral configuration
+    c1 = 1, c2 = 0 gives g == 1 everywhere — attention has no effect —
+    which is how ladder rungs that exclude the attention mechanism
+    express it. No clamps are needed: on a in [0, 1], g is bounded
+    between c1 * exp(-c2) and c1, both finite and positive.
 
     Args:
         executive_attention_t: Current executive attention level for
-            this initiative, a ∈ [0, 1]. (a in the design docs)
-        attention_noise_threshold: Attention level below which noise
-            increases. (a_min in the design docs)
-        low_attention_penalty_slope: Slope of noise increase below
-            a_min. Must be >= 0. (k_low in the design docs)
-        attention_curve_exponent: Curvature for diminishing returns
-            above a_min. Must be > 0. (k in the design docs)
-        min_attention_noise_modifier: Floor on g(a), ensuring noise
-            cannot be driven to zero. Must be > 0. (g_min in the
-            design docs)
-        max_attention_noise_modifier: Ceiling on g(a), preventing
-            numerical explosion at low attention. None means uncapped.
-            (g_max in the design docs)
+            this initiative, a in [0, 1]. (a in the design docs)
+        attention_noise_scale: Noise multiplier at zero attention.
+            Must be > 0. (c1 in the design docs)
+        attention_noise_decay: Exponential rate at which attention
+            reduces noise. Must be >= 0. (c2 in the design docs)
 
     Returns:
-        The clamped attention noise modifier g(a), a positive float.
+        The attention noise modifier g(a), a positive float.
     """
-    # Compute the raw (unclamped) attention noise modifier.
-    # g_raw(a_min) = 1.0 in both branches, so the curve is continuous
-    # at the threshold before clamping is applied.
-    if executive_attention_t < attention_noise_threshold:
-        # Below threshold: noise increases linearly as attention falls.
-        # g_raw = 1 + k_low * (a_min - a)
-        g_raw = 1.0 + low_attention_penalty_slope * (
-            attention_noise_threshold - executive_attention_t
-        )
-    else:
-        # At or above threshold: noise decreases with diminishing returns.
-        # g_raw = 1 / (1 + k * (a - a_min))
-        g_raw = 1.0 / (
-            1.0 + attention_curve_exponent * (executive_attention_t - attention_noise_threshold)
-        )
-
-    # Apply floor clamp (g_min). Per open issue 5, when g_max is None,
-    # only the floor is applied and the upper end is unbounded.
-    g_clamped = max(g_raw, min_attention_noise_modifier)
-    if max_attention_noise_modifier is not None:
-        g_clamped = min(g_clamped, max_attention_noise_modifier)
-
-    return g_clamped
+    # g(a) = c1 * exp(-c2 * a) per core_simulator.md.
+    return attention_noise_scale * math.exp(-attention_noise_decay * executive_attention_t)
 
 
 # ---------------------------------------------------------------------------

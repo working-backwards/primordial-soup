@@ -167,25 +167,24 @@ class ModelConfig:
     reference_ceiling: float
 
     # --- Attention curve g(a) parameters — per core_simulator.md ---
-    # The attention curve maps executive_attention_t to a gain multiplier
-    # g(a) that scales the learning rate. Below attention_noise_threshold,
-    # g = min_attention_noise_modifier.
+    # Two-parameter exponential form (adopted on expert review,
+    # replacing the previous five-parameter piecewise curve):
+    #
+    #     g(a) = attention_noise_scale * exp(-attention_noise_decay * a)
+    #
+    # g(a) multiplies signal noise: higher attention -> lower g ->
+    # clearer signals, with exponentially diminishing returns. The
+    # neutral configuration (scale=1.0, decay=0.0) makes attention
+    # inert (g == 1 everywhere) — how ladder rungs without the
+    # attention mechanism express it.
 
-    # Attention level below which g(a) = min_attention_noise_modifier (floor region).
-    # a_min in the design docs.
-    attention_noise_threshold: float
-    # Curve exponent in the low-attention region (a < attention_noise_threshold).
-    # k_low in the design docs.
-    low_attention_penalty_slope: float
-    # Curve exponent in the high-attention region (a >= attention_noise_threshold).
-    # k in the design docs.
-    attention_curve_exponent: float
-    # Minimum attention gain (floor of g(a) curve).
-    # g_min in the design docs.
-    min_attention_noise_modifier: float
-    # Maximum attention gain (cap on g(a)), None = uncapped.
-    # g_max in the design docs.
-    max_attention_noise_modifier: float | None
+    # Noise multiplier at zero attention. Must be > 0.
+    # c_1 in the design docs.
+    attention_noise_scale: float
+    # Exponential rate at which attention reduces noise. Must be >= 0.
+    # Dynamic range g(0)/g(1) = exp(attention_noise_decay).
+    # c_2 in the design docs.
+    attention_noise_decay: float
 
     # --- Learning ---
 
@@ -740,24 +739,15 @@ def validate_configuration(config: SimulationConfiguration) -> None:
     # These constraints ensure the attention curve, learning, and
     # capability update equations produce valid outputs.
     model = config.model
-    if not (0.0 <= model.attention_noise_threshold <= 1.0):
-        errors.append(
-            f"attention_noise_threshold must be in [0, 1], got {model.attention_noise_threshold}."
-        )
-    if model.low_attention_penalty_slope < 0:
-        errors.append(
-            f"low_attention_penalty_slope must be >= 0, got {model.low_attention_penalty_slope}."
-        )
+    # Attention curve g(a) = scale * exp(-decay * a): scale must be a
+    # positive multiplier; decay must be non-negative (0 = attention
+    # has no effect). Per core_simulator.md attention shape.
+    if model.attention_noise_scale <= 0:
+        errors.append(f"attention_noise_scale must be > 0, got {model.attention_noise_scale}.")
+    if model.attention_noise_decay < 0:
+        errors.append(f"attention_noise_decay must be >= 0, got {model.attention_noise_decay}.")
     if model.reference_ceiling <= 0:
         errors.append(f"reference_ceiling must be > 0, got {model.reference_ceiling}.")
-    if model.max_attention_noise_modifier is not None and not (
-        0 <= model.min_attention_noise_modifier <= model.max_attention_noise_modifier
-    ):
-        errors.append(
-            f"min_attention_noise_modifier must be <= max_attention_noise_modifier "
-            f"when max is set, got min={model.min_attention_noise_modifier}, "
-            f"max={model.max_attention_noise_modifier}."
-        )
     if model.max_portfolio_capability < 1.0:
         errors.append(
             f"max_portfolio_capability must be >= 1.0, got {model.max_portfolio_capability}."

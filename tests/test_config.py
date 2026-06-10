@@ -63,7 +63,8 @@ class TestConfigConstruction:
     def test_model_config(self) -> None:
         mc = make_model_config()
         assert mc.default_initial_quality_belief == pytest.approx(0.5)
-        assert mc.max_attention_noise_modifier is None
+        assert mc.attention_noise_scale == pytest.approx(1.3)
+        assert mc.attention_noise_decay == pytest.approx(1.5)
 
     def test_governance_config(self) -> None:
         gc = make_governance_config()
@@ -152,29 +153,19 @@ class TestValidation:
         with pytest.raises(ValueError, match="team_count"):
             validate_configuration(config)
 
-    def test_attention_noise_threshold_bounds(self) -> None:
-        config = make_simulation_config(model=make_model_config(attention_noise_threshold=1.5))
-        with pytest.raises(ValueError, match="attention_noise_threshold"):
+    def test_attention_noise_scale_must_be_positive(self) -> None:
+        config = make_simulation_config(model=make_model_config(attention_noise_scale=0.0))
+        with pytest.raises(ValueError, match="attention_noise_scale"):
             validate_configuration(config)
 
-    def test_low_attention_penalty_slope_nonnegative(self) -> None:
-        config = make_simulation_config(model=make_model_config(low_attention_penalty_slope=-1.0))
-        with pytest.raises(ValueError, match="low_attention_penalty_slope"):
+    def test_attention_noise_decay_nonnegative(self) -> None:
+        config = make_simulation_config(model=make_model_config(attention_noise_decay=-1.0))
+        with pytest.raises(ValueError, match="attention_noise_decay"):
             validate_configuration(config)
 
     def test_reference_ceiling_positive(self) -> None:
         config = make_simulation_config(model=make_model_config(reference_ceiling=0))
         with pytest.raises(ValueError, match="reference_ceiling"):
-            validate_configuration(config)
-
-    def test_min_le_max_attention_noise_modifier(self) -> None:
-        config = make_simulation_config(
-            model=make_model_config(
-                min_attention_noise_modifier=5.0,
-                max_attention_noise_modifier=2.0,
-            )
-        )
-        with pytest.raises(ValueError, match="min_attention_noise_modifier"):
             validate_configuration(config)
 
     def test_max_portfolio_capability_ge_one(self) -> None:

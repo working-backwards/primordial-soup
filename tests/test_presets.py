@@ -1048,13 +1048,16 @@ class TestModel0Presets:
         assert en_specs[0].capability_contribution_scale_range is not None
 
     def test_attention_disabled(self) -> None:
-        """Attention has no effect on signals (g(a) = 1.0 everywhere)."""
+        """Attention has no effect on signals (g(a) = 1.0 everywhere).
+
+        The neutral two-parameter configuration is scale=1.0, decay=0.0
+        (per core_simulator.md attention shape)."""
         from primordial_soup.presets import make_model0_model_config
 
         model = make_model0_model_config()
         assert model.exec_attention_budget == 0.0
-        assert model.min_attention_noise_modifier == 1.0
-        assert model.max_attention_noise_modifier == 1.0
+        assert model.attention_noise_scale == 1.0
+        assert model.attention_noise_decay == 0.0
 
     def test_zero_budget_attention_min(self) -> None:
         """attention_min is 0.0 (valid because budget is 0)."""
@@ -1445,4 +1448,69 @@ class TestModel3Presets:
 
         assert make_model3_balanced_config(42).governance == (
             make_model2_balanced_config(42).governance
+        )
+
+
+# ===========================================================================
+# Model 4 presets (Model 3 + executive attention)
+# ===========================================================================
+
+
+class TestModel4Presets:
+    """Tests for Model 4 ladder-rung presets.
+
+    Model 4 = Model 3 + executive attention in the two-parameter form
+    (positive budget, calibrated curve, equal allocation). Posture
+    configs and the generator are unchanged from M3.
+    """
+
+    def test_all_configs_pass_validation(self) -> None:
+        from primordial_soup.presets import (
+            make_model4_aggressive_config,
+            make_model4_balanced_config,
+            make_model4_patient_config,
+        )
+
+        for factory in [
+            make_model4_balanced_config,
+            make_model4_aggressive_config,
+            make_model4_patient_config,
+        ]:
+            validate_configuration(factory(42))
+
+    def test_attention_active(self) -> None:
+        """Budget positive and the calibrated curve in effect."""
+        from primordial_soup.presets import make_model4_balanced_config
+
+        config = make_model4_balanced_config(42)
+        assert config.model.exec_attention_budget == 5.0
+        assert config.model.attention_noise_scale == 1.3
+        assert config.model.attention_noise_decay == 1.5
+        assert config.governance.exec_attention_budget == 5.0
+        assert config.governance.attention_min == 0.05
+
+    def test_posture_unchanged_from_model3(self) -> None:
+        """Only attention plumbing differs from M3 governance: the
+        stop/intake posture parameters are identical."""
+        from primordial_soup.presets import (
+            make_model3_balanced_config,
+            make_model4_balanced_config,
+        )
+
+        m3 = make_model3_balanced_config(42).governance
+        m4 = make_model4_balanced_config(42).governance
+        assert m4.intake_belief_threshold == m3.intake_belief_threshold
+        assert m4.confidence_decline_threshold == m3.confidence_decline_threshold
+        assert m4.stagnation_window_staffed_ticks == m3.stagnation_window_staffed_ticks
+        assert m4.portfolio_mix_targets == m3.portfolio_mix_targets
+
+    def test_generator_identical_to_model3(self) -> None:
+        from primordial_soup.presets import (
+            make_model3_initiative_generator_config,
+            make_model4_balanced_config,
+        )
+
+        assert (
+            make_model4_balanced_config(42).initiative_generator
+            == make_model3_initiative_generator_config()
         )
