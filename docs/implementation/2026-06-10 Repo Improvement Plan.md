@@ -343,3 +343,15 @@ previous step, decision notes.)
   holding informative (M3 attention). If M2/M3 do not flip this
   ordering, "patient moonshot" governance has no value mechanism in
   the model and the study's framing must say so.
+- **2026-06-10 — Phase 1.4 experiment complete (clamped vs unclamped).
+  [GATE: owner ratification pending.]** Minimal unclamped M1 variant
+  on branch `experiment-unclamped-m1` (same Beta draws, same CRN
+  streams, same thresholds; only the three [0,1] clamps removed).
+  90 paired runs: value deltas < 1.5% everywhere, major wins
+  identical, regime ordering unchanged, belief error slightly worse
+  unclamped (+0.007 — unbounded beliefs overshoot a [0,1] truth). The
+  ceiling pile-up artifact is decision-irrelevant. RECOMMENDATION:
+  keep the clamp, with the evidence recorded as design decision 26
+  (proposed). On ratification, delete the experiment branch.
+  Comparison bundles: clamped 2026-06-10_103203, unclamped
+  2026-06-10_104553.

@@ -1592,6 +1592,59 @@ Per `dynamic_opportunity_frontier.md` §observable-thinning.
 
 ---
 
+## 26. Why beliefs remain clamped to [0, 1] (representation experiment)
+
+**Status: PROPOSED — owner ratification pending (improvement plan
+Phase 1.4 gate).**
+
+### Decision
+
+Latent quality, screening signals, and beliefs remain on the
+clamped [0, 1] scale. The unclamped alternative recommended by
+expert review (unbounded signals and beliefs, termination on
+sufficiently negative belief) was tested empirically and not
+adopted.
+
+### Why this choice was made
+
+The question was settled by experiment rather than argument, at the
+cheapest possible rung. On 2026-06-10, a minimal unclamped variant of
+Model 1 was built on the short-lived `experiment-unclamped-m1`
+branch: identical Beta quality draws and CRN streams, identical
+thresholds, with only the three [0, 1] clamps removed (screening
+signal passthrough in `pool.py`, quality- and execution-belief
+updates in `learning.py`). Across 90 paired runs (3 archetypes x 30
+shared seeds):
+
+- Total value changed by less than 1.5% in every condition, in the
+  same direction (slightly lower unclamped).
+- Major-win counts were identical (or within 0.03 per seed).
+- The regime ordering (Aggressive > Balanced > Patient on value) was
+  unchanged.
+- Right-tail stop/completion counts were essentially identical.
+- Mean absolute belief error was slightly WORSE unclamped (+0.007):
+  unbounded beliefs overshoot a latent quality that lives in [0, 1].
+
+The clamp's most visible artifact — ~10 of 26 major-win-eligible
+right-tails entering at belief exactly 1.0 (ceiling pile-up,
+documented in calibration_note.md §8) — turned out to be
+decision-irrelevant: those initiatives clear every intake floor and
+are never stopped under either representation, so spreading their
+beliefs above 1.0 changes no governance action.
+
+This outcome is consistent with the study's discovery-bounded scope
+(study_overview.md §Post-discovery exploitation and scale-up): major
+wins are counted, not valued, so the representation does not need to
+express magnitude above the eligibility threshold. The clamp is
+retained with evidence rather than by default. The experiment branch
+records the variant; it is deleted on ratification. If a future
+design change makes win magnitude or negative-quality discovery
+relevant (e.g., pricing right-tail outcomes, or modeling initiatives
+that destroy value), this decision should be revisited and the same
+cheap-rung experiment repeated.
+
+---
+
 ## Final note
 
 
