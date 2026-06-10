@@ -24,6 +24,7 @@ from primordial_soup.governance import (
     expected_prize_value_density,
     is_low_quality_labor_share_exceeded,
     is_single_initiative_concentration_exceeded,
+    passes_intake_floor,
     rank_unassigned_bounded_prize,
     rank_unassigned_initiatives,
     should_stop_confidence_decline,
@@ -278,6 +279,42 @@ class TestExecutionOverrunStop:
         init = make_initiative_observation(execution_belief_t=None)
         config = make_governance_config(exec_overrun_threshold=0.5)
         assert should_stop_execution_overrun(init, config) is False
+
+
+# ============================================================================
+# Intake belief floor (activation gate)
+# ============================================================================
+
+
+class TestPassesIntakeFloor:
+    """Test passes_intake_floor primitive.
+
+    Per governance.md §Intake belief floor (activation gate): the gate
+    applies at selection time and refuses candidates whose quality
+    belief is below the configured minimum.
+    """
+
+    def test_no_floor_passes_any_belief(self) -> None:
+        """None floor disables the gate — even zero belief passes."""
+        init = make_initiative_observation(quality_belief_t=0.0)
+        config = make_governance_config(intake_belief_threshold=None)
+        assert passes_intake_floor(init, config) is True
+
+    def test_belief_above_floor_passes(self) -> None:
+        init = make_initiative_observation(quality_belief_t=0.6)
+        config = make_governance_config(intake_belief_threshold=0.35)
+        assert passes_intake_floor(init, config) is True
+
+    def test_belief_below_floor_fails(self) -> None:
+        init = make_initiative_observation(quality_belief_t=0.2)
+        config = make_governance_config(intake_belief_threshold=0.35)
+        assert passes_intake_floor(init, config) is False
+
+    def test_belief_exactly_at_floor_passes(self) -> None:
+        """The floor is inclusive: belief == threshold clears the gate."""
+        init = make_initiative_observation(quality_belief_t=0.35)
+        config = make_governance_config(intake_belief_threshold=0.35)
+        assert passes_intake_floor(init, config) is True
 
 
 # ============================================================================

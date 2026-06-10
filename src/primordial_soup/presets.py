@@ -692,6 +692,13 @@ def make_balanced_governance_config(
         # --- Execution overrun: moderate ---
         # Stop if execution_belief_t < 0.4
         exec_overrun_threshold=0.4,
+        # --- Intake belief floor: moderate bar ---
+        # Never activate a candidate below 0.35 belief. A balanced
+        # investment committee declines work it predicts will fail,
+        # accepting some missed opportunities in exchange. Per
+        # governance.md §Intake belief floor (activation gate) and
+        # intake_discipline_findings_and_plan.md Step 1.
+        intake_belief_threshold=0.35,
         # --- Portfolio-risk controls: all explicitly None ---
         # Per plan Step 7b: set ALL portfolio-risk parameters
         # explicitly, even when the baseline value is None.
@@ -801,6 +808,13 @@ def make_aggressive_stop_loss_governance_config(
         # --- Execution overrun: tight ---
         # Stop if execution_belief_t < 0.5 (stricter than Balanced 0.4)
         exec_overrun_threshold=0.5,
+        # --- Intake belief floor: high bar ---
+        # Never activate below 0.50 belief — the strictest of the three
+        # archetypes. Aggressive stop-loss prefers omission errors
+        # (declining marginal work) to commission errors (staffing it
+        # and stopping it later). Per governance.md §Intake belief
+        # floor (activation gate).
+        intake_belief_threshold=0.50,
         # --- Portfolio-risk controls: all explicitly None ---
         low_quality_belief_threshold=None,
         max_low_quality_belief_labor_share=None,
@@ -910,6 +924,13 @@ def make_patient_moonshot_governance_config(
         # Stop if execution_belief_t < 0.35 (between Balanced 0.4
         # and the previous 0.3 which was too tolerant).
         exec_overrun_threshold=0.35,
+        # --- Intake belief floor: low bar ---
+        # Activate anything at or above 0.20 belief — the most
+        # permissive of the three archetypes. Patient moonshot accepts
+        # commission errors to avoid missing right-tail candidates
+        # whose noisy screening signal undersells them. Per
+        # governance.md §Intake belief floor (activation gate).
+        intake_belief_threshold=0.20,
         # --- Portfolio-risk controls: all explicitly None ---
         low_quality_belief_threshold=None,
         max_low_quality_belief_labor_share=None,

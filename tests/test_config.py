@@ -217,6 +217,30 @@ class TestValidation:
         with pytest.raises(ValueError, match="attention_min"):
             validate_configuration(config)
 
+    def test_intake_belief_threshold_above_one_rejected(self) -> None:
+        """Beliefs live on [0, 1]; the intake floor must too."""
+        config = make_simulation_config(
+            governance=make_governance_config(intake_belief_threshold=1.5)
+        )
+        with pytest.raises(ValueError, match="intake_belief_threshold"):
+            validate_configuration(config)
+
+    def test_intake_belief_threshold_negative_rejected(self) -> None:
+        config = make_simulation_config(
+            governance=make_governance_config(intake_belief_threshold=-0.1)
+        )
+        with pytest.raises(ValueError, match="intake_belief_threshold"):
+            validate_configuration(config)
+
+    def test_intake_belief_threshold_none_and_in_range_valid(self) -> None:
+        """None (gate disabled) and in-range values both validate."""
+        validate_configuration(
+            make_simulation_config(governance=make_governance_config(intake_belief_threshold=None))
+        )
+        validate_configuration(
+            make_simulation_config(governance=make_governance_config(intake_belief_threshold=0.35))
+        )
+
     def test_attention_min_zero_valid_when_budget_zero(self) -> None:
         """attention_min=0 is valid when exec_attention_budget=0.
 

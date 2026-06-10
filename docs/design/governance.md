@@ -296,6 +296,39 @@ bounded-prize initiatives. It does **not** by itself define a canonical ranking
 rule for initiatives without an observable bounded prize. Policies may define
 such ranking logic explicitly if needed.
 
+#### Intake belief floor (activation gate)
+
+`GovernanceConfig.intake_belief_threshold: float | None` defines a minimum
+quality belief required to **activate** an unassigned initiative. During team
+assignment, a candidate with `quality_belief_t <` the threshold is never
+assigned a team, regardless of available labor. `None` (the default) disables
+the gate.
+
+Semantics and rationale:
+
+- The floor is an **operating-policy parameter**, evaluated policy-side via
+  the `passes_intake_floor` primitive. The engine does not enforce it; this
+  preserves the engine/policy boundary established above.
+- The floor applies at **selection time only**. It is not a stop rule: an
+  active initiative whose belief later falls below the floor is governed by
+  the canonical stop rules, not by re-evaluation of the intake gate.
+- The floor is a **treatment dimension**. In Sah–Stiglitz terms it moves a
+  regime along the omission/commission error axis: a high floor reduces
+  commission errors (activating work that fails) at the cost of omission
+  errors (never starting work that would have succeeded, including
+  right-tail initiatives whose noisy screening signal lands below the
+  floor). Regimes are expected to differ on this parameter, and outcome
+  differences attributable to it are a study result, not an artifact.
+- Without the floor, a greedy labor-filling policy activates initiatives it
+  already predicts will fail whenever idle labor exceeds the supply of
+  high-belief candidates. The 2026-04-18 diagnostic run identified this as
+  a mechanical artifact that dominates stop/completion statistics (see
+  `docs/implementation/intake_discipline_findings_and_plan.md`).
+- Interaction with team availability: when every unassigned candidate is
+  below the floor, teams remain idle (and accrue baseline value when
+  `baseline_value_per_tick > 0`). Idle-under-floor is a legitimate,
+  measurable governance outcome, not an error state.
+
 #### PortfolioSummary use
 
 `GovernanceObservation.portfolio_summary` is a convenience aggregation that
@@ -566,6 +599,16 @@ $$
 This keeps labor exposure explicit when comparing opportunities that require different amounts of workforce investment. A large opportunity that requires a large team is not automatically preferred over a smaller opportunity that requires fewer people — the comparison is made on a per-unit-of-labor basis.
 
 This ranking convention applies specifically to bounded-prize initiatives. For initiatives without a visible opportunity ceiling, governance policies may define their own ranking logic as needed.
+
+#### The intake bar: when governance says no
+
+Every real investment committee has a bar: a minimum level of conviction below which a proposal does not get funded, no matter how much budget or how many free teams are available. The intake belief floor is that bar. When governance is assigning freed teams, any candidate whose current quality belief sits below the configured floor is simply not started — the team stays available (doing baseline work, if configured) rather than being spent on work governance already believes will fail.
+
+Three things to understand about the bar:
+
+- **It is a dial, not a fix.** A high bar means fewer doomed projects get started, but it also means more genuine opportunities get turned away — including the occasional moonshot whose early signals undersell it. A low bar means the organization tries more things and kills more things. Where a regime sets its bar is one of the central governance choices this study compares; there is no universally correct setting.
+- **It only applies at the door.** Once an initiative is underway, the bar plays no further role — the four stop rules govern whether it continues. An initiative that got in above the bar and later deteriorated is handled by stopping logic, exactly as in a real portfolio review.
+- **Saying no leaves teams idle, and that is allowed.** If nothing on the shelf clears the bar, teams wait (and contribute baseline operational value if the configuration provides it). An organization that refuses to staff bad work is making a real, defensible choice — the simulation measures its consequences rather than preventing it.
 
 #### Portfolio summary as a convenience tool
 

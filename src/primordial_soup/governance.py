@@ -189,6 +189,40 @@ def should_stop_execution_overrun(
     return initiative.execution_belief_t < config.exec_overrun_threshold
 
 
+def passes_intake_floor(
+    initiative: InitiativeObservation,
+    config: GovernanceConfig,
+) -> bool:
+    """Evaluate the intake belief floor (activation gate).
+
+    Returns True if the initiative's quality belief clears the
+    configured minimum required for activation. This gate applies at
+    selection time only — it determines whether an unassigned
+    initiative may receive a team, and plays no role in stop decisions
+    for already-active initiatives.
+
+    The floor is the policy's mechanism for refusing to staff work it
+    already predicts will fail when idle labor exceeds the supply of
+    high-belief candidates. Without it, a greedy fill activates the
+    best of whatever remains, however poor.
+
+    Per governance.md §Intake belief floor (activation gate).
+
+    Args:
+        initiative: Policy-visible observation for the initiative.
+        config: Immutable governance parameters.
+
+    Returns:
+        True if no floor is configured (None) or quality_belief_t is
+        at or above the floor. False if the belief is below the floor.
+    """
+    # No floor configured → every candidate passes (greedy fill).
+    if config.intake_belief_threshold is None:
+        return True
+
+    return initiative.quality_belief_t >= config.intake_belief_threshold
+
+
 # ============================================================================
 # Attention allocation helpers
 # ============================================================================

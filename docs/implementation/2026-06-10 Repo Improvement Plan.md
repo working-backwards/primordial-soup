@@ -275,3 +275,25 @@ previous step, decision notes.)
   that is what real runs use. The divergence between the two
   "canonical balanced" entry points should be reconciled or documented
   when the full-model presets are revisited in Phase 2.3.
+- **2026-06-10 — Phase 1.1 landed (intake belief floor).**
+  `GovernanceConfig.intake_belief_threshold` + `passes_intake_floor`
+  primitive + filter in `_assign_freed_teams`; preset floors: balanced
+  0.35, aggressive_stop_loss 0.50, patient_moonshot 0.20. Smoke
+  baseline intentionally rewritten. Canonical-preset deltas (seed
+  means, before → after): stops 268 → 10 (refresh churn blocked at
+  the door); total value 3067 → 6479 (labor concentrates on
+  high-belief flywheels, residual compounds); major wins 5.7 → 0.7
+  (the 0.35 floor blocks most right-tail attempts, which enter at
+  ~0.28 mean belief); **idle team-ticks 0.3% → ~50%** (the floor
+  refuses work and the frontier supplies mostly below-floor
+  candidates). Interpretation: the floor works as designed and
+  exposes the two known downstream dependencies — baseline value
+  accounting for idle labor (intake findings Step 3; currently
+  baseline_value_per_tick = 0, so refused work earns nothing) and
+  frontier replenishment recalibration (Phase 2.1). Discovery-vs-
+  discipline is now a real tradeoff in the simulator: the archetype
+  floors (0.50 / 0.35 / 0.20) place the three regimes on the
+  omission/commission axis. One preset test updated:
+  `test_aggressive_stops_more_than_balanced` assumed strictness can
+  only appear as more stops; with the floor, Aggressive admits less
+  junk and therefore stops less (11 vs 12 at seed 42).

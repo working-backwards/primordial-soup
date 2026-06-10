@@ -305,6 +305,17 @@ class GovernanceConfig:
     # None = execution-overrun stopping disabled.
     exec_overrun_threshold: float | None
 
+    # --- Intake belief floor (activation gate) ---
+
+    # Minimum quality belief required to activate an unassigned
+    # initiative during team assignment. Candidates with
+    # quality_belief_t below this value are never assigned a team,
+    # regardless of available labor. Applies at selection time only;
+    # it is not a stop rule for already-active initiatives.
+    # None = no floor (greedy fill, the pre-2026-06 behavior).
+    # Per governance.md §Intake belief floor (activation gate).
+    intake_belief_threshold: float | None = None
+
     # ---------------------------------------------------------------
     # Architecture-level constraints (governance architecture guardrails)
     #
@@ -782,6 +793,16 @@ def validate_configuration(config: SimulationConfiguration) -> None:
                 f"attention_min must be <= attention_max, "
                 f"got min={governance.attention_min}, max={governance.attention_max}."
             )
+    # Intake belief floor: beliefs live on [0, 1], so the activation
+    # gate must too. None = gate disabled (no constraint to check).
+    # Per governance.md §Intake belief floor (activation gate).
+    if governance.intake_belief_threshold is not None and not (
+        0 <= governance.intake_belief_threshold <= 1
+    ):
+        errors.append(
+            f"intake_belief_threshold must be in [0, 1] or None, "
+            f"got {governance.intake_belief_threshold}."
+        )
 
     # --- Per-initiative validation (when explicit initiatives provided) ---
     if config.initiatives is not None:

@@ -631,6 +631,123 @@ class TestPatientMoonshotPolicy:
 
 
 # ============================================================================
+# Intake belief floor (activation gate) in team assignment
+# ============================================================================
+
+
+class TestIntakeBeliefFloor:
+    """Verify the intake floor filters candidates during assignment.
+
+    Per governance.md §Intake belief floor (activation gate): a
+    candidate below the floor is never assigned a team, even when
+    labor is idle; with no floor configured, greedy fill is preserved.
+    """
+
+    def _low_belief_candidate_and_idle_team(self):
+        """One unassigned low-belief initiative and one idle team."""
+        candidate = make_initiative_observation(
+            initiative_id="init-low",
+            lifecycle_state="unassigned",
+            assigned_team_id=None,
+            quality_belief_t=0.15,
+        )
+        idle_team = make_team_observation(
+            team_id="team-1",
+            assigned_initiative_id=None,
+        )
+        return candidate, idle_team
+
+    def test_candidate_below_floor_is_not_assigned(self) -> None:
+        """Idle labor does not override the floor — the team stays idle."""
+        candidate, idle_team = self._low_belief_candidate_and_idle_team()
+        obs = make_governance_observation(
+            initiatives=(candidate,),
+            teams=(idle_team,),
+        )
+        config = make_governance_config(intake_belief_threshold=0.35)
+        actions = BalancedPolicy().decide(obs, config)
+        assert _assigned_teams(actions) == {}
+
+    def test_candidate_above_floor_is_assigned(self) -> None:
+        candidate = make_initiative_observation(
+            initiative_id="init-high",
+            lifecycle_state="unassigned",
+            assigned_team_id=None,
+            quality_belief_t=0.6,
+        )
+        idle_team = make_team_observation(
+            team_id="team-1",
+            assigned_initiative_id=None,
+        )
+        obs = make_governance_observation(
+            initiatives=(candidate,),
+            teams=(idle_team,),
+        )
+        config = make_governance_config(intake_belief_threshold=0.35)
+        actions = BalancedPolicy().decide(obs, config)
+        assert _assigned_teams(actions) == {"team-1": "init-high"}
+
+    def test_no_floor_preserves_greedy_fill(self) -> None:
+        """With intake_belief_threshold=None the old behavior holds:
+        even a 0.15-belief candidate is activated when labor is free."""
+        candidate, idle_team = self._low_belief_candidate_and_idle_team()
+        obs = make_governance_observation(
+            initiatives=(candidate,),
+            teams=(idle_team,),
+        )
+        config = make_governance_config(intake_belief_threshold=None)
+        actions = BalancedPolicy().decide(obs, config)
+        assert _assigned_teams(actions) == {"team-1": "init-low"}
+
+    def test_floor_skips_to_next_qualifying_candidate(self) -> None:
+        """A below-floor candidate is skipped, not queue-blocking: the
+        team goes to the next candidate that clears the floor."""
+        # Bounded-prize candidate ranks first in selection order but
+        # sits below the floor; the gate must skip it, not block the queue.
+        low = make_initiative_observation(
+            initiative_id="init-low",
+            lifecycle_state="unassigned",
+            assigned_team_id=None,
+            quality_belief_t=0.3,
+            observable_ceiling=100.0,
+        )
+        high = make_initiative_observation(
+            initiative_id="init-high",
+            lifecycle_state="unassigned",
+            assigned_team_id=None,
+            quality_belief_t=0.5,
+        )
+        idle_team = make_team_observation(
+            team_id="team-1",
+            assigned_initiative_id=None,
+        )
+        obs = make_governance_observation(
+            initiatives=(low, high),
+            teams=(idle_team,),
+        )
+        config = make_governance_config(intake_belief_threshold=0.35)
+        actions = BalancedPolicy().decide(obs, config)
+        assert _assigned_teams(actions) == {"team-1": "init-high"}
+
+    def test_floor_applies_to_all_archetypes(self) -> None:
+        """The gate lives in the shared assignment helper, so every
+        archetype honors it identically."""
+        candidate, idle_team = self._low_belief_candidate_and_idle_team()
+        obs = make_governance_observation(
+            initiatives=(candidate,),
+            teams=(idle_team,),
+        )
+        config = make_governance_config(intake_belief_threshold=0.35)
+        for policy in (
+            BalancedPolicy(),
+            AggressiveStopLossPolicy(),
+            PatientMoonshotPolicy(),
+        ):
+            actions = policy.decide(obs, config)
+            assert _assigned_teams(actions) == {}, type(policy).__name__
+
+
+# ============================================================================
 # Edge cases shared across archetypes
 # ============================================================================
 

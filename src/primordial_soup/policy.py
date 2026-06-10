@@ -44,6 +44,7 @@ from primordial_soup.governance import (
     classify_initiative_bucket,
     compute_current_portfolio_mix,
     compute_equal_attention,
+    passes_intake_floor,
     rank_unassigned_initiatives,
     should_stop_confidence_decline,
     should_stop_execution_overrun,
@@ -335,6 +336,12 @@ def _assign_freed_teams(
     for candidate in ranked:
         if not available_list:
             break
+
+        # Intake belief floor: never activate a candidate whose belief
+        # is below the configured minimum, regardless of idle labor.
+        # Per governance.md §Intake belief floor (activation gate).
+        if not passes_intake_floor(candidate, config):
+            continue
 
         # Portfolio-risk checks: skip if assignment would violate caps.
         if would_assignment_exceed_concentration(candidate, observation.portfolio_summary, config):
