@@ -1594,8 +1594,10 @@ Per `dynamic_opportunity_frontier.md` §observable-thinning.
 
 ## 26. Why beliefs remain clamped to [0, 1] (representation experiment)
 
-**Status: PROPOSED — owner ratification pending (improvement plan
-Phase 1.4 gate).**
+**Status: ACCEPTED — ratified by the owner 2026-06-10 (improvement
+plan Phase 1.4 gate). The `experiment-unclamped-m1` branch was
+deleted on ratification; the comparison bundles in `results/` remain
+the evidence record.**
 
 ### Decision
 
