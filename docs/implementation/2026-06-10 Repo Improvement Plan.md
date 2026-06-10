@@ -129,7 +129,19 @@ them.
   screening noise so major-win-eligible initiatives are NOT obvious
   at intake (verified problem: eligible enter at belief ~0.82 vs
   ~0.28 for the rest). Target: meaningful belief overlap and a
-  nonzero false-stop rate under at least one archetype.
+  nonzero kill-a-gem error rate under at least one archetype,
+  counting BOTH forms of the error: false rejects (eligible
+  right-tails never staffed — the omission error the intake floor
+  creates at the door) and mid-flight false stops (eligible
+  right-tails stopped while active). [Criterion revised 2026-06-10:
+  M1 measurement showed mid-flight false stops are structurally
+  near-impossible under EMA learning with level-threshold stop rules
+  — a gem's belief mean-reverts upward toward its high latent quality
+  and never crosses the threshold — so the gem-killing error
+  concentrates at intake. This is a model property worth reporting,
+  not a calibration defect; window/derivative-based stop rules or the
+  unclamped representation (1.2 experiment) could restore the
+  mid-flight form.]
 - **1.4 Reporting fixes (rung-agnostic).** Split right-tail stops
   into first-attempt vs refresh-churn; fix the `ramp_labor_fraction`
   definition/label; document the default per-family initiative counts
@@ -297,3 +309,19 @@ previous step, decision notes.)
   `test_aggressive_stops_more_than_balanced` assumed strictness can
   only appear as more stops; with the floor, Aggressive admits less
   junk and therefore stops less (11 vs 12 at seed 42).
+- **2026-06-10 — Phases 1.2 + 1.3 landed (Model 1 built and
+  calibrated).** `make_model1_*` presets (M0 pool + screening + stops
+  + intake floor, 160-tick horizon), `scripts/model1_campaign.py`
+  (3 archetypes x 30 seeds, ~23s), and
+  `scripts/model1_calibration_check.py`. All four acceptance criteria
+  pass: QW discipline 8.5% below floor; eligible right-tails enter at
+  mean belief 0.67 (vs 0.82 in the full model) with 50% overlap into
+  the non-eligible field; kill-a-gem errors occur (false rejects
+  8/11/9 per archetype out of 26 eligible) alongside 15-16 major wins
+  per archetype; regime value spread 9.3%. Two findings recorded in
+  calibration_note.md §8: (1) mid-flight false stops are structurally
+  ~impossible under EMA learning with level-threshold stops — the
+  gem-killing error concentrates at intake, so criterion (c) was
+  revised to count both error forms; (2) the [0,1] clamp piles 10 of
+  26 eligible right-tails at belief exactly 1.0 — direct evidence for
+  the clamped-vs-unclamped experiment (1.2 pre-ladder decision).

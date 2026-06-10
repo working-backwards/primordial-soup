@@ -1553,6 +1553,18 @@ def make_model1_initiative_generator_config() -> InitiativeGeneratorConfig:
     # Rebuild each Model 0 type spec with its screening signal added.
     # dataclasses.replace preserves every other field, so the M1 pool
     # stays identical to M0 except for intake information.
+    #
+    # Calibration note (Phase 1.3 finding): mid-flight false stops of
+    # major-win-eligible right-tails are structurally near-impossible
+    # in this model class regardless of noise settings — the EMA
+    # belief of a q >= 0.8 initiative mean-reverts upward, so it never
+    # crosses a level-threshold stop rule. The kill-a-gem error
+    # therefore occurs AT INTAKE (eligible initiatives never started),
+    # which the intake floor makes a real treatment dimension. A
+    # widened execution-noise variant (0.35-0.50) was tested on
+    # 2026-06-10 and produced zero mid-flight false stops while
+    # diverging the pool from Model 0; it was reverted to keep the
+    # rung comparison clean. See calibration_note.md §Model 1.
     model1_specs = tuple(
         dataclasses.replace(
             spec,

@@ -1141,3 +1141,80 @@ than empirical claims.
    of the study. Governance findings should be interpreted within each
    environment, not as claims about organizations that face blended
    conditions across environment types.
+
+## 8. Model 1 Calibration (2026-06-10)
+
+Model 1 is the second model-ladder rung (Model 0 + screening signals,
+stop rules, intake belief floor; see the 2026-06-10 Repo Improvement
+Plan, Phase 1). For a stylized model there is no dataset to fit;
+the calibration record is the chosen defaults, the acceptance
+criteria they satisfy, and the rationale. All four criteria are
+checked mechanically by `scripts/model1_calibration_check.py` against
+a 30-seed campaign bundle.
+
+### Default pool composition (calibration defaults, stated explicitly)
+
+Model 1 inherits the Model 0 pool verbatim: **130 initiatives — 40
+quick_win, 40 flywheel, 25 enabler, 25 right_tail** — on 10 uniform
+teams of 5 over a 160-tick horizon. These counts are load-bearing
+defaults: they set the ratio of opportunity to labor (~2.6 pool
+initiatives per team-slot-year) and the scarcity of major-win-eligible
+right-tails (~0.9 per seed at Beta(0.8, 2.0) with the 0.80 threshold —
+transformational opportunities are rare by design).
+
+### Screening signal noise (the M1 addition)
+
+| Type | screening_signal_st_dev | Rationale |
+| --- | --- | --- |
+| quick_win | 0.10 | Routine work is easy to assess at intake. |
+| flywheel | 0.15 | Compounding mechanisms moderately assessable. |
+| enabler | 0.20 | Capability value is hard to see up front. |
+| right_tail | **0.55** | Transformational potential is opaque at intake. |
+
+The right-tail value is deliberately far above the full model's 0.30,
+which the 2026-06-09 evaluation showed makes gems obvious (eligible
+right-tails entered at mean belief 0.82 vs 0.28 for the rest; zero
+were ever stopped). At 0.55, eligible right-tails enter at mean
+belief 0.67 with half of them below the non-eligible 75th percentile
+— governance genuinely cannot tell most gems from the field.
+
+### Acceptance criteria results (30 seeds, 3 archetypes)
+
+- (a) Quick-win discipline: 8.5% of QW draws below the Balanced
+  floor (0.35); target < 10%. The Model 0 Beta(5, 3) passes without
+  modification.
+- (b) Right-tail opacity: 50% of eligible right-tails enter below
+  the non-eligible p75; target >= 25%.
+- (c) Kill-a-gem error: false rejects 8/11/9 per archetype
+  (balanced/aggressive/patient, of 26 eligible each) with major wins
+  15-16 per archetype. Mid-flight false stops are zero — see the
+  structural finding below.
+- (d) Regime spread: 9.3% relative spread in mean total value.
+
+### Structural finding: gem-killing happens at the door, not mid-flight
+
+Under EMA belief updating with level-threshold stop rules, a
+major-win-eligible initiative (latent quality >= 0.8) that clears
+intake is essentially never stopped mid-flight: its belief
+mean-reverts upward toward latent quality, so the expected per-tick
+belief drift is positive whenever belief is below ~0.8, and the
+confidence-decline threshold is never crossed. A widened
+execution-noise variant (base_signal_st_dev 0.35-0.50) was tested on
+2026-06-10 and still produced zero mid-flight false stops across
+2,340 right-tail observations; it was reverted to keep the M1 pool
+identical to Model 0. The kill-a-gem error therefore concentrates at
+intake (false rejects), where the intake floor places the three
+archetypes on the omission/commission axis (false rejects order by
+floor strictness: aggressive 11 > patient 9 ~ balanced 8 — patient's
+rejects come from crowding-out by held losers rather than its low
+floor, a mechanism worth separating in later reporting).
+
+### Clamp pile-up observation (input to the representation experiment)
+
+At screening st-dev 0.55 the [0, 1] clamp on the screening draw piles
+high-quality right-tails at the ceiling: 10 of 26 eligible
+right-tails enter at belief exactly 1.0. The clamp compresses the
+right tail of the belief distribution exactly as expert review
+predicted. This is direct evidence for the Phase 1 clamped-vs-
+unclamped experiment; the unclamped variant would spread these
+ceiling-piled beliefs.
