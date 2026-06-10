@@ -1802,3 +1802,118 @@ def make_model2_aggressive_config(world_seed: int) -> SimulationConfiguration:
 def make_model2_patient_config(world_seed: int) -> SimulationConfiguration:
     """Complete Model 2 Patient configuration (M1 governance + lags)."""
     return _make_model2_config(world_seed, make_model1_patient_governance_config())
+
+
+# ===========================================================================
+# Model 3 — Model 2 + declining right-tail frontier (scarcity)
+# ===========================================================================
+#
+# Model 3 is the fourth rung of the model ladder. It adds exactly one
+# mechanism to Model 2: a DECLINING dynamic frontier for the
+# right-tail family. When the unassigned right-tail pool falls to or
+# below the replenishment threshold, the runner materializes
+# replacement opportunities — but each resolved right-tail (stopped
+# OR completed) degrades the quality distribution the replacements
+# are drawn from:
+#
+#     effective_alpha = base_alpha * max(floor, 1 - rate * n_resolved)
+#
+# This is the option cost of killing: at M1/M2 the pool was fixed and
+# immortal, so stopping a moonshot cost nothing beyond the work
+# itself — a declined or killed opportunity just waited on the shelf.
+# At M3, burning through right-tail attempts visibly impoverishes the
+# future supply. Combined with M2's revelation lag (killing during
+# the dark is uninformed) this completes the two-sided price of
+# impatience.
+#
+# Deliberately NOT included at this rung: observable ceilings / TAM
+# machinery and prize-preserving refresh (both require
+# observable_ceiling_distribution and would bundle a second
+# mechanism — bounded-prize patience — into the rung; they arrive
+# with the full-model backport), and frontiers on the other three
+# families (their pools stay fixed so the diff isolates right-tail
+# scarcity).
+#
+# Frontier-materialized right-tails inherit the M2 screening noise
+# and revelation lag automatically (generate_frontier_initiative
+# routes through _generate_single_initiative with the modified spec).
+
+# M3 right-tail frontier parameters. Rationale recorded in
+# calibration_note.md §9: with the small initial pool below, the
+# frontier is the live supply; rate 0.05 per resolved right-tail
+# brings the alpha multiplier to ~0.6 after 8 resolutions —
+# replacements are visibly worse but the family does not collapse
+# (floor 0.1). Threshold 2 keeps a small visible pipeline; M-rung
+# teams are uniform size-5 so no team-size-mismatch buffer is needed.
+_MODEL3_RIGHT_TAIL_FRONTIER = FrontierSpec(
+    frontier_degradation_rate=0.05,
+    frontier_quality_floor=0.1,
+    replenishment_threshold=2,
+)
+
+# M3 initial right-tail count. The first M3 attempt (2026-06-10) kept
+# Model 2's shelf of 25 and the frontier NEVER FIRED — with 10 teams
+# and a ~15% right-tail mix target, the unassigned right-tail count
+# never approached the threshold, so all 90 paired runs were
+# byte-identical to M2 (zero deltas; see the improvement plan Phase
+# log). The lesson: scarcity is not "replenishment exists," it is
+# "moonshots are a scarce flowing pipeline, not a stocked shelf."
+# A small initial pool makes the frontier the live supply: the
+# organization sees only a few moonshot options at a time, new ones
+# arrive as old ones resolve, and every kill or completion degrades
+# what arrives next.
+_MODEL3_RIGHT_TAIL_INITIAL_COUNT = 6
+
+
+def make_model3_initiative_generator_config() -> InitiativeGeneratorConfig:
+    """Build the Model 3 InitiativeGeneratorConfig.
+
+    Model 2's generator with the right-tail family restructured from
+    a stocked shelf (25 initiatives, fixed) to a scarce flowing
+    pipeline (6 initial + declining-frontier replenishment). The
+    other three families are unchanged, fixed-pool.
+    """
+    base = make_model2_initiative_generator_config()
+    return InitiativeGeneratorConfig(
+        type_specs=tuple(
+            dataclasses.replace(
+                spec,
+                count=_MODEL3_RIGHT_TAIL_INITIAL_COUNT,
+                frontier=_MODEL3_RIGHT_TAIL_FRONTIER,
+            )
+            if spec.generation_tag == "right_tail"
+            else spec
+            for spec in base.type_specs
+        ),
+    )
+
+
+def _make_model3_config(
+    world_seed: int,
+    governance: GovernanceConfig,
+) -> SimulationConfiguration:
+    """Assemble a complete Model 3 SimulationConfiguration."""
+    return SimulationConfiguration(
+        world_seed=world_seed,
+        time=make_model1_time_config(),
+        teams=make_model0_workforce_config(),
+        model=make_model0_model_config(),
+        governance=governance,
+        reporting=make_baseline_reporting_config(),
+        initiative_generator=make_model3_initiative_generator_config(),
+    )
+
+
+def make_model3_balanced_config(world_seed: int) -> SimulationConfiguration:
+    """Complete Model 3 Balanced configuration (M2 + RT frontier)."""
+    return _make_model3_config(world_seed, make_model1_balanced_governance_config())
+
+
+def make_model3_aggressive_config(world_seed: int) -> SimulationConfiguration:
+    """Complete Model 3 Aggressive configuration (M2 + RT frontier)."""
+    return _make_model3_config(world_seed, make_model1_aggressive_governance_config())
+
+
+def make_model3_patient_config(world_seed: int) -> SimulationConfiguration:
+    """Complete Model 3 Patient configuration (M2 + RT frontier)."""
+    return _make_model3_config(world_seed, make_model1_patient_governance_config())

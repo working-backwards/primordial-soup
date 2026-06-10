@@ -398,3 +398,23 @@ previous step, decision notes.)
   eligible gems remain scarce; revisit at M3 (frontier) where
   declining carries option cost. 1102 tests pass; smoke baseline
   unchanged (lag defaults to 0 in the full model).
+- **2026-06-10 — Phase 2.1 landed (M3 = M2 + scarce right-tail
+  pipeline).** First attempt attached a frontier to M2's shelf of 25
+  right-tails and the frontier NEVER FIRED — all 90 paired runs
+  byte-identical (the unassigned count never approached the
+  threshold). Diagnosis recorded in calibration_note.md §9: scarcity
+  is not "replenishment exists," it is "moonshots are a scarce
+  flowing pipeline, not a stocked shelf." Final M3: right-tail
+  initial count 6 (was 25) + declining frontier (rate 0.05, floor
+  0.1, threshold 2); frontier draws inherit screening and revelation
+  lag automatically. M3-vs-M2 paired results (30 seeds, bundles
+  123209 vs 124405): total value +~300 for every regime (labor freed
+  from abundant mediocre moonshots flows to flywheels); major wins
+  0.50 → ~0.21/run (discovery is now genuinely rare — eligible gems
+  0.87 → 0.27/seed); aggressive-vs-patient value gap narrows again,
+  205 (M1) → 96 (M2) → 60 (M3); **Patient now LEADS on discovery
+  (0.233 vs 0.200 wins/run) and terminal capability** while trailing
+  total value by 2.5%; Aggressive's 0.50 floor idles 24% of labor
+  under scarcity (vs 10% at M2). The study's intended tension —
+  throughput value vs discovery — is now visible in data. 1108 tests
+  pass; smoke baseline unchanged.

@@ -1358,3 +1358,91 @@ class TestModel2Presets:
         assert make_model2_balanced_config(42).governance == (
             make_model1_balanced_config(42).governance
         )
+
+
+# ===========================================================================
+# Model 3 presets (Model 2 + declining right-tail frontier)
+# ===========================================================================
+
+
+class TestModel3Presets:
+    """Tests for Model 3 ladder-rung presets.
+
+    Model 3 = Model 2 + a declining dynamic frontier on the right-tail
+    family only (scarcity: killing a moonshot degrades the quality of
+    its mid-run replacements). Everything else is identical to M2.
+    """
+
+    def test_all_configs_pass_validation(self) -> None:
+        from primordial_soup.presets import (
+            make_model3_aggressive_config,
+            make_model3_balanced_config,
+            make_model3_patient_config,
+        )
+
+        for factory in [
+            make_model3_balanced_config,
+            make_model3_aggressive_config,
+            make_model3_patient_config,
+        ]:
+            validate_configuration(factory(42))
+
+    def test_frontier_on_right_tail_only(self) -> None:
+        """Scarcity is the rung's single mechanism: only right-tail
+        gets a frontier; other families stay fixed-pool."""
+        from primordial_soup.presets import make_model3_initiative_generator_config
+
+        gen = make_model3_initiative_generator_config()
+        for spec in gen.type_specs:
+            if spec.generation_tag == "right_tail":
+                assert spec.frontier is not None
+                assert spec.frontier.frontier_degradation_rate > 0.0
+            else:
+                assert spec.frontier is None, f"{spec.generation_tag} has a frontier"
+
+    def test_no_observable_ceiling_at_this_rung(self) -> None:
+        """Bounded prizes / TAM machinery arrive with the full-model
+        backport, not here — adding a ceiling would bundle a second
+        mechanism into the rung."""
+        from primordial_soup.presets import make_model3_initiative_generator_config
+
+        gen = make_model3_initiative_generator_config()
+        for spec in gen.type_specs:
+            assert spec.observable_ceiling_distribution is None
+
+    def test_right_tail_is_scarce_pipeline(self) -> None:
+        """M3 restructures right-tail from a stocked shelf (M2: 25,
+        fixed) to a scarce flowing pipeline: small initial pool with
+        the frontier as live supply. Other families keep M2 counts."""
+        from primordial_soup.presets import (
+            make_model2_initiative_generator_config,
+            make_model3_initiative_generator_config,
+        )
+
+        m2 = {s.generation_tag: s for s in make_model2_initiative_generator_config().type_specs}
+        m3 = {s.generation_tag: s for s in make_model3_initiative_generator_config().type_specs}
+        assert m3["right_tail"].count == 6
+        assert m3["right_tail"].count < m2["right_tail"].count
+        for tag in ("quick_win", "flywheel", "enabler"):
+            assert m3[tag].count == m2[tag].count
+
+    def test_frontier_draws_inherit_screening_and_lag(self) -> None:
+        """Frontier-materialized right-tails carry M2's screening noise
+        and revelation lag fraction (the modified spec flows through
+        _generate_single_initiative)."""
+        from primordial_soup.presets import make_model3_initiative_generator_config
+
+        gen = make_model3_initiative_generator_config()
+        rt = next(s for s in gen.type_specs if s.generation_tag == "right_tail")
+        assert rt.screening_signal_st_dev == 0.55
+        assert rt.revelation_lag_fraction == 0.50
+
+    def test_governance_identical_to_model2(self) -> None:
+        from primordial_soup.presets import (
+            make_model2_balanced_config,
+            make_model3_balanced_config,
+        )
+
+        assert make_model3_balanced_config(42).governance == (
+            make_model2_balanced_config(42).governance
+        )

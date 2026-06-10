@@ -1244,3 +1244,58 @@ right tail of the belief distribution exactly as expert review
 predicted. This is direct evidence for the Phase 1 clamped-vs-
 unclamped experiment; the unclamped variant would spread these
 ceiling-piled beliefs.
+
+## 9. Model 3 Calibration: the scarce right-tail pipeline (2026-06-10)
+
+Model 3 adds the declining right-tail frontier to Model 2. Two
+calibration decisions define the rung; both are checked against the
+M3-vs-M2 paired comparison (30 seeds).
+
+### The shelf-to-pipeline restructuring
+
+The first M3 attempt kept Model 2's initial pool of 25 right-tails
+and merely attached a frontier (degradation 0.05, threshold 2). The
+frontier NEVER FIRED: with 10 teams and a ~15% right-tail mix
+target, the unassigned right-tail count never approached the
+threshold, and all 90 paired runs were byte-identical to M2. The
+lesson is recorded as a calibration principle: **scarcity is not
+"replenishment exists" — it is "moonshots are a scarce flowing
+pipeline, not a stocked shelf."** An organization does not have 25
+transformational bets sitting in a drawer; it has a few visible at
+any time, new ones arrive as old ones resolve, and burning through
+them degrades what arrives next.
+
+Final M3 right-tail structure: **initial count 6** (down from 25),
+frontier degradation rate 0.05 per resolved right-tail, quality
+floor 0.1, replenishment threshold 2. Other families unchanged
+(fixed pools). Frontier draws inherit M2's screening noise (0.55)
+and revelation lag fraction (0.50) automatically.
+
+### What the rung did (M3 vs M2, paired)
+
+- Total value ROSE ~300 for every regime (labor formerly tied up in
+  abundant mediocre moonshots flowed to flywheels). Scarcity of
+  speculative supply is not a value loss at this rung — it is a
+  reallocation.
+- Major wins fell from 0.50 to ~0.21 per run: eligible gems are now
+  genuinely rare (0.27 per seed vs 0.87), and discovery became the
+  scarce outcome the study intends it to be.
+- The aggressive-vs-patient value gap narrowed again: 205 (M1) →
+  96 (M2) → 60 (M3). Patient now LEADS on discovery (0.233 vs 0.200
+  wins/run) and terminal capability while trailing total value by
+  2.5%. The study's intended tension — throughput value vs
+  discovery — is now visible in the data rather than assumed.
+- Aggressive's strict floor (0.50) interacts with scarcity: it idles
+  24% of labor (vs 10% at M2). Saying no is much more expensive when
+  the pipeline is thin — but it still wins on undiscounted total
+  value because idle labor is free at this rung
+  (baseline_value_per_tick = 0).
+
+### Open calibration questions for later rungs / backport
+
+- Degradation 0.05 and initial count 6 are first-pass values chosen
+  to make the mechanism bind; a sensitivity pass (counts 4-10, rates
+  0.02-0.10) belongs in the full-model backport calibration.
+- Prize-preserving refresh with per-attempt degradation (the v2-of-a-
+  stopped-moonshot semantics) requires observable ceilings and is
+  deferred to the backport, where ceilings exist.
