@@ -613,6 +613,111 @@ class TestStepWorldBeliefUpdate:
         assert init.execution_belief_t is None
 
 
+class TestRevelationLag:
+    """Tests for the revelation gate on the quality belief update.
+
+    Per core_simulator.md step 5 and design decision 27: while the
+    pre-increment staffed_tick_count is below the initiative's
+    revelation_lag_staffed_ticks, quality signals are drawn but
+    discarded — the belief stays flat. Execution signals are ungated.
+    """
+
+    def _run_ticks(self, world, config, rng_pairs, ticks: int):
+        """Step the world forward a number of ticks; return final world."""
+        current_world = world
+        for _ in range(ticks):
+            result = step_world(current_world, config, config.initiatives, rng_pairs)
+            current_world = result.world_state
+        return current_world
+
+    def test_belief_flat_during_dark_period(self):
+        """Quality belief does not move while staffed ticks < lag."""
+        init_cfg = make_initiative(
+            latent_quality=0.9,
+            dependency_level=0.0,
+            revelation_lag_staffed_ticks=10,
+        )
+        init_state = _make_initiative_state(quality_belief_t=0.5)
+        team = _make_team_state(assigned_initiative_id="init-1")
+        world = _make_world_state(tick=0, initiative_states=(init_state,), team_states=(team,))
+        config = make_simulation_config(
+            initiatives=(init_cfg,),
+            model=make_model_config(learning_rate=0.3),
+        )
+        rng_pairs = (_make_rng_pair(world_seed=123),)
+
+        # 10 staffed ticks, all inside the dark period: belief frozen.
+        final = self._run_ticks(world, config, rng_pairs, 10)
+        assert final.initiative_states[0].quality_belief_t == pytest.approx(0.5)
+        assert final.initiative_states[0].staffed_tick_count == 10
+
+    def test_belief_moves_after_revelation(self):
+        """Once staffed ticks reach the lag, signals become informative
+        and belief converges toward latent quality as usual."""
+        init_cfg = make_initiative(
+            latent_quality=0.9,
+            dependency_level=0.0,
+            revelation_lag_staffed_ticks=10,
+        )
+        init_state = _make_initiative_state(quality_belief_t=0.5)
+        team = _make_team_state(assigned_initiative_id="init-1")
+        world = _make_world_state(tick=0, initiative_states=(init_state,), team_states=(team,))
+        config = make_simulation_config(
+            initiatives=(init_cfg,),
+            model=make_model_config(learning_rate=0.3),
+        )
+        rng_pairs = (_make_rng_pair(world_seed=123),)
+
+        # 10 dark ticks + 40 informative ticks.
+        final = self._run_ticks(world, config, rng_pairs, 50)
+        final_belief = final.initiative_states[0].quality_belief_t
+        assert abs(final_belief - 0.9) < abs(0.5 - 0.9)
+
+    def test_zero_lag_preserves_existing_behavior(self):
+        """Default lag 0 means the gate never binds: belief moves from
+        the first staffed tick (the pre-2026-06 behavior)."""
+        init_cfg = make_initiative(
+            latent_quality=0.9,
+            dependency_level=0.0,
+            revelation_lag_staffed_ticks=0,
+        )
+        init_state = _make_initiative_state(quality_belief_t=0.5)
+        team = _make_team_state(assigned_initiative_id="init-1")
+        world = _make_world_state(tick=0, initiative_states=(init_state,), team_states=(team,))
+        config = make_simulation_config(
+            initiatives=(init_cfg,),
+            model=make_model_config(learning_rate=0.3),
+        )
+        rng_pairs = (_make_rng_pair(world_seed=123),)
+
+        final = self._run_ticks(world, config, rng_pairs, 5)
+        assert final.initiative_states[0].quality_belief_t != pytest.approx(0.5)
+
+    def test_execution_belief_updates_during_dark_period(self):
+        """Execution signals are NOT gated: schedule evidence flows
+        during the build even when product truth is dark."""
+        init_cfg = make_initiative(
+            latent_quality=0.9,
+            dependency_level=0.0,
+            # Planned far shorter than true: execution belief must drift
+            # down as overrun evidence accumulates, even in the dark.
+            true_duration_ticks=40,
+            planned_duration_ticks=20,
+            revelation_lag_staffed_ticks=10,
+        )
+        init_state = _make_initiative_state(quality_belief_t=0.5, execution_belief_t=1.0)
+        team = _make_team_state(assigned_initiative_id="init-1")
+        world = _make_world_state(tick=0, initiative_states=(init_state,), team_states=(team,))
+        config = make_simulation_config(initiatives=(init_cfg,))
+        rng_pairs = (_make_rng_pair(world_seed=123),)
+
+        final = self._run_ticks(world, config, rng_pairs, 8)
+        init = final.initiative_states[0]
+        # Quality belief frozen (dark), execution belief moved.
+        assert init.quality_belief_t == pytest.approx(0.5)
+        assert init.execution_belief_t != pytest.approx(1.0)
+
+
 # ---------------------------------------------------------------------------
 # Tests: step_world — review state
 # ---------------------------------------------------------------------------

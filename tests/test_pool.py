@@ -727,6 +727,73 @@ class TestScreeningSignal:
             # Belief must be clamped to [0, 1].
             assert 0.0 <= init.initial_quality_belief <= 1.0
 
+    def test_revelation_lag_derived_from_true_duration(self):
+        """Lag = floor(fraction * true_duration); derived, not drawn.
+
+        Per initiative_model.md §Immutable attributes (design decision
+        27): with a fixed duration the lag is exact and deterministic.
+        """
+        spec = InitiativeTypeSpec(
+            generation_tag="test_lag",
+            count=10,
+            quality_distribution=BetaDistribution(alpha=5.0, beta=2.0),
+            base_signal_st_dev_range=(0.1, 0.2),
+            dependency_level_range=(0.0, 0.3),
+            true_duration_range=(20, 20),  # fixed duration
+            planned_duration_range=(20, 20),
+            revelation_lag_fraction=0.5,
+        )
+        config = InitiativeGeneratorConfig(type_specs=(spec,))
+        pool = generate_initiative_pool(config, world_seed=42)
+
+        for init in pool:
+            assert init.revelation_lag_staffed_ticks == 10
+
+    def test_revelation_lag_zero_without_true_duration(self):
+        """No build, no dark period: lag is 0 when duration is unset."""
+        spec = InitiativeTypeSpec(
+            generation_tag="test_lag_none",
+            count=10,
+            quality_distribution=BetaDistribution(alpha=5.0, beta=2.0),
+            base_signal_st_dev_range=(0.1, 0.2),
+            dependency_level_range=(0.0, 0.3),
+            revelation_lag_fraction=0.5,
+        )
+        config = InitiativeGeneratorConfig(type_specs=(spec,))
+        pool = generate_initiative_pool(config, world_seed=42)
+
+        for init in pool:
+            assert init.revelation_lag_staffed_ticks == 0
+
+    def test_revelation_lag_adds_no_rng_draws(self):
+        """A pool with lags is byte-identical to one without, apart
+        from the lag field itself — the derivation consumes no RNG."""
+        base_kwargs = dict(
+            generation_tag="test_crn",
+            count=15,
+            quality_distribution=BetaDistribution(alpha=2.0, beta=2.0),
+            base_signal_st_dev_range=(0.1, 0.2),
+            dependency_level_range=(0.0, 0.3),
+            true_duration_range=(10, 30),
+            planned_duration_range=(12, 35),
+            screening_signal_st_dev=0.2,
+        )
+        pool_without = generate_initiative_pool(
+            InitiativeGeneratorConfig(type_specs=(InitiativeTypeSpec(**base_kwargs),)),
+            world_seed=42,
+        )
+        pool_with = generate_initiative_pool(
+            InitiativeGeneratorConfig(
+                type_specs=(InitiativeTypeSpec(**base_kwargs, revelation_lag_fraction=0.4),)
+            ),
+            world_seed=42,
+        )
+        for a, b in zip(pool_without, pool_with, strict=True):
+            assert a.latent_quality == b.latent_quality
+            assert a.true_duration_ticks == b.true_duration_ticks
+            assert a.initial_quality_belief == b.initial_quality_belief
+            assert b.revelation_lag_staffed_ticks == int(0.4 * b.true_duration_ticks)
+
     def test_screening_beliefs_bounded_zero_one(self):
         """Screening signal is clamped to [0, 1] even with extreme noise."""
         # Very high noise — some draws should hit the clamp boundaries.

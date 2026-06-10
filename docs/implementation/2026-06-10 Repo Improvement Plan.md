@@ -166,12 +166,23 @@ Maintain the rung-by-rung delta table in a tracked doc — it is both
 the debugging instrument and the ablation study a referee would
 require.
 
-- **2.1 M2 = M1 + frontier replenishment**, with refresh quality
+- **2.0 M2 = M1 + revelation lag** (inserted 2026-06-10 by owner
+  direction; design decision 27: "information arrives in lumps,
+  purchased by sustained investment"). Quality signals are drawn but
+  discarded for a per-type fraction of each initiative's build
+  (quick_win 0.0, flywheel 0.35, enabler 0.35, right_tail 0.50).
+  Pools and governance configs are identical to M1, so the paired
+  rung diff isolates the mechanism. This supplies the patience-payoff
+  mechanism M1 proved absent: during the dark period a gem and a dud
+  are observationally identical, so impatient stopping becomes an
+  uninformed gamble and the stagnation window becomes the live
+  patience dial.
+- **2.1 M3 = M2 + frontier replenishment**, with refresh quality
   degradation > 0 and a plausible replenishment rate target (~5–8
   first right-tail attempts/year for a balanced incumbent, not ~50).
-  The M2-vs-M1 diff quantifies how much of the full model's behavior
-  was churn.
-- **2.2 M3 = M2 + executive attention**, in the reduced two-parameter
+  Adds the option cost of declining/killing (scarcity); the rung diff
+  quantifies how much of the full model's behavior was churn.
+- **2.2 M4 = M3 + executive attention**, in the reduced two-parameter
   form per expert review — `c1 * exp(-c2 * a)`, or `c1 / (1 + a^c2)`
   if the exponential decays too fast — replacing the current
   five-parameter curve. Attention allocation rules differ across
@@ -179,11 +190,12 @@ require.
   study's novel mechanism and is evaluated in isolation on this rung.
 - **2.3 Backport into the full model.** Carry validated mechanisms
   and calibrations into the nine full-model presets: intake floor
-  (already engine-side from 1.1), refresh degradation, screening
-  recalibration, enabled `portfolio_mix_targets` (currently `None`
-  everywhere — the lever the study claims to test is off). Ramp,
-  dependency, and staffing response return only if the M1–M3 results
-  show they are needed to answer the research question.
+  (already engine-side from 1.1), revelation lags, refresh
+  degradation, screening recalibration, enabled
+  `portfolio_mix_targets` (currently `None` everywhere — the lever
+  the study claims to test is off). Ramp, dependency, and staffing
+  response return only if the ladder results show they are needed to
+  answer the research question.
 
 ## Phase 3 — Interpretability upgrades
 
@@ -355,3 +367,34 @@ previous step, decision notes.)
   (proposed). On ratification, delete the experiment branch.
   Comparison bundles: clamped 2026-06-10_103203, unclamped
   2026-06-10_104553.
+- **2026-06-10 — Gate 1 closed; gate 2 resolved by design revision.**
+  Owner ratified decision 26 (clamp stays; experiment branch
+  deleted). On the M1 answer, the owner identified the missing
+  mechanism: real builds run months before anything is testable —
+  belief flat, cost accruing — and funding through that silence vs
+  killing during it is a first-class governance posture the
+  continuous-signal model could not represent. Adopted as design
+  decision 27 ("information arrives in lumps, purchased by sustained
+  investment"); post-launch iteration (v1/v2) deliberately deferred —
+  successor initiatives in the pool remain its representation.
+- **2026-06-10 — Phase 2.0 landed (M2 = M1 + revelation lag).**
+  Engine gate in tick.py (signal drawn, discarded while staffed
+  ticks < lag; execution signals ungated; CRN preserved), lag derived
+  as per-type fraction of true duration (no new RNG draws — M2 pool
+  byte-identical to M1's), `make_model2_*` presets,
+  `model2_campaign.py`, cross-rung pairing flag on
+  compare_bundles.py. M2-vs-M1 paired diff (30 seeds, bundles
+  103203 vs 123209): (1) **mid-flight gem-killing now exists** —
+  first nonzero false-stop rate in the study's history (balanced:
+  2.9%), via stagnation killing mid-band-belief initiatives in their
+  dark period; (2) belief error roughly doubles (0.065 → 0.14) — the
+  world is genuinely harder to read; (3) the dark period taxes
+  impatience asymmetrically: value deltas aggressive −127, balanced
+  −94, patient −18, narrowing the aggressive-vs-patient gap from 205
+  to 96; patient holds through darkness (right-tail stops 3.1 → 0.3,
+  completions 4.4 → 6.7). Ordering not yet flipped (Aggressive >
+  Balanced > Patient on value), but patience now HAS a mechanism and
+  its payoff is measurable. Discovery still flat at 0.5 wins/run —
+  eligible gems remain scarce; revisit at M3 (frontier) where
+  declining carries option cost. 1102 tests pass; smoke baseline
+  unchanged (lag defaults to 0 in the full model).

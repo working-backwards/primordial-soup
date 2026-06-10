@@ -1714,3 +1714,91 @@ def make_model1_aggressive_config(world_seed: int) -> SimulationConfiguration:
 def make_model1_patient_config(world_seed: int) -> SimulationConfiguration:
     """Complete Model 1 Patient configuration for one seed."""
     return _make_model1_config(world_seed, make_model1_patient_governance_config())
+
+
+# ===========================================================================
+# Model 2 — Model 1 + revelation lag (information arrives in lumps)
+# ===========================================================================
+#
+# Model 2 is the third rung of the model ladder. It adds exactly one
+# mechanism to Model 1: the revelation lag (design decision 27 —
+# "information arrives in lumps, purchased by sustained investment").
+# For a per-type fraction of each initiative's true build time,
+# strategic quality signals are drawn but discarded: belief stays flat
+# while cost accrues. Execution signals are unaffected.
+#
+# Everything else is held identical to Model 1: same pool draws (the
+# lag is derived from true duration, consuming no RNG — pools are
+# byte-identical under the same seed), same governance configs, same
+# horizon, same workforce. The M2-vs-M1 paired diff therefore
+# isolates the revelation mechanism alone.
+#
+# This rung exists to answer the ladder's standing hypothesis from
+# the M1 sweep: at M1, patience had no payoff mechanism because gems'
+# beliefs rose from the first staffed tick. With dark periods, a gem
+# and a dud are observationally identical during the build, killing
+# during silence becomes an uninformed gamble, and the stagnation
+# window becomes the live patience dial.
+
+# Per-type revelation lag fractions. Quick wins are testable almost
+# immediately; flywheels and enablers need a working build before
+# their mechanism can be observed; right-tail builds are dark for
+# half their schedule (you cannot test the breakthrough until the
+# thing exists).
+_MODEL2_REVELATION_LAG_FRACTIONS = {
+    "quick_win": 0.0,
+    "flywheel": 0.35,
+    "enabler": 0.35,
+    "right_tail": 0.50,
+}
+
+
+def make_model2_initiative_generator_config() -> InitiativeGeneratorConfig:
+    """Build the Model 2 InitiativeGeneratorConfig.
+
+    Model 1's generator with per-type revelation lag fractions added.
+    No other field changes, and the lag derivation consumes no RNG,
+    so the resolved pool is identical to Model 1's under the same
+    world seed except for the lag field.
+    """
+    base = make_model1_initiative_generator_config()
+    return InitiativeGeneratorConfig(
+        type_specs=tuple(
+            dataclasses.replace(
+                spec,
+                revelation_lag_fraction=_MODEL2_REVELATION_LAG_FRACTIONS[spec.generation_tag],
+            )
+            for spec in base.type_specs
+        ),
+    )
+
+
+def _make_model2_config(
+    world_seed: int,
+    governance: GovernanceConfig,
+) -> SimulationConfiguration:
+    """Assemble a complete Model 2 SimulationConfiguration."""
+    return SimulationConfiguration(
+        world_seed=world_seed,
+        time=make_model1_time_config(),
+        teams=make_model0_workforce_config(),
+        model=make_model0_model_config(),
+        governance=governance,
+        reporting=make_baseline_reporting_config(),
+        initiative_generator=make_model2_initiative_generator_config(),
+    )
+
+
+def make_model2_balanced_config(world_seed: int) -> SimulationConfiguration:
+    """Complete Model 2 Balanced configuration (M1 governance + lags)."""
+    return _make_model2_config(world_seed, make_model1_balanced_governance_config())
+
+
+def make_model2_aggressive_config(world_seed: int) -> SimulationConfiguration:
+    """Complete Model 2 Aggressive configuration (M1 governance + lags)."""
+    return _make_model2_config(world_seed, make_model1_aggressive_governance_config())
+
+
+def make_model2_patient_config(world_seed: int) -> SimulationConfiguration:
+    """Complete Model 2 Patient configuration (M1 governance + lags)."""
+    return _make_model2_config(world_seed, make_model1_patient_governance_config())

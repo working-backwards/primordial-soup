@@ -508,13 +508,25 @@ def step_world(
         # Update strategic quality belief.
         # c_{t+1} = clamp(c_t + η_eff * ramp * L(d) * (y_t - c_t), 0, 1)
         # where η_eff = η * staffing_multiplier
-        new_quality_belief = update_quality_belief(
-            quality_belief_t=init_state.quality_belief_t,
-            quality_signal=quality_signal,
-            learning_rate=effective_learning_rate,
-            ramp_multiplier_value=ramp_mult,
-            learning_efficiency_value=learn_eff,
-        )
+        #
+        # Revelation gate (core_simulator.md step 5; design decision 27):
+        # while the initiative's pre-increment staffed_tick_count is
+        # below its revelation_lag_staffed_ticks, the quality signal was
+        # drawn (preserving CRN stream alignment) but is DISCARDED — the
+        # belief stays flat while cost accrues. Information arrives in
+        # lumps, purchased by sustained investment. The execution belief
+        # update below is deliberately ungated: schedule and burn are
+        # observable during a build even when product truth is not.
+        if init_state.staffed_tick_count < cfg.revelation_lag_staffed_ticks:
+            new_quality_belief = init_state.quality_belief_t
+        else:
+            new_quality_belief = update_quality_belief(
+                quality_belief_t=init_state.quality_belief_t,
+                quality_signal=quality_signal,
+                learning_rate=effective_learning_rate,
+                ramp_multiplier_value=ramp_mult,
+                learning_efficiency_value=learn_eff,
+            )
 
         # Update execution belief (only for bounded-duration initiatives).
         new_execution_belief = init_state.execution_belief_t

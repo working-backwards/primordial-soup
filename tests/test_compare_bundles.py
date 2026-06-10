@@ -131,3 +131,22 @@ def test_missing_parquet_raises_with_helpful_message(tmp_path):
     empty_dir.mkdir()
     with pytest.raises(FileNotFoundError, match="run bundle"):
         compare_bundles_module.load_seed_runs(empty_dir)
+
+
+def test_strip_condition_prefix_pairs_across_rungs(tmp_path, capsys):
+    """Cross-rung pairing: model1__balanced pairs with model2__balanced."""
+    bundle_a = _write_bundle(
+        tmp_path / "a", [_seed_row(condition="model1__balanced", total_value=100.0)]
+    )
+    bundle_b = _write_bundle(
+        tmp_path / "b", [_seed_row(condition="model2__balanced", total_value=90.0)]
+    )
+
+    exit_code = compare_bundles_module.compare_bundles(
+        bundle_a, bundle_b, strip_condition_prefix=True
+    )
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert "Paired runs: 1" in output
+    assert "-10.0000" in output

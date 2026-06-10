@@ -65,6 +65,7 @@ def make_initiative(
     capability_contribution_scale: float = 0.0,
     generation_tag: str | None = None,
     staffing_response_scale: float = 0.0,
+    revelation_lag_staffed_ticks: int = 0,
 ) -> ResolvedInitiativeConfig:
     """Build a valid ResolvedInitiativeConfig with sensible defaults."""
     if value_channels is None:
@@ -81,6 +82,7 @@ def make_initiative(
         capability_contribution_scale=capability_contribution_scale,
         generation_tag=generation_tag,
         staffing_response_scale=staffing_response_scale,
+        revelation_lag_staffed_ticks=revelation_lag_staffed_ticks,
     )
 
 

@@ -70,12 +70,21 @@ def load_seed_runs(bundle_dir: Path) -> list[dict]:
     return table.to_pylist()
 
 
-def index_rows(rows: list[dict]) -> dict[tuple, dict]:
-    """Index seed-run rows by the (condition_id, world_seed) join key."""
+def index_rows(rows: list[dict], *, strip_condition_prefix: bool = False) -> dict[tuple, dict]:
+    """Index seed-run rows by the (condition_id, world_seed) join key.
+
+    With strip_condition_prefix, the condition key drops everything up
+    to and including the first "__" (e.g. "model1__balanced" and
+    "model2__balanced" both key as "balanced"), enabling cross-rung
+    comparisons between model-ladder bundles whose conditions differ
+    only by rung prefix.
+    """
     indexed: dict[tuple, dict] = {}
     for row in rows:
-        key = tuple(row.get(k) for k in JOIN_KEYS)
-        indexed[key] = row
+        condition = row.get("experimental_condition_id")
+        if strip_condition_prefix and isinstance(condition, str) and "__" in condition:
+            condition = condition.split("__", 1)[1]
+        indexed[(condition, row.get("world_seed"))] = row
     return indexed
 
 
@@ -88,10 +97,15 @@ def numeric_or_none(value: object) -> float | None:
     return None
 
 
-def compare_bundles(bundle_a: Path, bundle_b: Path) -> int:
+def compare_bundles(
+    bundle_a: Path,
+    bundle_b: Path,
+    *,
+    strip_condition_prefix: bool = False,
+) -> int:
     """Print the paired comparison; return process exit code."""
-    rows_a = index_rows(load_seed_runs(bundle_a))
-    rows_b = index_rows(load_seed_runs(bundle_b))
+    rows_a = index_rows(load_seed_runs(bundle_a), strip_condition_prefix=strip_condition_prefix)
+    rows_b = index_rows(load_seed_runs(bundle_b), strip_condition_prefix=strip_condition_prefix)
 
     shared_keys = sorted(set(rows_a) & set(rows_b), key=str)
     only_a = sorted(set(rows_a) - set(rows_b), key=str)
@@ -160,8 +174,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("bundle_a", type=Path, help="Reference bundle directory")
     parser.add_argument("bundle_b", type=Path, help="Candidate bundle directory")
+    parser.add_argument(
+        "--strip-condition-prefix",
+        action="store_true",
+        help=(
+            "Pair conditions by the part after the first '__' "
+            "(e.g. model1__balanced pairs with model2__balanced), "
+            "for cross-rung model-ladder comparisons."
+        ),
+    )
     args = parser.parse_args()
-    return compare_bundles(args.bundle_a, args.bundle_b)
+    return compare_bundles(
+        args.bundle_a,
+        args.bundle_b,
+        strip_condition_prefix=args.strip_condition_prefix,
+    )
 
 
 if __name__ == "__main__":

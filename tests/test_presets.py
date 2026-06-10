@@ -1273,3 +1273,88 @@ class TestModel1Presets:
         # Screening produces a spread of initial beliefs, not a point prior.
         assert len(initial_beliefs) > 10
         assert result.cumulative_value_total > 0
+
+
+# ===========================================================================
+# Model 2 presets (Model 1 + revelation lag)
+# ===========================================================================
+
+
+class TestModel2Presets:
+    """Tests for Model 2 ladder-rung presets.
+
+    Model 2 = Model 1 + per-type revelation lags (design decision 27).
+    Everything else — pool draws, governance, horizon, workforce — is
+    identical to Model 1 so the rung diff isolates the mechanism.
+    """
+
+    def test_all_configs_pass_validation(self) -> None:
+        from primordial_soup.presets import (
+            make_model2_aggressive_config,
+            make_model2_balanced_config,
+            make_model2_patient_config,
+        )
+
+        for factory in [
+            make_model2_balanced_config,
+            make_model2_aggressive_config,
+            make_model2_patient_config,
+        ]:
+            validate_configuration(factory(42))
+
+    def test_lag_fractions_set_per_type(self) -> None:
+        """Right-tail builds are dark for half their schedule; quick
+        wins are testable immediately."""
+        from primordial_soup.presets import make_model2_initiative_generator_config
+
+        gen = make_model2_initiative_generator_config()
+        fractions = {s.generation_tag: s.revelation_lag_fraction for s in gen.type_specs}
+        assert fractions["quick_win"] == 0.0
+        assert fractions["right_tail"] == 0.50
+        assert fractions["flywheel"] > 0.0
+        assert fractions["enabler"] > 0.0
+
+    def test_pool_identical_to_model1_except_lag(self) -> None:
+        """The lag derivation consumes no RNG: M2's resolved pool is
+        byte-identical to M1's under the same seed, lag field aside."""
+        from primordial_soup.pool import generate_initiative_pool
+        from primordial_soup.presets import (
+            make_model1_initiative_generator_config,
+            make_model2_initiative_generator_config,
+        )
+
+        pool_m1 = generate_initiative_pool(
+            make_model1_initiative_generator_config(), world_seed=42
+        )
+        pool_m2 = generate_initiative_pool(
+            make_model2_initiative_generator_config(), world_seed=42
+        )
+        for a, b in zip(pool_m1, pool_m2, strict=True):
+            assert a.latent_quality == b.latent_quality
+            assert a.initial_quality_belief == b.initial_quality_belief
+            assert a.true_duration_ticks == b.true_duration_ticks
+
+    def test_right_tail_lags_are_substantial(self) -> None:
+        """Right-tail dark periods are long enough to interact with
+        the stagnation windows (8-20 staffed ticks)."""
+        from primordial_soup.pool import generate_initiative_pool
+        from primordial_soup.presets import make_model2_initiative_generator_config
+
+        pool = generate_initiative_pool(make_model2_initiative_generator_config(), world_seed=42)
+        rt_lags = [
+            i.revelation_lag_staffed_ticks for i in pool if i.generation_tag == "right_tail"
+        ]
+        # RT durations are 30-60 ticks at fraction 0.5 -> lags 15-30.
+        assert min(rt_lags) >= 15
+        assert max(rt_lags) <= 30
+
+    def test_governance_identical_to_model1(self) -> None:
+        """M2 changes the world, not the governance: configs match M1."""
+        from primordial_soup.presets import (
+            make_model1_balanced_config,
+            make_model2_balanced_config,
+        )
+
+        assert make_model2_balanced_config(42).governance == (
+            make_model1_balanced_config(42).governance
+        )

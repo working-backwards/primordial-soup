@@ -413,6 +413,20 @@ class ResolvedInitiativeConfig:
     # Per opportunity_staffing_intensity_design_for_claude_v2.md.
     staffing_response_scale: float = 0.0
 
+    # Revelation lag: number of STAFFED ticks this initiative must
+    # accumulate before its strategic quality signals become
+    # informative. While staffed_tick_count < this value, the engine
+    # draws the quality signal (preserving CRN stream alignment) but
+    # discards it — the quality belief does not move. Execution
+    # signals are unaffected. Derived at generation as
+    # floor(revelation_lag_fraction * true_duration_ticks); 0 (the
+    # default) means signals are informative from the first staffed
+    # tick. Latent — never surfaced on InitiativeObservation.
+    # Per initiative_model.md §Immutable attributes and design
+    # decision 27 ("information arrives in lumps, purchased by
+    # sustained investment").
+    revelation_lag_staffed_ticks: int = 0
+
     # Prize descriptor ID for right-tail frontier re-attempts. When a
     # right-tail initiative is materialized from an available prize
     # descriptor, this field links it back to the original prize. None
@@ -609,6 +623,19 @@ class InitiativeTypeSpec:
     #
     # Per post_expert_review_plan.md Step 3.
     screening_signal_st_dev: float | None = None
+
+    # Revelation lag fraction: the share of an initiative's
+    # true_duration_ticks during which strategic quality signals are
+    # uninformative (drawn but discarded; belief stays flat while cost
+    # accrues). The generator derives the per-initiative lag as
+    # floor(revelation_lag_fraction * true_duration_ticks); no new RNG
+    # draws, so pools with and without lags are otherwise identical
+    # under the same world seed. 0.0 (default) = signals informative
+    # from the first staffed tick. Must be in [0, 1].
+    # Per initiative_model.md §Immutable attributes and design
+    # decision 27 ("information arrives in lumps, purchased by
+    # sustained investment").
+    revelation_lag_fraction: float = 0.0
 
     # Dynamic frontier specification. When set, enables runner-side
     # inter-tick frontier materialization for this family: the runner
@@ -858,6 +885,15 @@ def _validate_initiative(initiative: ResolvedInitiativeConfig, errors: list[str]
         errors.append(
             f"{prefix}: staffing_response_scale must be >= 0, "
             f"got {initiative.staffing_response_scale}."
+        )
+
+    # --- Revelation lag ---
+    # Per initiative_model.md §Immutable attributes: a non-negative
+    # staffed-tick count; 0 means signals are informative immediately.
+    if initiative.revelation_lag_staffed_ticks < 0:
+        errors.append(
+            f"{prefix}: revelation_lag_staffed_ticks must be >= 0, "
+            f"got {initiative.revelation_lag_staffed_ticks}."
         )
 
     # --- Duration consistency ---

@@ -294,6 +294,16 @@ def _generate_single_initiative(
 
     # --- Assemble the resolved initiative ---
 
+    # --- Revelation lag (design decision 27) ---
+    # Derived, not drawn: floor(fraction * true_duration). Using the
+    # already-drawn duration keeps the pool byte-identical to one
+    # generated without revelation lags under the same seed (no extra
+    # RNG consumption). Initiatives without a true duration have no
+    # build phase to be dark in — lag 0.
+    revelation_lag_staffed_ticks = 0
+    if true_duration_ticks is not None and type_spec.revelation_lag_fraction > 0.0:
+        revelation_lag_staffed_ticks = int(type_spec.revelation_lag_fraction * true_duration_ticks)
+
     initiative = ResolvedInitiativeConfig(
         initiative_id=initiative_id,
         latent_quality=latent_quality,
@@ -309,6 +319,7 @@ def _generate_single_initiative(
         initial_execution_belief=type_spec.initial_execution_belief,
         required_team_size=required_team_size,
         staffing_response_scale=staffing_response_scale,
+        revelation_lag_staffed_ticks=revelation_lag_staffed_ticks,
     )
 
     # --- Enforce generator invariants before returning ---
