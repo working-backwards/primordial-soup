@@ -549,3 +549,44 @@ previous step, decision notes.)
   and earns nothing (baseline_value_per_tick = 0); intake findings
   Step 3 proposed ~0.1/team-week — pending owner decision; until
   then discipline findings are conservative.
+- **2026-06-10 — Phase 3.1 landed (discounted-value ledger).**
+  `ReportingConfig.annual_discount_rate` (default 0.10; 0 disables);
+  the runner accrues a parallel present-value ledger weighting every
+  value event by (1+r)^(-tick/52) at accrual time. Engine stays
+  undiscounted (reporting-side only, per the study_overview scope
+  note). Canonical preset: 6,008 undiscounted units = 4,318 today
+  (72%) — the 96%-residual headline is finally readable in CFO
+  terms. Closes the third and last root-cause problem from the
+  2026-06-09 evaluation (unbelievable value ledger).
+- **2026-06-10 — Phase 3.4 landed (paired-CRN confidence
+  intervals).** Condition tables carry per-seed paired deltas vs the
+  baseline condition (total value, discounted total, major wins)
+  with 95% Student-t half-widths; the campaign headline gains a
+  "Δ vs Baseline (95% CI)" column. This is the analysis the CRN
+  substream design exists to enable, now produced by default.
+- **2026-06-10 — Phase 3.2 landed (full-model lever sweep).**
+  `scripts/full_model_lever_sweep.py`: intake floor (None/0.20/0.35/
+  0.50) and confidence-decline (0.08/0.30/0.40) swept one at a time
+  against the canonical balanced_incumbent base, 30 paired seeds,
+  bundle 2026-06-10_150642. THE FULL-MODEL ANSWER (paired deltas vs
+  the 0.35-floor baseline, 95% CIs): the intake bar has an INTERIOR
+  value optimum — floor 0.20 is significantly better than 0.35
+  (+303 ± 85) while 0.50 (−390 ± 100) and no floor (−426 ± 189) are
+  both significantly worse. Unlike M1's monotone
+  discipline-dominates, the full model's dark periods + scarcity +
+  mix targets make BOTH extremes costly: no bar admits junk, a high
+  bar idles 54% of labor. And the discipline-vs-discovery price is
+  now quantified: no floor surfaces +0.30 ± 0.22 MORE major wins per
+  run (the only setting whose discovery delta excludes zero) — the
+  bar you choose literally prices your appetite for breakthroughs.
+  The confidence-decline (kill) threshold is nearly inert by
+  comparison (0.08 vs 0.30: +2 ± 5; 0.40: −58 ± 29): admission, not
+  termination, is the load-bearing governance lever in this world.
+  Caveat: idle labor still earns 0, which taxes high floors; the
+  pending baseline-value decision could shift the optimum upward.
+- **REMAINING from the approved plan:** Phase 3.3 (benchmark index
+  policy — held for a short design pass: the index form and its stop
+  behavior deserve a governance.md note before coding). Owner-pending
+  calibration item: baseline value for idle teams. Deferred by owner:
+  screening-bias dial (Kahneman), posture-shift dial. Then the merge
+  gate: full review → PR feature-model-ladder → main.
