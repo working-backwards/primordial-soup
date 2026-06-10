@@ -78,6 +78,7 @@ Design references:
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from typing import TYPE_CHECKING, Literal
 
@@ -1463,3 +1464,241 @@ def make_model0_exploration_config(world_seed: int) -> SimulationConfiguration:
         reporting=make_baseline_reporting_config(),
         initiative_generator=make_model0_initiative_generator_config(),
     )
+
+
+# ===========================================================================
+# Model 1 — Model 0 + hidden quality, screening, stops, intake floor
+# ===========================================================================
+#
+# Model 1 is the second rung of the model ladder (see
+# docs/implementation/2026-06-10 Repo Improvement Plan.md, Phase 1.2).
+# It is the smallest model that contains the study's actual research
+# question: governance choosing what to START and what to STOP under
+# genuine uncertainty about initiative quality.
+#
+# Added relative to Model 0:
+#   - Screening signals: initial beliefs are noisy observations of
+#     latent quality instead of an uninformative 0.5 prior. Governance
+#     gets imperfect ex-ante information — the basis for intake
+#     decisions.
+#   - Stop rules: confidence decline and stagnation are active.
+#     (TAM adequacy requires observable_ceiling, which M1 initiatives
+#     do not have — bounded prizes arrive with the frontier at M2.
+#     Execution-overrun stopping stays disabled to keep the stop
+#     decision purely strategic at this rung.)
+#   - Intake belief floor: governance can refuse to staff work below
+#     its bar. Per governance.md §Intake belief floor.
+#
+# Still absent (by design, per expert review): executive attention,
+# team ramp, dependency friction, dynamic frontier, staffing response.
+# Model 1 reuses make_model0_workforce_config() and
+# make_model0_model_config() directly — those configs already disable
+# every mechanism this rung excludes.
+#
+# The three M1 archetypes share IDENTICAL portfolio mix targets so
+# that outcome differences are attributable to stop/intake posture
+# alone — unlike Model 0, where mix targets were the only lever, and
+# unlike the confounded full-model archetypes. All three dispatch to
+# BalancedPolicy; differentiation is entirely in config parameters.
+
+
+def make_model1_time_config() -> TimeConfig:
+    """Build the Model 1 TimeConfig.
+
+    Horizon of 160 ticks (~3 years). Longer than Model 0's 100 because
+    M1 right-tail initiatives (30-60 tick durations) must be able to
+    complete even when started mid-run — otherwise horizon censoring,
+    not governance, decides discovery outcomes. Still short enough
+    that late right-tail starts can be censored, preserving a genuine
+    patience tradeoff.
+    """
+    return TimeConfig(
+        tick_horizon=160,
+        tick_label="week",
+    )
+
+
+def make_model1_initiative_generator_config() -> InitiativeGeneratorConfig:
+    """Build the Model 1 InitiativeGeneratorConfig.
+
+    Identical pool composition and value channels to Model 0
+    (130 initiatives: 40 quick_win, 40 flywheel, 25 enabler,
+    25 right_tail), with one addition: per-type screening signals.
+
+    Screening signal standard deviations (starting values, refined by
+    the Phase 1.3 calibration against its acceptance criteria):
+    - quick_win 0.10: routine work is easy to assess at intake.
+    - flywheel 0.15: compounding mechanisms are moderately assessable.
+    - enabler 0.20: capability value is hard to see up front.
+    - right_tail 0.55: transformational potential is genuinely opaque
+      at intake. Deliberately much wider than the full model's 0.30,
+      which the 2026-06-09 evaluation showed makes gems obvious
+      (eligible right-tails entered at mean belief 0.82 vs 0.28 for
+      the rest — the kill-or-continue dilemma never occurred). The
+      [0, 1] clamp on the screening draw means a wide st-dev produces
+      heavy belief overlap between eligible and non-eligible
+      right-tails, which is the point.
+    """
+    base = make_model0_initiative_generator_config()
+
+    # Per-type screening noise, keyed by generation_tag. See docstring
+    # for rationale; Phase 1.3 calibration owns the final values.
+    screening_by_tag = {
+        "quick_win": 0.10,
+        "flywheel": 0.15,
+        "enabler": 0.20,
+        "right_tail": 0.55,
+    }
+
+    # Rebuild each Model 0 type spec with its screening signal added.
+    # dataclasses.replace preserves every other field, so the M1 pool
+    # stays identical to M0 except for intake information.
+    model1_specs = tuple(
+        dataclasses.replace(
+            spec,
+            screening_signal_st_dev=screening_by_tag[spec.generation_tag],
+        )
+        for spec in base.type_specs
+    )
+
+    return InitiativeGeneratorConfig(type_specs=model1_specs)
+
+
+# Shared M1 portfolio mix targets: identical across all three
+# archetypes so stop/intake posture is the only governance difference.
+# Uses the Model 0 "balanced" mix as the common allocation.
+_MODEL1_SHARED_MIX_TARGETS = PortfolioMixTargets(
+    bucket_targets=(
+        ("flywheel", 0.35),
+        ("right_tail", 0.15),
+        ("enabler", 0.15),
+        ("quick_win", 0.35),
+    ),
+    tolerance=0.10,
+)
+
+
+def _make_model1_governance_config(
+    *,
+    confidence_decline_threshold: float,
+    stagnation_window_staffed_ticks: int,
+    stagnation_belief_change_threshold: float,
+    intake_belief_threshold: float,
+) -> GovernanceConfig:
+    """Build a Model 1 GovernanceConfig with the given stop/intake posture.
+
+    Everything except the four posture parameters is held fixed across
+    the M1 archetypes: zero attention budget, identical mix targets,
+    TAM inert (no bounded prizes at this rung), execution-overrun
+    stopping disabled.
+
+    Args:
+        confidence_decline_threshold: Stop when quality belief falls
+            below this level (c_t < theta_stop).
+        stagnation_window_staffed_ticks: Staffed-tick window for the
+            stagnation rule (W_stag).
+        stagnation_belief_change_threshold: Belief movement below this
+            over the window counts as stagnant.
+        intake_belief_threshold: Activation floor — candidates below
+            this belief are never staffed.
+    """
+    return GovernanceConfig(
+        # All M1 archetypes dispatch to BalancedPolicy; the posture
+        # difference lives in the parameters below, not policy code.
+        policy_id="balanced",
+        exec_attention_budget=0.0,
+        default_initial_quality_belief=0.5,
+        # --- Stop rules: the M1 treatment dimension ---
+        confidence_decline_threshold=confidence_decline_threshold,
+        # TAM adequacy is structurally inert at M1 (no initiative has
+        # an observable_ceiling); parameters set to harmless values.
+        tam_threshold_ratio=0.6,
+        base_tam_patience_window=999,
+        stagnation_window_staffed_ticks=stagnation_window_staffed_ticks,
+        stagnation_belief_change_threshold=stagnation_belief_change_threshold,
+        # --- Attention: zero budget, zero floor (as Model 0) ---
+        attention_min=0.0,
+        attention_max=None,
+        # --- Execution overrun: disabled at this rung ---
+        exec_overrun_threshold=None,
+        # --- Intake floor: the M1 treatment dimension ---
+        intake_belief_threshold=intake_belief_threshold,
+        # --- Portfolio risk controls: all off ---
+        low_quality_belief_threshold=None,
+        max_low_quality_belief_labor_share=None,
+        max_single_initiative_labor_share=None,
+        # --- Mix targets: IDENTICAL across archetypes by design ---
+        portfolio_mix_targets=_MODEL1_SHARED_MIX_TARGETS,
+    )
+
+
+def make_model1_balanced_governance_config() -> GovernanceConfig:
+    """Model 1 Balanced posture: moderate bar, moderate patience."""
+    return _make_model1_governance_config(
+        confidence_decline_threshold=0.3,
+        stagnation_window_staffed_ticks=15,
+        stagnation_belief_change_threshold=0.02,
+        intake_belief_threshold=0.35,
+    )
+
+
+def make_model1_aggressive_governance_config() -> GovernanceConfig:
+    """Model 1 Aggressive posture: high bar, fast stopping.
+
+    Prefers omission errors (declining marginal work) to commission
+    errors (staffing work and stopping it later).
+    """
+    return _make_model1_governance_config(
+        confidence_decline_threshold=0.4,
+        stagnation_window_staffed_ticks=8,
+        stagnation_belief_change_threshold=0.02,
+        intake_belief_threshold=0.50,
+    )
+
+
+def make_model1_patient_governance_config() -> GovernanceConfig:
+    """Model 1 Patient posture: low bar, long patience.
+
+    Accepts commission errors to avoid missing right-tail candidates
+    whose noisy screening signal undersells them.
+    """
+    return _make_model1_governance_config(
+        confidence_decline_threshold=0.08,
+        stagnation_window_staffed_ticks=20,
+        stagnation_belief_change_threshold=0.015,
+        intake_belief_threshold=0.20,
+    )
+
+
+def _make_model1_config(
+    world_seed: int,
+    governance: GovernanceConfig,
+) -> SimulationConfiguration:
+    """Assemble a complete Model 1 SimulationConfiguration."""
+    return SimulationConfiguration(
+        world_seed=world_seed,
+        time=make_model1_time_config(),
+        # Workforce and model physics are inherited from Model 0
+        # unchanged: uniform teams, instant ramp, zero attention,
+        # zero dependency. See the Model 1 section comment.
+        teams=make_model0_workforce_config(),
+        model=make_model0_model_config(),
+        governance=governance,
+        reporting=make_baseline_reporting_config(),
+        initiative_generator=make_model1_initiative_generator_config(),
+    )
+
+
+def make_model1_balanced_config(world_seed: int) -> SimulationConfiguration:
+    """Complete Model 1 Balanced configuration for one seed."""
+    return _make_model1_config(world_seed, make_model1_balanced_governance_config())
+
+
+def make_model1_aggressive_config(world_seed: int) -> SimulationConfiguration:
+    """Complete Model 1 Aggressive configuration for one seed."""
+    return _make_model1_config(world_seed, make_model1_aggressive_governance_config())
+
+
+def make_model1_patient_config(world_seed: int) -> SimulationConfiguration:
+    """Complete Model 1 Patient configuration for one seed."""
+    return _make_model1_config(world_seed, make_model1_patient_governance_config())

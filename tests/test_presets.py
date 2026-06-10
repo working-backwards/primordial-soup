@@ -1127,3 +1127,149 @@ class TestModel0Presets:
         summary = summarize_run_result(result)
 
         assert summary["initiatives_stopped"] == 0
+
+
+# ===========================================================================
+# Model 1 presets (Model 0 + screening, stops, intake floor)
+# ===========================================================================
+
+
+class TestModel1Presets:
+    """Tests for Model 1 ladder-rung configuration presets.
+
+    Model 1 = Model 0 + hidden quality (screening signals), active
+    stop rules, and the intake belief floor. Attention, ramp,
+    dependency, and frontier remain absent. Per the 2026-06-10
+    improvement plan Phase 1.2.
+    """
+
+    def test_all_configs_pass_validation(self) -> None:
+        """All three Model 1 archetypes produce valid configurations."""
+        from primordial_soup.presets import (
+            make_model1_aggressive_config,
+            make_model1_balanced_config,
+            make_model1_patient_config,
+        )
+
+        for factory in [
+            make_model1_balanced_config,
+            make_model1_aggressive_config,
+            make_model1_patient_config,
+        ]:
+            config = factory(42)
+            validate_configuration(config)
+
+    def test_screening_enabled_on_all_types(self) -> None:
+        """Every M1 type spec has a screening signal — the rung's
+        defining addition over Model 0."""
+        from primordial_soup.presets import make_model1_initiative_generator_config
+
+        gen = make_model1_initiative_generator_config()
+        for spec in gen.type_specs:
+            assert (
+                spec.screening_signal_st_dev is not None
+            ), f"{spec.generation_tag} has no screening signal"
+
+    def test_right_tail_screening_is_widest(self) -> None:
+        """Right-tail intake information is the most opaque by design:
+        the 2026-06-09 evaluation showed narrow RT screening makes
+        gems obvious and removes the kill-or-continue dilemma."""
+        from primordial_soup.presets import make_model1_initiative_generator_config
+
+        gen = make_model1_initiative_generator_config()
+        by_tag = {s.generation_tag: s.screening_signal_st_dev for s in gen.type_specs}
+        assert by_tag["right_tail"] > by_tag["quick_win"]
+        assert by_tag["right_tail"] > by_tag["flywheel"]
+        assert by_tag["right_tail"] > by_tag["enabler"]
+
+    def test_no_frontier_on_any_type(self) -> None:
+        """The dynamic frontier arrives at M2, not M1."""
+        from primordial_soup.presets import make_model1_initiative_generator_config
+
+        gen = make_model1_initiative_generator_config()
+        for spec in gen.type_specs:
+            assert spec.frontier is None, f"{spec.generation_tag} has a frontier"
+
+    def test_pool_composition_matches_model0(self) -> None:
+        """M1 reuses the Model 0 pool exactly (counts and value
+        channels); only intake information differs."""
+        from primordial_soup.presets import (
+            make_model0_initiative_generator_config,
+            make_model1_initiative_generator_config,
+        )
+
+        m0 = {s.generation_tag: s for s in make_model0_initiative_generator_config().type_specs}
+        m1 = {s.generation_tag: s for s in make_model1_initiative_generator_config().type_specs}
+        assert set(m0) == set(m1)
+        for tag, m0_spec in m0.items():
+            assert m1[tag].count == m0_spec.count
+            assert m1[tag].quality_distribution == m0_spec.quality_distribution
+            assert m1[tag].completion_lump_value_range == m0_spec.completion_lump_value_range
+
+    def test_attention_and_ramp_remain_disabled(self) -> None:
+        """Mechanisms excluded from this rung stay off: zero attention
+        budget and instant ramp, inherited from Model 0."""
+        from primordial_soup.presets import make_model1_balanced_config
+
+        config = make_model1_balanced_config(42)
+        assert config.model.exec_attention_budget == 0.0
+        assert config.teams.ramp_period == 1
+
+    def test_archetypes_share_identical_mix_targets(self) -> None:
+        """M1 archetypes differ ONLY in stop/intake posture — mix
+        targets are deliberately identical so outcome differences are
+        attributable to posture alone."""
+        from primordial_soup.presets import (
+            make_model1_aggressive_governance_config,
+            make_model1_balanced_governance_config,
+            make_model1_patient_governance_config,
+        )
+
+        balanced = make_model1_balanced_governance_config()
+        aggressive = make_model1_aggressive_governance_config()
+        patient = make_model1_patient_governance_config()
+        assert balanced.portfolio_mix_targets == aggressive.portfolio_mix_targets
+        assert balanced.portfolio_mix_targets == patient.portfolio_mix_targets
+
+    def test_archetype_posture_ordering(self) -> None:
+        """Intake floors and confidence thresholds order as designed:
+        Aggressive strictest, Patient most permissive."""
+        from primordial_soup.presets import (
+            make_model1_aggressive_governance_config,
+            make_model1_balanced_governance_config,
+            make_model1_patient_governance_config,
+        )
+
+        balanced = make_model1_balanced_governance_config()
+        aggressive = make_model1_aggressive_governance_config()
+        patient = make_model1_patient_governance_config()
+        assert (
+            aggressive.intake_belief_threshold
+            > balanced.intake_belief_threshold
+            > patient.intake_belief_threshold
+        )
+        assert (
+            aggressive.confidence_decline_threshold
+            > balanced.confidence_decline_threshold
+            > patient.confidence_decline_threshold
+        )
+
+    def test_smoke_run_produces_stops_and_value(self) -> None:
+        """A single M1 run completes and exercises the new mechanisms:
+        screening produces informative initial beliefs (not all 0.5)
+        and value is realized."""
+        from primordial_soup.presets import make_model1_balanced_config
+        from primordial_soup.workbench import make_policy
+
+        config = make_model1_balanced_config(42)
+        policy = make_policy(config.governance)
+        result, _ = run_single_regime(config, policy)
+
+        initial_beliefs = {
+            cfg.initial_quality_belief
+            for cfg in result.manifest.resolved_initiatives
+            if cfg.initial_quality_belief is not None
+        }
+        # Screening produces a spread of initial beliefs, not a point prior.
+        assert len(initial_beliefs) > 10
+        assert result.cumulative_value_total > 0
