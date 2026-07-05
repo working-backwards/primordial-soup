@@ -391,7 +391,7 @@ architecture:
   #
   #   Example:
   #   portfolio_mix_targets:
-  #     bucket_targets:
+  #     targets:
   #       flywheel: 0.40
   #       right_tail: 0.10
   #       enabler: 0.15
@@ -462,12 +462,13 @@ policy:
   #       tam_patience=5 ticks, stagnation_window=8 ticks, exec_overrun=0.5
   #
   #   "patient_moonshot"
-  #       Confidence-decline stopping DISABLED. Long patience windows.
-  #       Higher execution overrun tolerance. Holds longer on high-potential
-  #       initiatives even through periods of declining belief. Use to test
-  #       whether patience with right-tail initiatives generates major wins.
-  #       Key parameters: confidence_decline=None (disabled), tam_ratio=0.4,
-  #       tam_patience=20 ticks, stagnation_window=25 ticks, exec_overrun=0.3
+  #       Very low confidence-decline threshold (only near-hopeless work is
+  #       stopped). Long patience windows. Higher execution overrun
+  #       tolerance. Holds longer on high-potential initiatives even through
+  #       periods of declining belief. Use to test whether patience with
+  #       right-tail initiatives generates major wins.
+  #       Key parameters: confidence_decline_threshold=0.08, tam_ratio=0.4,
+  #       tam_patience=15 ticks, stagnation_window=20 ticks, exec_overrun=0.35
   #
   #   To add a new preset: edit src/primordial_soup/presets.py.
   preset: balanced
