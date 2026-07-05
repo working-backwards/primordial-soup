@@ -584,6 +584,29 @@ previous step, decision notes.)
   termination, is the load-bearing governance lever in this world.
   Caveat: idle labor still earns 0, which taxes high floors; the
   pending baseline-value decision could shift the optimum upward.
+- **2026-07-05 — Config UI landed (per the 2026-06-10 decision).**
+  `tools/run_designer.html`: single-file, zero-dependency page with
+  Environment | Architecture | Policy | Run tabs, the locked
+  latent-variables panel, canonical defaults, the nine preset combos,
+  client-side validation mirroring validate_run_design(), live YAML
+  preview, and download/copy. `scripts/design_studio.py`: stdlib
+  http.server wrapper (loopback only) adding Validate (workbench
+  dry-run summary) and Save & run (writes results/designs/, executes
+  via run_design.py --no-confirm) — run_design.py remains the single
+  execution path. Drift guard: two committed fixtures
+  (tests/fixtures/run_designer_*.yaml, snapshots of the page's
+  output) exercised by tests/test_run_designer_fixtures.py; the
+  default fixture must resolve identically to the template, the
+  all-options fixture pins every emittable key against
+  RunDesignSpec.from_dict(). Verified end-to-end: page executed in a
+  DOM emits byte-identical YAML to both fixtures; a run launched
+  through the API produced a normal run bundle. Two template doc bugs
+  fixed along the way: the portfolio_mix_targets example used
+  `bucket_targets:` (from_dict expects `targets:` — the documented
+  example would have crashed), and the patient_moonshot comment still
+  described the pre-issue-#18 parameters (confidence decline
+  "disabled" vs actual 0.08, patience 20 vs 15, stagnation 25 vs 20,
+  overrun 0.3 vs 0.35).
 - **REMAINING from the approved plan:** Phase 3.3 (benchmark index
   policy — held for a short design pass: the index form and its stop
   behavior deserve a governance.md note before coding). Owner-pending

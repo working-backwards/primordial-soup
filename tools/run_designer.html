@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<!--
+  Primordial Soup — Run Designer
+  ==============================
+
+  A zero-dependency, single-file authoring page for run design YAMLs.
+
+  WHAT THIS IS
+    A form-based front end for templates/run_design_template.yaml. It
+    presents the three-layer vocabulary (Environment | Architecture |
+    Policy) plus execution settings as tabs, validates the design with
+    the same rules the workbench applies, and emits a YAML file that
+    scripts/run_design.py executes. The page never runs a simulation
+    itself and never bypasses the workbench pipeline.
+
+  TWO WAYS TO OPEN IT
+    1. Double-click the file (file:// mode). You can build a design and
+       download the YAML, then run it yourself:
+           python scripts/run_design.py path/to/my_run.yaml
+    2. Serve it via scripts/design_studio.py (server mode). The page
+       detects the local API and additionally offers "Validate on
+       server" (workbench dry-run) and "Save & run" buttons.
+
+  KEEPING THIS PAGE IN SYNC
+    The YAML schema this page emits is owned by
+    src/primordial_soup/workbench.py :: RunDesignSpec.from_dict().
+    Fixture YAMLs generated from this page are committed under
+    tests/fixtures/ and exercised by tests/test_run_designer_fixtures.py;
+    if from_dict() changes shape, those tests fail and this page must be
+    updated. Preset parameter values shown on the Policy tab mirror
+    src/primordial_soup/presets.py (make_*_governance_config).
+
+  Design references:
+    docs/implementation/2026-06-10 Repo Improvement Plan.md
+      (Phase log entry 2026-06-10: "Config UI decision refined:
+       layer-tabbed static HTML page")
+    templates/run_design_template.yaml (field documentation)
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Primordial Soup — Run Designer</title>
+<style>
+  /* ---- Base ---------------------------------------------------------- */
+  :root {
+    --ink: #1f2430;         /* main text */
+    --muted: #5b6472;       /* secondary text */
+    --line: #d7dce3;        /* borders */
+    --bg: #f5f6f8;          /* page background */
+    --card: #ffffff;        /* panel background */
+    --accent: #2f5aa8;      /* selection / links */
+    --accent-soft: #e8eef8; /* selected card fill */
+    --warn-bg: #fdf3e4;     /* warning panel fill */
+    --warn-line: #e0b96a;
+    --err: #a8322f;         /* validation errors */
+    --ok: #2e6e3e;          /* success text */
+    --lock-bg: #eef0f3;     /* latent-variables panel fill */
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 24px 20px 80px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 26px 0 8px; }
+  h3 { font-size: 15px; margin: 18px 0 6px; }
+  p  { margin: 6px 0; }
+  .subtitle { color: var(--muted); margin-bottom: 14px; }
+  a { color: var(--accent); }
+  code, pre { font-family: var(--mono); font-size: 13px; }
+
+  /* ---- Header row: preset combo loader + server badge ---------------- */
+  .topbar {
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .topbar label { color: var(--muted); font-size: 13px; }
+  select, input[type=text], input[type=number], textarea {
+    font: inherit; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 8px; background: #fff;
+  }
+  input[type=number] { width: 110px; }
+  textarea { width: 100%; font-family: var(--mono); font-size: 13px; }
+  .server-badge {
+    margin-left: auto; font-size: 12px; padding: 3px 10px;
+    border-radius: 999px; border: 1px solid var(--line); color: var(--muted);
+  }
+  .server-badge.on { border-color: var(--ok); color: var(--ok); }
+
+  /* ---- Tabs ----------------------------------------------------------- */
+  .tabs { display: flex; gap: 6px; border-bottom: 2px solid var(--line); }
+  .tab {
+    padding: 9px 16px; cursor: pointer; border: 1px solid transparent;
+    border-bottom: none; border-radius: 8px 8px 0 0; color: var(--muted);
+    font-weight: 600; font-size: 14px; background: transparent;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active {
+    background: var(--card); border-color: var(--line);
+    color: var(--ink); position: relative; top: 2px;
+  }
+  .tab .err-dot {
+    display: none; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--err); margin-left: 6px; vertical-align: middle;
+  }
+  .tab.has-errors .err-dot { display: inline-block; }
+  .pane {
+    display: none; background: var(--card); border: 1px solid var(--line);
+    border-top: none; border-radius: 0 0 10px 10px; padding: 20px 24px 26px;
+  }
+  .pane.active { display: block; }
+
+  /* ---- Cards (family / policy pickers) -------------------------------- */
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
+  .card {
+    border: 1.5px solid var(--line); border-radius: 10px; padding: 12px 14px;
+    cursor: pointer; background: #fff;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card.selected { border-color: var(--accent); background: var(--accent-soft); }
+  .card h4 { margin: 0 0 6px; font-size: 14px; }
+  .card .tagline { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .card ul { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--ink); }
+  .card li { margin: 2px 0; }
+  .card .canon {
+    display: inline-block; font-size: 11px; font-weight: 700;
+    color: var(--accent); text-transform: uppercase; letter-spacing: .04em;
+  }
+
+  /* ---- Locked latent-variables panel ---------------------------------- */
+  .latent {
+    background: var(--lock-bg); border: 1px dashed var(--line);
+    border-radius: 10px; padding: 14px 16px; margin-top: 18px;
+  }
+  .latent h3 { margin-top: 0; }
+  .latent h3::before { content: "🔒 "; }
+  .latent p { font-size: 13.5px; color: var(--muted); }
+  .latent b { color: var(--ink); }
+
+  /* ---- Field rows ------------------------------------------------------ */
+  .field { margin: 12px 0; }
+  .field > label { display: block; font-weight: 600; font-size: 14px; }
+  .field .hint { font-size: 12.5px; color: var(--muted); margin: 2px 0 6px; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+  .inline-note { font-size: 12.5px; color: var(--muted); }
+  .inline-note.bad { color: var(--err); font-weight: 600; }
+  .inline-note.good { color: var(--ok); }
+
+  details.adv {
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 0 14px; margin: 12px 0; background: #fbfcfd;
+  }
+  details.adv > summary {
+    cursor: pointer; font-weight: 600; font-size: 14px; padding: 10px 0;
+    color: var(--ink);
+  }
+  details.adv > summary .off {
+    font-weight: 400; font-size: 12.5px; color: var(--muted);
+  }
+  details.adv .body { padding: 2px 0 14px; }
+  .warnbox {
+    background: var(--warn-bg); border: 1px solid var(--warn-line);
+    border-radius: 8px; padding: 8px 12px; font-size: 13px; margin: 8px 0;
+  }
+  table.mini { border-collapse: collapse; margin: 6px 0; }
+  table.mini th, table.mini td {
+    border: 1px solid var(--line); padding: 5px 10px; font-size: 13px;
+    text-align: left;
+  }
+  table.mini th { background: #f0f2f5; font-weight: 600; }
+  table.mini input[type=number] { width: 90px; border: none; padding: 2px 4px; }
+
+  /* ---- Run tab --------------------------------------------------------- */
+  .issues {
+    border: 1px solid var(--err); border-radius: 8px; padding: 10px 14px;
+    background: #fdf0ef; margin: 12px 0; display: none;
+  }
+  .issues.show { display: block; }
+  .issues h3 { margin: 0 0 6px; color: var(--err); }
+  .issues ul { margin: 0; padding-left: 20px; font-size: 13.5px; }
+  .allgood { color: var(--ok); font-weight: 600; margin: 12px 0; display: none; }
+  .allgood.show { display: block; }
+  pre.yaml {
+    background: #23272e; color: #e8eaed; padding: 14px 16px;
+    border-radius: 8px; overflow: auto; max-height: 420px; margin: 8px 0;
+  }
+  .btns { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+  button {
+    font: inherit; font-weight: 600; font-size: 14px; cursor: pointer;
+    border-radius: 8px; padding: 9px 18px; border: 1px solid var(--line);
+    background: #fff; color: var(--ink);
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  pre.console {
+    background: #101418; color: #cdd6df; padding: 12px 14px;
+    border-radius: 8px; overflow: auto; max-height: 320px; min-height: 60px;
+    white-space: pre-wrap;
+  }
+  .server-only { display: none; }
+  body.server-mode .server-only { display: block; }
+  .cmdline {
+    font-family: var(--mono); font-size: 13px; background: #eef0f3;
+    padding: 6px 10px; border-radius: 6px; display: inline-block;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Primordial Soup — Run Designer</h1>
+  <p class="subtitle">
+    Design one simulation run in the three-layer vocabulary, then download
+    the YAML and execute it with
+    <code>python scripts/run_design.py &lt;file&gt;</code>.
+    Only five things are required: a name, a title, an environment family,
+    a policy preset, and world seeds. Everything else has a working default.
+  </p>
+
+  <div class="topbar">
+    <label for="combo">Start from a preset combination:</label>
+    <select id="combo">
+      <option value="">Canonical baseline (Balanced Incumbent — Balanced)</option>
+    </select>
+    <span class="server-badge" id="serverBadge">standalone — download only</span>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-pane="env">Environment<span class="err-dot"></span></button>
+    <button class="tab" data-pane="arch">Architecture<span class="err-dot"></span></button>
+    <button class="tab" data-pane="policy">Policy<span class="err-dot"></span></button>
+    <button class="tab" data-pane="run">Run<span class="err-dot"></span></button>
+  </div>
+
+  <!-- ==================================================================
+       TAB 1: ENVIRONMENT
+       =================================================================== -->
+  <div class="pane active" id="pane-env">
+    <h2>Environmental conditions</h2>
+    <p class="hint" style="color:var(--muted); font-size:13.5px">
+      The world the organization operates in — everything fixed for a run
+      that no participant controls. For most runs, choose a family and
+      leave the rest alone.
+    </p>
+
+    <h3>Initiative pool family</h3>
+    <div class="cards" id="familyCards"></div>
+
+    <div class="latent">
+      <h3>Latent variables (set by the experimenter, hidden from governance)</h3>
+      <p>
+        Each initiative has a <b>true quality</b> and a <b>true duration</b>
+        that governance never observes. You choose the family, which fixes the
+        <b>distributions</b> these are drawn from; the <b>world seed</b> then
+        resolves the actual values before the simulation starts. Governance
+        only ever sees noisy signals and the beliefs learned from them —
+        that hidden gap between belief and truth is what the study measures
+        governance against. There are no controls in this panel by design:
+        if you need different distributions, that is a new environment family
+        (add it in <code>src/primordial_soup/presets.py</code>).
+      </p>
+    </div>
+
+    <details class="adv">
+      <summary>Time horizon <span class="off">— baseline: 313 weeks (≈ 6 years)</span></summary>
+      <div class="body">
+        <label><input type="checkbox" id="timeEnabled"> Override the baseline horizon</label>
+        <p class="hint">Changing the horizon changes how much time patient
+          governance has to observe completions of long initiatives.
+          Only override when deliberately testing a different horizon.</p>
+        <div class="row">
+          <div class="field">
+            <label for="tickHorizon">tick_horizon</label>
+            <input type="number" id="tickHorizon" value="313" min="1" step="1">
+          </div>
+          <div class="field">
+            <label for="tickLabel">tick_label</label>
+            <input type="text" id="tickLabel" value="week" style="width:110px">
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <details class="adv">
+      <summary>Opportunity supply <span class="off">— baseline: family pool mix, family frontier settings</span></summary>
+      <div class="body">
+        <label><input type="checkbox" id="supplyEnabled"> Override opportunity supply</label>
+        <p class="hint">
+          Sets how many initiatives of each kind exist in the initial pool,
+          and how quickly replacement opportunities degrade. Leave a box
+          blank to keep the family default (shown in grey). The total pool
+          must land between 50 and 400 initiatives.
+        </p>
+        <table class="mini">
+          <tr><th>Bucket</th><th>Initial count</th><th>What it is</th></tr>
+          <tr><td>quick_win</td><td><input type="number" id="qwCount" min="0" step="1"></td>
+              <td>Short work paying a one-time lump on completion</td></tr>
+          <tr><td>flywheel</td><td><input type="number" id="fwCount" min="0" step="1"></td>
+              <td>Compounding work paying a residual stream</td></tr>
+          <tr><td>enabler</td><td><input type="number" id="enCount" min="0" step="1"></td>
+              <td>Capability work that makes later work more effective</td></tr>
+          <tr><td>right_tail</td><td><input type="number" id="rtCount" min="0" step="1"></td>
+              <td>Long-shot work that can produce a major win</td></tr>
+        </table>
+        <p class="inline-note" id="poolTotalNote"></p>
+        <h3>Frontier degradation (optional)</h3>
+        <p class="hint">
+          When an initiative stops or completes, a replacement opportunity can
+          appear ("the frontier"). This rate controls how quickly replacement
+          quality degrades with each draw: 0 = never degrades, higher =
+          shallower frontier. Blank keeps the family default.
+        </p>
+        <table class="mini">
+          <tr><th>Bucket</th><th>Degradation rate</th></tr>
+          <tr><td>flywheel</td><td><input type="number" id="fdFw" min="0" step="0.001" placeholder="0.01"></td></tr>
+          <tr><td>quick_win</td><td><input type="number" id="fdQw" min="0" step="0.001" placeholder="0.02"></td></tr>
+          <tr><td>enabler</td><td><input type="number" id="fdEn" min="0" step="0.001" placeholder="0.005"></td></tr>
+          <tr><td>right_tail</td><td><input type="number" id="fdRt" min="0" step="0.001" placeholder="0.02"></td></tr>
+        </table>
+        <div class="field">
+          <label for="refreshDeg">Right-tail re-attempt degradation</label>
+          <p class="hint">Per-attempt quality loss when a stopped right-tail
+            prize is attempted again. 0 = every re-attempt is as good as the
+            first. Blank keeps the family default.</p>
+          <input type="number" id="refreshDeg" min="0" step="0.01">
+        </div>
+      </div>
+    </details>
+
+    <details class="adv">
+      <summary>Staffing response <span class="off">— baseline: extra staffing has no effect (0.0)</span></summary>
+      <div class="body">
+        <label><input type="checkbox" id="staffingEnabled"> Override staffing response</label>
+        <p class="hint">
+          How strongly staffing an initiative above its minimum team size
+          accelerates learning, per bucket. Each row is a [min, max] range;
+          every generated initiative draws its own value uniformly from the
+          range. Leave a row fully blank to keep that bucket at the default
+          (no effect). This is a study hypothesis, not an empirical truth.
+        </p>
+        <table class="mini">
+          <tr><th>Bucket</th><th>Min scale</th><th>Max scale</th></tr>
+          <tr><td>flywheel</td><td><input type="number" id="srFwLo" min="0" step="0.1"></td><td><input type="number" id="srFwHi" min="0" step="0.1"></td></tr>
+          <tr><td>quick_win</td><td><input type="number" id="srQwLo" min="0" step="0.1"></td><td><input type="number" id="srQwHi" min="0" step="0.1"></td></tr>
+          <tr><td>enabler</td><td><input type="number" id="srEnLo" min="0" step="0.1"></td><td><input type="number" id="srEnHi" min="0" step="0.1"></td></tr>
+          <tr><td>right_tail</td><td><input type="number" id="srRtLo" min="0" step="0.1"></td><td><input type="number" id="srRtHi" min="0" step="0.1"></td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details class="adv">
+      <summary>World-evolution model <span class="off">— baseline: canonical noise / learning / attention parameters</span></summary>
+      <div class="body">
+        <label><input type="checkbox" id="modelEnabled"> Override the world-evolution model</label>
+        <div class="warnbox">
+          <b>All-or-nothing:</b> if you override this block, every field below
+          is emitted — there are no partial model overrides. These govern how
+          the <i>world</i> behaves (signal noise, learning, attention curve),
+          not how governance decides. The canonical study holds them fixed
+          across all governance regimes; change them only to test governance
+          under different world conditions.
+        </div>
+        <table class="mini" id="modelTable">
+          <tr><th>Field</th><th>Value</th><th>Meaning</th></tr>
+        </table>
+      </div>
+    </details>
+  </div>
+
+  <!-- ==================================================================
+       TAB 2: ARCHITECTURE
+       =================================================================== -->
+  <div class="pane" id="pane-arch">
+    <h2>Governance architecture</h2>
+    <p class="hint" style="color:var(--muted); font-size:13.5px">
+      How leadership chose to organize before the run begins: workforce
+      structure and portfolio guardrails. Fixed within a run, varied across
+      runs as experimental treatments.
+    </p>
+
+    <h3>Workforce structure</h3>
+    <div class="row">
+      <div class="field">
+        <label for="labor">Total labor endowment</label>
+        <p class="hint">Aggregate productive capacity, in labor units.
+          Canonical baseline: 210 (≈ 200 people).</p>
+        <input type="number" id="labor" value="210" min="1" step="1">
+      </div>
+      <div class="field">
+        <label for="teamCount">Team count</label>
+        <p class="hint">Number of parallel work units. More teams = more
+          parallelism, but each team is smaller. Baseline: 24.</p>
+        <input type="number" id="teamCount" value="24" min="1" step="1">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Team sizes</label>
+      <p class="hint">A team is atomic — it works on at most one initiative
+        at a time and is never split.</p>
+      <label style="font-weight:400"><input type="radio" name="sizesMode" value="custom" checked>
+        Custom sizes (canonical baseline: 10 squads of 5, 12 teams of 10, 2 programs of 20)</label><br>
+      <label style="font-weight:400"><input type="radio" name="sizesMode" value="equal">
+        Equal-sized teams (labor ÷ team count must divide exactly)</label>
+      <div id="sizesEditor" style="margin-top:8px">
+        <textarea id="teamSizes" rows="2">5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 20, 20</textarea>
+        <p class="inline-note" id="sizesNote"></p>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="rampPeriod">Ramp period (weeks)</label>
+        <p class="hint">Switching cost: a newly assigned team runs at reduced
+          effectiveness for this many weeks. Baseline: 4.</p>
+        <input type="number" id="rampPeriod" value="4" min="0" step="1">
+      </div>
+      <div class="field">
+        <label for="rampShape">Ramp shape</label>
+        <p class="hint">How effectiveness climbs during the ramp.</p>
+        <select id="rampShape"><option value="linear">linear</option></select>
+      </div>
+    </div>
+
+    <details class="adv">
+      <summary>Portfolio guardrails <span class="off">— baseline: all disabled</span></summary>
+      <div class="body">
+        <p class="hint">
+          Structural concentration limits, like an investment mandate's sector
+          caps. They are handed to the policy to honor — the engine never
+          enforces them. Blank = disabled.
+        </p>
+        <div class="field">
+          <label for="lqbt">Low-confidence threshold</label>
+          <p class="hint">Belief level below which an initiative counts as
+            "low-confidence" for exposure purposes. Must be between 0 and 1
+            (exclusive). Required if the cap below is set.</p>
+          <input type="number" id="lqbt" min="0" max="1" step="0.05">
+        </div>
+        <div class="field">
+          <label for="maxLqShare">Max labor share in low-confidence work</label>
+          <p class="hint">At most this fraction of active labor may sit in
+            low-confidence initiatives. Between 0 (exclusive) and 1.</p>
+          <input type="number" id="maxLqShare" min="0" max="1" step="0.05">
+        </div>
+        <div class="field">
+          <label for="maxSingleShare">Max labor share in any single initiative</label>
+          <p class="hint">No single initiative may absorb more than this
+            fraction of active labor. Between 0 (exclusive) and 1.</p>
+          <input type="number" id="maxSingleShare" min="0" max="1" step="0.05">
+        </div>
+      </div>
+    </details>
+
+    <details class="adv">
+      <summary>Portfolio mix targets <span class="off">— baseline: inherit the policy preset's calibrated targets</span></summary>
+      <div class="body">
+        <p class="hint">
+          Desired labor-share split across the four buckets. The policy treats
+          this as a <b>soft preference</b> — it biases which work is picked
+          next but never blocks an assignment. Leaving this on "inherit" keeps
+          the calibrated targets that ship with your chosen policy preset
+          (shown on the Policy tab).
+        </p>
+        <label style="font-weight:400"><input type="radio" name="mixMode" value="inherit" checked>
+          Inherit the policy preset's targets (recommended)</label><br>
+        <label style="font-weight:400"><input type="radio" name="mixMode" value="override">
+          Override with custom targets</label>
+        <div id="mixEditor" style="display:none; margin-top:8px">
+          <table class="mini">
+            <tr><th>Bucket</th><th>Target labor share</th></tr>
+            <tr><td>flywheel</td><td><input type="number" id="mixFw" value="0.40" min="0" max="1" step="0.05"></td></tr>
+            <tr><td>quick_win</td><td><input type="number" id="mixQw" value="0.35" min="0" max="1" step="0.05"></td></tr>
+            <tr><td>enabler</td><td><input type="number" id="mixEn" value="0.15" min="0" max="1" step="0.05"></td></tr>
+            <tr><td>right_tail</td><td><input type="number" id="mixRt" value="0.10" min="0" max="1" step="0.05"></td></tr>
+          </table>
+          <p class="inline-note" id="mixNote"></p>
+          <div class="field">
+            <label for="mixTol">Tolerance</label>
+            <p class="hint">How far the actual mix may drift from target
+              before the policy leans against it. Between 0 and 1.</p>
+            <input type="number" id="mixTol" value="0.10" min="0" max="1" step="0.05">
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <details class="adv">
+      <summary>Baseline value of idle teams <span class="off">— baseline: family default (0 for canonical presets)</span></summary>
+      <div class="body">
+        <div class="field">
+          <label for="baselineValue">Value per idle team per week</label>
+          <p class="hint">
+            Value a team produces through baseline work (maintenance, support,
+            incremental improvement) in any week it is <b>not</b> assigned to a
+            portfolio initiative. Denominated in this run's value unit. Blank
+            keeps the family default; a small positive value (e.g. 0.1)
+            recognizes baseline work as a value source in the report.
+          </p>
+          <input type="number" id="baselineValue" min="0" step="0.05">
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <!-- ==================================================================
+       TAB 3: POLICY
+       =================================================================== -->
+  <div class="pane" id="pane-policy">
+    <h2>Operating policy</h2>
+    <p class="hint" style="color:var(--muted); font-size:13.5px">
+      How governance actually decides week to week: when to stop initiatives,
+      what belief level is required to start work, how the desired portfolio
+      mix leans. Select one named preset — the parameter values below are
+      shown for reference and come directly from
+      <code>src/primordial_soup/presets.py</code>.
+    </p>
+    <div class="cards" id="policyCards"></div>
+    <div class="warnbox" style="margin-top:16px">
+      <b>Why there are no sliders here:</b> individually editing stop
+      thresholds or patience windows would require knowing how all the
+      parameters interact — exactly the low-level config assembly problem
+      this designer exists to avoid. Systematic policy variation is what the
+      campaign sweep machinery (<code>campaign.py</code>) is for. If you need
+      a fourth posture, add a named preset in
+      <code>src/primordial_soup/presets.py</code> and it becomes available to
+      every YAML.
+    </div>
+  </div>
+
+  <!-- ==================================================================
+       TAB 4: RUN
+       =================================================================== -->
+  <div class="pane" id="pane-run">
+    <h2>Run settings</h2>
+
+    <div class="row">
+      <div class="field">
+        <label for="runName">Name (required)</label>
+        <p class="hint">Short identifier used in output filenames and
+          provenance. No spaces — use underscores or hyphens.</p>
+        <input type="text" id="runName" value="my_run_v1" style="width:260px">
+      </div>
+      <div class="field">
+        <label for="runTitle">Title (required)</label>
+        <p class="hint">Human-readable title for summaries and reports.</p>
+        <input type="text" id="runTitle" value="My simulation run" style="width:320px">
+      </div>
+    </div>
+    <div class="field">
+      <label for="runDesc">Description (optional)</label>
+      <p class="hint">What this run is testing and why. For your records only.</p>
+      <input type="text" id="runDesc" value="" style="width:100%">
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="valueUnit">Value unit label</label>
+        <p class="hint">Display label for all value numbers ("units", "$M",
+          "pts"…). The simulator itself is unit-agnostic.</p>
+        <input type="text" id="valueUnit" value="units" style="width:110px">
+      </div>
+      <div class="field">
+        <label for="seeds">World seeds (required)</label>
+        <p class="hint">Comma-separated integers. Each seed is one independent
+          run of the same design. One seed for exploration; at least 3 for
+          results you intend to report.</p>
+        <input type="text" id="seeds" value="42" style="width:220px">
+      </div>
+    </div>
+
+    <details class="adv">
+      <summary>Reporting channels <span class="off">— baseline: all enabled</span></summary>
+      <div class="body">
+        <label><input type="checkbox" id="reportingEnabled"> Customize reporting channels</label>
+        <p class="hint">Disabling channels speeds up runs at the cost of output
+          detail — do not disable for runs you intend to analyze.</p>
+        <label style="font-weight:400"><input type="checkbox" id="repManifest" checked> record_manifest — run metadata and resolved config</label><br>
+        <label style="font-weight:400"><input type="checkbox" id="repPerTick" checked> record_per_tick_logs — per-initiative per-week state</label><br>
+        <label style="font-weight:400"><input type="checkbox" id="repEvents" checked> record_event_log — discrete events (stops, completions)</label>
+      </div>
+    </details>
+
+    <div class="issues" id="issuesBox">
+      <h3>Fix these before downloading</h3>
+      <ul id="issuesList"></ul>
+    </div>
+    <p class="allgood" id="allGood">✓ Design is valid.</p>
+
+    <h3>YAML preview</h3>
+    <pre class="yaml" id="yamlPreview"></pre>
+
+    <div class="btns">
+      <button class="primary" id="btnDownload">Download YAML</button>
+      <button id="btnCopy">Copy YAML</button>
+    </div>
+    <p>Then execute it from the repo root:
+      <span class="cmdline" id="cmdline">python scripts/run_design.py my_run_v1.yaml</span>
+    </p>
+
+    <div class="server-only">
+      <h3>Design studio (local server)</h3>
+      <p class="hint">These buttons talk to <code>scripts/design_studio.py</code>
+        on this machine. Validate resolves the design through the workbench
+        without running; Save &amp; run writes the YAML under
+        <code>results/designs/</code> and executes it via
+        <code>run_design.py</code>.</p>
+      <div class="btns">
+        <button id="btnValidate">Validate on server</button>
+        <button class="primary" id="btnRun">Save &amp; run</button>
+      </div>
+      <pre class="console" id="serverConsole">(server output will appear here)</pre>
+    </div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   Reference data
+   -------------------------------------------------------------------------
+   Family descriptions and default pool counts mirror
+   src/primordial_soup/presets.py (make_environment_spec) and the template's
+   documentation. Policy parameter values mirror the three
+   make_*_governance_config factories. If presets.py changes, update here —
+   the fixture tests (tests/test_run_designer_fixtures.py) guard the YAML
+   schema, but these display values are maintained by hand.
+   ========================================================================= */
+
+const FAMILIES = {
+  balanced_incumbent: {
+    label: "Balanced Incumbent",
+    canon: true,
+    tagline: "Mid-case major-win environment. The canonical baseline — start here.",
+    facts: [
+      "Pool: 80 quick-win, 70 flywheel, 30 enabler, 20 right-tail (200 total)",
+      "Quality: Beta(0.8, 2.0) — ~3% of right-tail work can become a major win",
+      "Right-tail durations 104–182 weeks; major-win threshold q ≥ 0.80",
+    ],
+    counts: { quick_win: 80, flywheel: 70, enabler: 30, right_tail: 20 },
+  },
+  short_cycle_throughput: {
+    label: "Short-Cycle Throughput",
+    canon: false,
+    tagline: "Mature, quick-win-heavy world with less breakthrough opportunity.",
+    facts: [
+      "Pool: 104 quick-win, 50 flywheel, 30 enabler, 16 right-tail (200 total)",
+      "Quality: Beta(0.6, 2.5) — ~1% major-win incidence",
+      "Shorter right-tail durations 80–156 weeks; threshold q ≥ 0.80",
+    ],
+    counts: { quick_win: 104, flywheel: 50, enabler: 30, right_tail: 16 },
+  },
+  discovery_heavy: {
+    label: "Discovery-Heavy",
+    canon: false,
+    tagline: "Favorable domain: more breakthrough opportunity, requiring real patience.",
+    facts: [
+      "Pool: 74 quick-win, 40 flywheel, 30 enabler, 56 right-tail (200 total)",
+      "Quality: Beta(1.2, 1.8) — ~5–8% major-win incidence",
+      "Longer right-tail durations 130–260 weeks; threshold q ≥ 0.80",
+    ],
+    counts: { quick_win: 74, flywheel: 40, enabler: 30, right_tail: 56 },
+  },
+};
+
+const POLICIES = {
+  balanced: {
+    label: "Balanced",
+    canon: true,
+    tagline: "Moderate thresholds, all stop rules active. The canonical reference baseline.",
+    facts: [
+      "Stops when belief falls below 0.30 (confidence decline)",
+      "Market-size patience: 10 reviews below 60% of initial belief",
+      "Stagnation window 15 staffed weeks; execution stop below 0.40",
+      "Won't start work believed below 0.35 (intake floor)",
+      "Mix targets: flywheel 40% / quick-win 35% / enabler 15% / right-tail 10% (±10%)",
+    ],
+  },
+  aggressive_stop_loss: {
+    label: "Aggressive Stop-Loss",
+    canon: false,
+    tagline: "Tight thresholds, short patience. Stops early and redeploys teams fast.",
+    facts: [
+      "Stops when belief falls below 0.40",
+      "Market-size patience: only 5 reviews below 70% of initial belief",
+      "Stagnation window 8 staffed weeks; execution stop below 0.50",
+      "Won't start work believed below 0.50 — the strictest intake bar",
+      "Mix targets: flywheel 35% / quick-win 50% / enabler 10% / right-tail 5% (±10%)",
+    ],
+  },
+  patient_moonshot: {
+    label: "Patient Moonshot",
+    canon: false,
+    tagline: "Long patience windows. Holds high-potential work through belief dips.",
+    facts: [
+      "Stops only near-hopeless work: belief below 0.08",
+      "Market-size patience: 15 reviews below 40% of initial belief",
+      "Stagnation window 20 staffed weeks; execution stop below 0.35",
+      "Starts anything believed at 0.20 or above — the most permissive intake",
+      "Mix targets: flywheel 25% / quick-win 35% / enabler 15% / right-tail 25% (±15%)",
+    ],
+  },
+};
+
+/* The 13 world-model fields, in the exact order and with the baseline values
+   documented in templates/run_design_template.yaml. `nullable` marks the one
+   field that may be emitted as YAML null (~). */
+const MODEL_FIELDS = [
+  ["exec_attention_budget", "30.0", "Max executive attention per week across all initiatives"],
+  ["base_signal_st_dev_default", "0.15", "Base noise on quality signals (st dev)"],
+  ["dependency_noise_exponent", "1.0", "How much dependencies amplify signal noise"],
+  ["default_initial_quality_belief", "0.5", "Starting belief for new initiatives (0.5 = uninformative)"],
+  ["reference_ceiling", "50.0", "Scaling reference for market-size patience windows"],
+  ["attention_noise_scale", "1.3", "c1: noise multiplier when an initiative gets zero attention"],
+  ["attention_noise_decay", "1.5", "c2: how fast attention clarifies signals, g(a) = c1·exp(−c2·a)"],
+  ["learning_rate", "0.1", "Base learning rate for quality-belief updates"],
+  ["dependency_learning_scale", "~", "Override for dependency learning scale; ~ = canonical 1 − d", true],
+  ["execution_signal_st_dev", "0.15", "Noise on execution observations (st dev)"],
+  ["execution_learning_rate", "0.1", "Learning rate for execution belief"],
+  ["max_portfolio_capability", "3.0", "Upper bound on the capability multiplier (≥ 1.0)"],
+  ["capability_decay", "0.005", "Per-week capability decay toward 1.0"],
+];
+
+/* The nine ready-made combinations under templates/presets/. Loading one
+   sets family + policy + metadata; all other fields return to defaults. */
+const COMBOS = [];
+for (const fam of Object.keys(FAMILIES)) {
+  for (const pol of Object.keys(POLICIES)) {
+    COMBOS.push({
+      id: fam + "_" + pol,
+      label: FAMILIES[fam].label + " — " + POLICIES[pol].label,
+      family: fam, policy: pol,
+    });
+  }
+}
+
+const BUCKETS = ["flywheel", "quick_win", "enabler", "right_tail"];
+
+/* =========================================================================
+   Page construction (cards, model table, combo dropdown)
+   ========================================================================= */
+
+const $ = (id) => document.getElementById(id);
+
+let selectedFamily = "balanced_incumbent";
+let selectedPolicy = "balanced";
+
+function buildCards(containerId, data, getSelected, setSelected) {
+  const container = $(containerId);
+  container.innerHTML = "";
+  for (const [key, item] of Object.entries(data)) {
+    const card = document.createElement("div");
+    card.className = "card" + (getSelected() === key ? " selected" : "");
+    card.innerHTML =
+      "<h4>" + item.label + (item.canon ? ' <span class="canon">canonical</span>' : "") + "</h4>" +
+      '<div class="tagline">' + item.tagline + "</div>" +
+      "<ul>" + item.facts.map((f) => "<li>" + f + "</li>").join("") + "</ul>";
+    card.addEventListener("click", () => {
+      setSelected(key);
+      buildCards(containerId, data, getSelected, setSelected);
+      refresh();
+    });
+    container.appendChild(card);
+  }
+}
+
+function buildModelTable() {
+  const table = $("modelTable");
+  for (const [name, baseline, meaning] of MODEL_FIELDS) {
+    const row = document.createElement("tr");
+    row.innerHTML =
+      "<td><code>" + name + "</code></td>" +
+      '<td><input type="text" id="model_' + name + '" value="' + baseline +
+      '" style="width:80px; border:none; font-family:var(--mono); font-size:13px"></td>' +
+      "<td>" + meaning + "</td>";
+    table.appendChild(row);
+  }
+}
+
+function buildComboDropdown() {
+  const select = $("combo");
+  for (const combo of COMBOS) {
+    // The canonical baseline is already the blank first option.
+    if (combo.id === "balanced_incumbent_balanced") continue;
+    const opt = document.createElement("option");
+    opt.value = combo.id;
+    opt.textContent = combo.label;
+    select.appendChild(opt);
+  }
+  select.addEventListener("change", () => {
+    const combo = COMBOS.find((c) => c.id === select.value) ||
+      COMBOS.find((c) => c.id === "balanced_incumbent_balanced");
+    selectedFamily = combo.family;
+    selectedPolicy = combo.policy;
+    $("runName").value = combo.id === "balanced_incumbent_balanced" ? "my_run_v1" : combo.id;
+    $("runTitle").value = FAMILIES[combo.family].label + " — " + POLICIES[combo.policy].label;
+    $("seeds").value = "42, 43, 44";
+    buildCards("familyCards", FAMILIES, () => selectedFamily, (k) => (selectedFamily = k));
+    buildCards("policyCards", POLICIES, () => selectedPolicy, (k) => (selectedPolicy = k));
+    refresh();
+  });
+}
+
+/* =========================================================================
+   Reading form state
+   -------------------------------------------------------------------------
+   Values are kept as the user's raw strings wherever possible so the emitted
+   YAML shows exactly what was typed (no float re-formatting surprises).
+   ========================================================================= */
+
+/** Blank-or-whitespace input → null, otherwise the trimmed string. */
+function optStr(id) {
+  const v = $(id).value.trim();
+  return v === "" ? null : v;
+}
+
+function collect() {
+  return {
+    name: $("runName").value.trim(),
+    title: $("runTitle").value.trim(),
+    description: $("runDesc").value.trim(),
+    valueUnit: $("valueUnit").value.trim() || "units",
+    family: selectedFamily,
+    policy: selectedPolicy,
+
+    timeEnabled: $("timeEnabled").checked,
+    tickHorizon: $("tickHorizon").value.trim(),
+    tickLabel: $("tickLabel").value.trim() || "week",
+
+    supplyEnabled: $("supplyEnabled").checked,
+    counts: {
+      quick_win: optStr("qwCount"), flywheel: optStr("fwCount"),
+      enabler: optStr("enCount"), right_tail: optStr("rtCount"),
+    },
+    frontier: {
+      flywheel: optStr("fdFw"), quick_win: optStr("fdQw"),
+      enabler: optStr("fdEn"), right_tail: optStr("fdRt"),
+    },
+    refreshDeg: optStr("refreshDeg"),
+
+    staffingEnabled: $("staffingEnabled").checked,
+    staffing: {
+      flywheel: [optStr("srFwLo"), optStr("srFwHi")],
+      quick_win: [optStr("srQwLo"), optStr("srQwHi")],
+      enabler: [optStr("srEnLo"), optStr("srEnHi")],
+      right_tail: [optStr("srRtLo"), optStr("srRtHi")],
+    },
+
+    modelEnabled: $("modelEnabled").checked,
+    model: Object.fromEntries(
+      MODEL_FIELDS.map(([name]) => [name, $("model_" + name).value.trim()])
+    ),
+
+    labor: $("labor").value.trim(),
+    teamCount: $("teamCount").value.trim(),
+    sizesMode: document.querySelector('input[name=sizesMode]:checked').value,
+    sizesText: $("teamSizes").value.trim(),
+    rampPeriod: $("rampPeriod").value.trim(),
+    rampShape: $("rampShape").value,
+
+    lqbt: optStr("lqbt"),
+    maxLqShare: optStr("maxLqShare"),
+    maxSingleShare: optStr("maxSingleShare"),
+
+    mixMode: document.querySelector('input[name=mixMode]:checked').value,
+    mix: {
+      flywheel: $("mixFw").value.trim(), quick_win: $("mixQw").value.trim(),
+      enabler: $("mixEn").value.trim(), right_tail: $("mixRt").value.trim(),
+    },
+    mixTol: $("mixTol").value.trim(),
+
+    baselineValue: optStr("baselineValue"),
+
+    seedsText: $("seeds").value.trim(),
+    reportingEnabled: $("reportingEnabled").checked,
+    reporting: {
+      record_manifest: $("repManifest").checked,
+      record_per_tick_logs: $("repPerTick").checked,
+      record_event_log: $("repEvents").checked,
+    },
+  };
+}
+
+/* =========================================================================
+   Validation
+   -------------------------------------------------------------------------
+   Mirrors validate_run_design() in src/primordial_soup/workbench.py plus the
+   workforce resolution rules. Each issue is tagged with the tab it lives on
+   so the tab header can show an error dot. The workbench remains the
+   authority — run_design.py re-validates everything server-side.
+   ========================================================================= */
+
+const isInt = (s) => /^-?\d+$/.test(s);
+const isNum = (s) => s !== "" && !isNaN(Number(s));
+
+function validate(d) {
+  const issues = []; // {tab, msg}
+  const add = (tab, msg) => issues.push({ tab, msg });
+
+  // ── Metadata / execution (Run tab) ─────────────────────────────────────
+  if (!d.name) add("run", "Name must not be empty.");
+  else if (/\s/.test(d.name)) add("run", "Name must not contain spaces — use underscores or hyphens.");
+  if (!d.title) add("run", "Title must not be empty.");
+  const seeds = d.seedsText.split(/[\s,]+/).filter((s) => s !== "");
+  if (seeds.length === 0) add("run", "At least one world seed is required.");
+  else if (!seeds.every(isInt)) add("run", "World seeds must all be integers.");
+
+  // ── Environment ────────────────────────────────────────────────────────
+  if (d.timeEnabled && (!isInt(d.tickHorizon) || Number(d.tickHorizon) <= 0)) {
+    add("env", "tick_horizon must be a positive integer.");
+  }
+  if (d.supplyEnabled) {
+    for (const b of BUCKETS) {
+      const v = d.counts[b];
+      if (v !== null && (!isInt(v) || Number(v) < 0)) {
+        add("env", "Opportunity supply: " + b + " count must be a non-negative integer.");
+      }
+      const f = d.frontier[b];
+      if (f !== null && (!isNum(f) || Number(f) < 0)) {
+        add("env", "Frontier degradation for " + b + " must be a number ≥ 0.");
+      }
+    }
+    // Derived pool size: overrides where given, family defaults elsewhere.
+    // Envelope [50, 400] per exec_intent_spec.md #5 (only checked when any
+    // count is overridden — matching validate_run_design()).
+    const anyCount = BUCKETS.some((b) => d.counts[b] !== null);
+    if (anyCount) {
+      const total = BUCKETS.reduce((sum, b) => {
+        const v = d.counts[b];
+        return sum + (v !== null && isInt(v) ? Number(v) : FAMILIES[d.family].counts[b]);
+      }, 0);
+      if (total < 50 || total > 400) {
+        add("env", "Total pool size " + total + " is outside the allowed range [50, 400].");
+      }
+    }
+    if (d.refreshDeg !== null && (!isNum(d.refreshDeg) || Number(d.refreshDeg) < 0)) {
+      add("env", "Right-tail re-attempt degradation must be a number ≥ 0.");
+    }
+  }
+  if (d.staffingEnabled) {
+    for (const b of BUCKETS) {
+      const [lo, hi] = d.staffing[b];
+      if (lo === null && hi === null) continue; // fully blank row = inherit
+      if (lo === null || hi === null) {
+        add("env", "Staffing response for " + b + ": set both min and max (or leave both blank).");
+        continue;
+      }
+      if (!isNum(lo) || !isNum(hi) || Number(lo) < 0 || Number(hi) < 0) {
+        add("env", "Staffing response for " + b + ": values must be numbers ≥ 0.");
+      } else if (Number(lo) > Number(hi)) {
+        add("env", "Staffing response for " + b + ": min must be ≤ max.");
+      }
+    }
+  }
+  if (d.modelEnabled) {
+    for (const [name, , , nullable] of MODEL_FIELDS) {
+      const v = d.model[name];
+      if (nullable && (v === "~" || v === "")) continue;
+      if (!isNum(v)) add("env", "Model override: " + name + " must be a number" + (nullable ? " or ~." : "."));
+    }
+  }
+
+  // ── Architecture ───────────────────────────────────────────────────────
+  const labor = Number(d.labor), teams = Number(d.teamCount);
+  if (!isInt(d.labor) || labor <= 0) add("arch", "Total labor endowment must be a positive integer.");
+  if (!isInt(d.teamCount) || teams <= 0) add("arch", "Team count must be a positive integer.");
+  if (d.sizesMode === "equal") {
+    if (isInt(d.labor) && isInt(d.teamCount) && teams > 0 && labor % teams !== 0) {
+      add("arch", "Equal-sized teams: " + labor + " labor does not divide evenly into " +
+        teams + " teams. Adjust the numbers or switch to custom sizes.");
+    }
+  } else {
+    const sizes = d.sizesText.split(/[\s,]+/).filter((s) => s !== "");
+    if (!sizes.every((s) => isInt(s) && Number(s) > 0)) {
+      add("arch", "Team sizes must all be positive integers.");
+    } else {
+      if (isInt(d.teamCount) && sizes.length !== teams) {
+        add("arch", "Team sizes list has " + sizes.length + " entries but team count is " + teams + ".");
+      }
+      const sum = sizes.reduce((a, s) => a + Number(s), 0);
+      if (isInt(d.labor) && sum !== labor) {
+        add("arch", "Team sizes sum to " + sum + " but total labor endowment is " + labor + ".");
+      }
+    }
+  }
+  if (!isInt(d.rampPeriod) || Number(d.rampPeriod) < 0) {
+    add("arch", "Ramp period must be a non-negative integer.");
+  }
+  if (d.lqbt !== null && (!isNum(d.lqbt) || Number(d.lqbt) <= 0 || Number(d.lqbt) >= 1)) {
+    add("arch", "Low-confidence threshold must be strictly between 0 and 1.");
+  }
+  if (d.maxLqShare !== null) {
+    if (d.lqbt === null) add("arch", "The low-confidence labor cap needs the low-confidence threshold to be set too.");
+    if (!isNum(d.maxLqShare) || Number(d.maxLqShare) <= 0 || Number(d.maxLqShare) > 1) {
+      add("arch", "Max low-confidence labor share must be in (0, 1].");
+    }
+  }
+  if (d.maxSingleShare !== null && (!isNum(d.maxSingleShare) || Number(d.maxSingleShare) <= 0 || Number(d.maxSingleShare) > 1)) {
+    add("arch", "Max single-initiative labor share must be in (0, 1].");
+  }
+  if (d.mixMode === "override") {
+    let sum = 0, allNum = true;
+    for (const b of BUCKETS) {
+      const v = d.mix[b];
+      if (!isNum(v) || Number(v) < 0) { allNum = false; add("arch", "Mix target for " + b + " must be a number ≥ 0."); }
+      else sum += Number(v);
+    }
+    if (allNum && Math.abs(sum - 1.0) > 0.01) {
+      add("arch", "Mix targets must sum to 1.0 (currently " + sum.toFixed(2) + ").");
+    }
+    if (!isNum(d.mixTol) || Number(d.mixTol) < 0 || Number(d.mixTol) > 1) {
+      add("arch", "Mix tolerance must be between 0 and 1.");
+    }
+  }
+  if (d.baselineValue !== null && (!isNum(d.baselineValue) || Number(d.baselineValue) < 0)) {
+    add("arch", "Baseline value per team-week must be a number ≥ 0.");
+  }
+
+  return issues;
+}
+
+/* =========================================================================
+   YAML emission
+   -------------------------------------------------------------------------
+   Hand-rolled serializer. The schema is shallow (maps, scalars, one flat
+   list), so a YAML library is unnecessary. Field order mirrors
+   templates/run_design_template.yaml. Optional blocks the user did not
+   enable are OMITTED entirely — never emitted as null — because omission
+   means "inherit the preset default" in from_dict().
+   ========================================================================= */
+
+/** Double-quote a string for YAML, escaping backslashes and quotes. */
+function q(s) {
+  return '"' + s.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+}
+
+function buildYaml(d) {
+  const L = [];
+  L.push("# Primordial Soup — run design");
+  L.push("# Generated by tools/run_designer.html on " + new Date().toISOString().slice(0, 10));
+  L.push("# Run with:  python scripts/run_design.py path/to/this_file.yaml");
+  L.push("");
+  L.push("name: " + d.name);
+  L.push("title: " + q(d.title));
+  L.push("description: " + q(d.description));
+  L.push("value_unit: " + q(d.valueUnit));
+  L.push("");
+  L.push("environment:");
+  L.push("  family: " + d.family);
+  if (d.timeEnabled) {
+    L.push("  time:");
+    L.push("    tick_horizon: " + d.tickHorizon);
+    L.push("    tick_label: " + d.tickLabel);
+  }
+  if (d.staffingEnabled) {
+    const rows = BUCKETS.filter((b) => d.staffing[b][0] !== null && d.staffing[b][1] !== null);
+    if (rows.length > 0) {
+      L.push("  staffing_response:");
+      for (const b of rows) L.push("    " + b + ": [" + d.staffing[b][0] + ", " + d.staffing[b][1] + "]");
+    }
+  }
+  if (d.supplyEnabled) {
+    const lines = [];
+    if (d.counts.right_tail !== null) lines.push("    right_tail_prize_count: " + d.counts.right_tail);
+    if (d.counts.flywheel !== null) lines.push("    flywheel_count: " + d.counts.flywheel);
+    if (d.counts.enabler !== null) lines.push("    enabler_count: " + d.counts.enabler);
+    if (d.counts.quick_win !== null) lines.push("    quick_win_count: " + d.counts.quick_win);
+    const fdRows = BUCKETS.filter((b) => d.frontier[b] !== null);
+    if (fdRows.length > 0) {
+      lines.push("    frontier_degradation_rate:");
+      for (const b of fdRows) lines.push("      " + b + ": " + d.frontier[b]);
+    }
+    if (d.refreshDeg !== null) lines.push("    right_tail_refresh_degradation: " + d.refreshDeg);
+    if (lines.length > 0) {
+      L.push("  opportunity_supply:");
+      L.push(...lines);
+    }
+  }
+  if (d.modelEnabled) {
+    L.push("  model:");
+    for (const [name, , , nullable] of MODEL_FIELDS) {
+      const v = d.model[name];
+      L.push("    " + name + ": " + (nullable && (v === "~" || v === "") ? "~" : v));
+    }
+  }
+  L.push("");
+  L.push("architecture:");
+  L.push("  total_labor_endowment: " + d.labor);
+  L.push("  team_count: " + d.teamCount);
+  if (d.sizesMode === "custom") {
+    const sizes = d.sizesText.split(/[\s,]+/).filter((s) => s !== "");
+    L.push("  team_sizes: [" + sizes.join(", ") + "]");
+  }
+  L.push("  ramp_period: " + d.rampPeriod);
+  L.push("  ramp_shape: " + d.rampShape);
+  if (d.lqbt !== null) L.push("  low_quality_belief_threshold: " + d.lqbt);
+  if (d.maxLqShare !== null) L.push("  max_low_quality_belief_labor_share: " + d.maxLqShare);
+  if (d.maxSingleShare !== null) L.push("  max_single_initiative_labor_share: " + d.maxSingleShare);
+  if (d.mixMode === "override") {
+    // Structured form ("targets" + "tolerance") per RunDesignSpec.from_dict().
+    L.push("  portfolio_mix_targets:");
+    L.push("    targets:");
+    for (const b of BUCKETS) L.push("      " + b + ": " + d.mix[b]);
+    L.push("    tolerance: " + d.mixTol);
+  }
+  if (d.baselineValue !== null) L.push("  baseline_value_per_team_week: " + d.baselineValue);
+  L.push("");
+  L.push("policy:");
+  L.push("  preset: " + d.policy);
+  L.push("");
+  const seeds = d.seedsText.split(/[\s,]+/).filter((s) => s !== "");
+  L.push("world_seeds: [" + seeds.join(", ") + "]");
+  if (d.reportingEnabled) {
+    L.push("");
+    L.push("reporting:");
+    L.push("  record_manifest: " + d.reporting.record_manifest);
+    L.push("  record_per_tick_logs: " + d.reporting.record_per_tick_logs);
+    L.push("  record_event_log: " + d.reporting.record_event_log);
+  }
+  L.push("");
+  return L.join("\n");
+}
+
+/* =========================================================================
+   Refresh cycle: collect → validate → render preview / issues / notes
+   ========================================================================= */
+
+let currentYaml = "";
+let currentValid = false;
+
+function refresh() {
+  const d = collect();
+  const issues = validate(d);
+  currentValid = issues.length === 0;
+  currentYaml = buildYaml(d);
+
+  // YAML preview + filename in the command line.
+  $("yamlPreview").textContent = currentYaml;
+  $("cmdline").textContent =
+    "python scripts/run_design.py " + (d.name || "my_run") + ".yaml";
+
+  // Issues list + per-tab error dots.
+  const list = $("issuesList");
+  list.innerHTML = "";
+  for (const issue of issues) {
+    const li = document.createElement("li");
+    li.textContent = issue.msg;
+    list.appendChild(li);
+  }
+  $("issuesBox").classList.toggle("show", issues.length > 0);
+  $("allGood").classList.toggle("show", issues.length === 0);
+  for (const tab of document.querySelectorAll(".tab")) {
+    const pane = tab.dataset.pane;
+    tab.classList.toggle("has-errors", issues.some((i) => i.tab === pane));
+  }
+  $("btnDownload").disabled = !currentValid;
+  const btnRun = $("btnRun");
+  if (btnRun) btnRun.disabled = !currentValid;
+
+  // Inline helper notes: team sizes sum, pool total, mix sum.
+  const sizesNote = $("sizesNote");
+  if (d.sizesMode === "custom") {
+    const sizes = d.sizesText.split(/[\s,]+/).filter((s) => s !== "");
+    const sum = sizes.reduce((a, s) => a + (isInt(s) ? Number(s) : NaN), 0);
+    const ok = !isNaN(sum) && sum === Number(d.labor) && sizes.length === Number(d.teamCount);
+    sizesNote.textContent = sizes.length + " teams, " + (isNaN(sum) ? "?" : sum) +
+      " total labor (need " + d.teamCount + " teams summing to " + d.labor + ")";
+    sizesNote.className = "inline-note " + (ok ? "good" : "bad");
+  } else {
+    sizesNote.textContent = "";
+  }
+  $("sizesEditor").style.display = d.sizesMode === "custom" ? "block" : "none";
+
+  const poolNote = $("poolTotalNote");
+  if (d.supplyEnabled) {
+    const total = BUCKETS.reduce((sum, b) => {
+      const v = d.counts[b];
+      return sum + (v !== null && isInt(v) ? Number(v) : FAMILIES[d.family].counts[b]);
+    }, 0);
+    const ok = total >= 50 && total <= 400;
+    poolNote.textContent = "Resolved pool: " + total +
+      " initiatives (blank boxes inherit " + FAMILIES[d.family].label + " defaults; allowed 50–400)";
+    poolNote.className = "inline-note " + (ok ? "good" : "bad");
+  } else {
+    poolNote.textContent = "";
+  }
+
+  $("mixEditor").style.display = d.mixMode === "override" ? "block" : "none";
+  const mixNote = $("mixNote");
+  if (d.mixMode === "override") {
+    const sum = BUCKETS.reduce((a, b) => a + (isNum(d.mix[b]) ? Number(d.mix[b]) : NaN), 0);
+    const ok = !isNaN(sum) && Math.abs(sum - 1.0) <= 0.01;
+    mixNote.textContent = "Targets sum to " + (isNaN(sum) ? "?" : sum.toFixed(2)) + " (must be 1.00)";
+    mixNote.className = "inline-note " + (ok ? "good" : "bad");
+  }
+}
+
+/* =========================================================================
+   Tabs, download, copy
+   ========================================================================= */
+
+function initTabs() {
+  for (const tab of document.querySelectorAll(".tab")) {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+      document.querySelectorAll(".pane").forEach((p) => p.classList.remove("active"));
+      tab.classList.add("active");
+      $("pane-" + tab.dataset.pane).classList.add("active");
+    });
+  }
+}
+
+function initButtons() {
+  $("btnDownload").addEventListener("click", () => {
+    const name = ($("runName").value.trim() || "my_run") + ".yaml";
+    const blob = new Blob([currentYaml], { type: "text/yaml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  $("btnCopy").addEventListener("click", async () => {
+    await navigator.clipboard.writeText(currentYaml);
+    $("btnCopy").textContent = "Copied ✓";
+    setTimeout(() => ($("btnCopy").textContent = "Copy YAML"), 1500);
+  });
+}
+
+/* =========================================================================
+   Server mode (scripts/design_studio.py)
+   -------------------------------------------------------------------------
+   When the page is served by the design studio, /api/ping answers and the
+   Validate / Save & run buttons appear. All endpoints are same-origin; when
+   the page is opened as a plain file the fetch fails silently and the page
+   stays in download-only mode.
+   ========================================================================= */
+
+function serverLog(text) {
+  $("serverConsole").textContent = text;
+  $("serverConsole").scrollTop = $("serverConsole").scrollHeight;
+}
+
+async function initServerMode() {
+  try {
+    const response = await fetch("/api/ping");
+    if (!response.ok) return;
+  } catch {
+    return; // file:// or no server — stay in download-only mode.
+  }
+  document.body.classList.add("server-mode");
+  const badge = $("serverBadge");
+  badge.textContent = "design studio connected";
+  badge.classList.add("on");
+
+  $("btnValidate").addEventListener("click", async () => {
+    serverLog("Validating…");
+    const response = await fetch("/api/validate", {
+      method: "POST",
+      headers: { "Content-Type": "text/yaml" },
+      body: currentYaml,
+    });
+    const result = await response.json();
+    serverLog(result.ok ? "VALID — resolved design:\n\n" + result.summary
+                        : "INVALID:\n\n" + result.error);
+  });
+
+  $("btnRun").addEventListener("click", async () => {
+    serverLog("Saving design and starting run…");
+    const response = await fetch("/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "text/yaml" },
+      body: currentYaml,
+    });
+    const started = await response.json();
+    if (!started.ok) { serverLog("REFUSED:\n\n" + started.error); return; }
+    // Poll for output until the subprocess exits.
+    const poll = setInterval(async () => {
+      const statusResponse = await fetch("/api/status?id=" + started.run_id);
+      const status = await statusResponse.json();
+      serverLog("Design saved to " + started.yaml_path + "\n\n" + status.output +
+        (status.done ? "\n\n— finished (exit code " + status.exit_code + ") —" : ""));
+      if (status.done) clearInterval(poll);
+    }, 2000);
+  });
+}
+
+/* =========================================================================
+   Boot
+   ========================================================================= */
+
+buildCards("familyCards", FAMILIES, () => selectedFamily, (k) => (selectedFamily = k));
+buildCards("policyCards", POLICIES, () => selectedPolicy, (k) => (selectedPolicy = k));
+buildModelTable();
+buildComboDropdown();
+initTabs();
+initButtons();
+initServerMode();
+
+// Any input anywhere re-validates and rebuilds the preview.
+document.body.addEventListener("input", refresh);
+document.body.addEventListener("change", refresh);
+refresh();
+</script>
+</body>
+</html>
