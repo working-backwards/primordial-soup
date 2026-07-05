@@ -39,6 +39,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import subprocess
 import sys
 import threading
@@ -198,9 +199,14 @@ def start_run(yaml_path: Path) -> int:
         _next_run_id += 1
         _runs[run_id] = handle
 
+    # Force UTF-8 in the child: on Windows, Python writing to a pipe defaults
+    # to a legacy code page, mangling the summary's box-drawing characters
+    # (──, →, Δ) into "?" before they ever reach us.
+    child_env = {**os.environ, "PYTHONUTF8": "1"}
     process = subprocess.Popen(
         [sys.executable, str(RUN_DESIGN_SCRIPT), str(yaml_path), "--no-confirm"],
         cwd=str(REPO_ROOT),
+        env=child_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,  # interleave, as a terminal would show it
         text=True,
